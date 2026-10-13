@@ -12,6 +12,7 @@ import (
 	"nofx/store"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -19,6 +20,11 @@ import (
 
 // Server HTTP API server
 type Server struct {
+	planningOnce              sync.Once
+	planningMu                sync.RWMutex
+	planningClosing           bool
+	planning                  *planningServices
+	planningError             error
 	router                    *gin.Engine
 	traderManager             *manager.TraderManager
 	store                     *store.Store
@@ -197,6 +203,7 @@ func (s *Server) setupRoutes() {
 
 		// Routes requiring authentication
 		protected := api.Group("/", s.authMiddleware())
+		s.registerPlanning(api, protected)
 		{
 			// Logout (add to blacklist)
 			s.route(protected, "POST", "/logout", "Logout (blacklist token)", s.handleLogout)
@@ -726,6 +733,13 @@ func (s *Server) Start() error {
 
 // Shutdown Gracefully shutdown server
 func (s *Server) Shutdown() error {
+	s.planningMu.Lock()
+	s.planningClosing = true
+	planning := s.planning
+	s.planningMu.Unlock()
+	if planning != nil {
+		planning.live.Shutdown()
+	}
 	if s.httpServer == nil {
 		return nil
 	}

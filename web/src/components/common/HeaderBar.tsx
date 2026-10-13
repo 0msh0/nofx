@@ -136,6 +136,12 @@ export default function HeaderBar({
                     requiresAuth: true,
                   },
                   {
+                    page: 'planning',
+                    path: ROUTES.planning,
+                    label: language === 'zh' ? '交易规划' : 'Trade Planning',
+                    requiresAuth: true,
+                  },
+                  {
                     page: 'strategy',
                     path: ROUTES.strategy,
                     label: t('strategyNav', language),
@@ -416,6 +422,12 @@ export default function HeaderBar({
                       page: 'trader',
                       path: ROUTES.dashboard,
                       label: t('dashboardNav', language),
+                      requiresAuth: true,
+                    },
+                    {
+                      page: 'planning',
+                      path: ROUTES.planning,
+                      label: language === 'zh' ? '交易规划' : 'Trade Planning',
                       requiresAuth: true,
                     },
                     {

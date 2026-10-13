@@ -8,6 +8,8 @@ import (
 	"nofx/mcp"
 	_ "nofx/mcp/payment"
 	_ "nofx/mcp/provider"
+	"nofx/planning"
+	"nofx/planning/live"
 	"nofx/store"
 	"nofx/trader/aster"
 	"nofx/trader/binance"
@@ -211,6 +213,22 @@ type AutoTrader struct {
 // NewAutoTrader creates an automatic trader
 // st parameter is used to store decision records to database
 func NewAutoTrader(config AutoTraderConfig, st *store.Store, userID string) (*AutoTrader, error) {
+	// Check before constructing exchange clients; legacy constructors may change
+	// account settings even before their Run loop starts.
+	if st != nil && config.ExchangeID != "" {
+		ex, err := st.Exchange().GetByID(userID, config.ExchangeID)
+		if err != nil {
+			return nil, fmt.Errorf("cannot verify planning account ownership: %w", err)
+		}
+		if st.GormDB().Migrator().HasTable(&live.Lease{}) {
+			var count int64
+			err = st.GormDB().Model(&live.Lease{}).Where("account_key = ?", planning.AccountIdentity(ex.ExchangeType, string(ex.APIKey), ex.HyperliquidWalletAddr)).Count(&count).Error
+			if err != nil || count != 0 {
+				return nil, fmt.Errorf("account has an unresolved planning lease or lease lookup failed")
+			}
+		}
+	}
+
 	// Set default values
 	if config.ID == "" {
 		config.ID = "default_trader"
@@ -458,9 +476,31 @@ func (at *AutoTrader) reloadStrategyConfigIfChanged() error {
 
 // Run runs the automatic trading main loop
 func (at *AutoTrader) Run() error {
+	// All launch paths (API, restoration and manager) respect a planning lease.
+	var unlock func()
+	if at.store != nil && at.exchangeID != "" {
+		ex, err := at.store.Exchange().GetByID(at.userID, at.exchangeID)
+		if err != nil {
+			return fmt.Errorf("cannot verify planning account ownership: %w", err)
+		}
+		key := planning.AccountIdentity(ex.ExchangeType, string(ex.APIKey), ex.HyperliquidWalletAddr)
+		unlock = planning.LockAccount(key)
+		if at.store.GormDB().Migrator().HasTable(&live.Lease{}) {
+			var count int64
+			err = at.store.GormDB().Model(&live.Lease{}).Where("account_key = ?", key).Count(&count).Error
+			if err != nil || count != 0 {
+				unlock()
+				return fmt.Errorf("account has an unresolved planning lease or lease lookup failed")
+			}
+		}
+	}
+
 	at.isRunningMutex.Lock()
 	at.isRunning = true
 	at.isRunningMutex.Unlock()
+	if unlock != nil {
+		unlock()
+	}
 
 	at.stopMonitorCh = make(chan struct{})
 	at.startTime = time.Now()

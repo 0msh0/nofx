@@ -1,4 +1,5 @@
 export type Page =
+  | 'planning'
   | 'competition'
   | 'traders'
   | 'trader'
@@ -10,6 +11,7 @@ export type Page =
   | 'register'
 
 export const ROUTES = {
+  planning: '/planning',
   home: '/',
   login: '/login',
   register: '/register',
@@ -27,6 +29,7 @@ export const ROUTES = {
 } as const
 
 export const PAGE_PATHS: Record<Page, string> = {
+  planning: ROUTES.planning,
   competition: ROUTES.competition,
   traders: ROUTES.traders,
   trader: ROUTES.dashboard,

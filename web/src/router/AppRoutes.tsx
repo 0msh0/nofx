@@ -25,6 +25,7 @@ import { BeginnerOnboardingPage } from '../pages/BeginnerOnboardingPage'
 import { DataPage } from '../pages/DataPage'
 import { SettingsPage } from '../pages/SettingsPage'
 import { StrategyStudioPage } from '../pages/StrategyStudioPage'
+import { TradingPlanningPage } from '../pages/TradingPlanningPage'
 import { TerminalDashboard } from '../components/terminal/TerminalDashboard'
 import { useAuth } from '../contexts/AuthContext'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -398,6 +399,23 @@ export function AppRoutes() {
     <>
       <LegacyHashRedirect />
       <Routes>
+        <Route
+          path={ROUTES.planning}
+          element={
+            isAuthenticated ? (
+              <AppChrome
+                currentPage="planning"
+                showFooter={false}
+                wrapInMain={false}
+              >
+                <TradingPlanningPage />
+              </AppChrome>
+            ) : (
+              <Navigate to={ROUTES.login} replace />
+            )
+          }
+        />
+
         <Route path={ROUTES.home} element={<LandingPage />} />
         <Route path={ROUTES.login} element={<LoginPage />} />
         <Route path={ROUTES.register} element={<RegisterPage />} />

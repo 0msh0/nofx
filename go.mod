@@ -3,6 +3,7 @@ module nofx
 go 1.25.11
 
 require (
+	go.starlark.net v0.0.0-20231101134539-556fd59b42f6
 	github.com/adshao/go-binance/v2 v2.8.9
 	github.com/agiledragon/gomonkey/v2 v2.13.0
 	github.com/antihax/optional v1.0.0
