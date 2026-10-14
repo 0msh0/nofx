@@ -100,3 +100,22 @@ func TestPlanningPluginSettingsAndDataAreOwnerScoped(t *testing.T) {
 		t.Fatal("one user's toggle changed another user")
 	}
 }
+
+func TestPlanningMarketDoesNotRequireExecutionAccount(t *testing.T) {
+	s := &Server{}
+	for _, venue := range []string{"binance", "hyperliquid"} {
+		workspace, err := s.planningWorkspace("alice", "", venue)
+		if err != nil || workspace.ID != "" || workspace.ExchangeType != venue {
+			t.Fatalf("%+v %v", workspace, err)
+		}
+	}
+	if _, err := s.planningWorkspace("alice", "", "unknown"); err == nil {
+		t.Fatal("unsupported venue accepted")
+	}
+	// Execution still requires a real account; the empty planning binding is
+	// not promoted to an enabled account or an execution broker.
+	workspace, _ := s.planningWorkspace("alice", "", "binance")
+	if workspace.Enabled || workspace.APIKey != "" {
+		t.Fatal("planning workspace has trading authority")
+	}
+}

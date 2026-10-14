@@ -76,7 +76,14 @@ func guardUsageResponse(resp *http.Response, signed string) error {
 		resp.Body = &usageReceiptBody{ReadCloser: resp.Body, reader: bufio.NewReader(resp.Body), response: resp, envelope: envelope}
 		return nil
 	}
-	header, err := X402DecodeHeader(resp.Header.Get("Payment-Response"))
+	receiptHeader := resp.Header.Get("Payment-Response")
+	legacyHeader := resp.Header.Get("X-Payment-Response")
+	if receiptHeader == "" {
+		receiptHeader = legacyHeader
+	} else if legacyHeader != "" && legacyHeader != receiptHeader {
+		return fmt.Errorf("conflicting payment receipt headers")
+	}
+	header, err := X402DecodeHeader(receiptHeader)
 	if err != nil {
 		return fmt.Errorf("missing payment receipt")
 	}
@@ -84,7 +91,12 @@ func guardUsageResponse(resp *http.Response, signed string) error {
 	if err = json.Unmarshal(header, &report); err != nil {
 		return err
 	}
-	report.Amount = resp.Header.Get("X-Claw402-Settled-Amount")
+	if amountHeader := resp.Header.Get("X-Claw402-Settled-Amount"); amountHeader != "" {
+		if report.Amount != "" && report.Amount != amountHeader {
+			return fmt.Errorf("conflicting settled amounts")
+		}
+		report.Amount = amountHeader
+	}
 	if err = verifyUsageReport(resp.Request.Context(), envelope, report, receiptRPC()); err != nil {
 		return err
 	}

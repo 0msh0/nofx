@@ -57,8 +57,9 @@ export function TradingPlanningPage() {
     [models, setModels] = useState<AIModel[]>([]),
     [exchangeID, setExchangeID] = useState(''),
     [modelID, setModelID] = useState('')
-  const [symbol, setSymbol] = useState('BTC'),
-    [symbolInput, setSymbolInput] = useState('BTC'),
+  const [venue, setVenue] = useState('binance')
+  const [symbol, setSymbol] = useState('BTCUSDT'),
+    [symbolInput, setSymbolInput] = useState('BTCUSDT'),
     [limits, setLimits] = useState<Constraints>(defaultLimits)
   const [data, setData] = useState<PlanningState>({
       records: {},
@@ -108,20 +109,20 @@ export function TradingPlanningPage() {
     session = useRef<string>(crypto.randomUUID()),
     chatBox = useRef<HTMLDivElement | null>(null),
     active = useRef(true)
-  const account = accounts.find((a) => a.id === exchangeID),
-    venue = account?.exchange_type || 'hyperliquid'
+  const account = accounts.find((a) => a.id === exchangeID)
   const records = useMemo(
     () =>
       Object.values(data.records)
         .filter(
           (r) =>
             data.accounts[r.plan.id] === exchangeID &&
-            r.plan.snapshot.symbol === symbol
+            r.plan.snapshot.symbol === symbol &&
+            r.plan.snapshot.venue === venue
         )
         .sort(
           (a, b) => Date.parse(b.plan.created) - Date.parse(a.plan.created)
         ),
-    [data, exchangeID, symbol]
+    [data, exchangeID, symbol, venue]
   )
   const current = data.records[selected],
     run = data.runs.find(
@@ -155,10 +156,11 @@ export function TradingPlanningPage() {
         const enabled = ai.filter((m) => m.enabled && m.has_api_key)
         setAccounts(supported)
         setModels(enabled)
-        setExchangeID(supported[0]?.id || '')
+        setExchangeID(
+          supported.find((a) => a.exchange_type === 'binance')?.id || ''
+        )
         setModelID(enabled[0]?.id || '')
-        const native =
-          supported[0]?.exchange_type === 'binance' ? 'BTCUSDT' : 'BTC'
+        const native = 'BTCUSDT'
         setSymbol(native)
         setSymbolInput(native)
       })
@@ -179,27 +181,27 @@ export function TradingPlanningPage() {
   }, [reload, refreshHistory])
   useEffect(() => {
     let cancelled = false
-    if (!exchangeID) return
-    planningAPI<{ equity: string; available: string; fee_bps: string }>(
-      'account?exchange_id=' +
-        encodeURIComponent(exchangeID) +
-        '&symbol=' +
-        encodeURIComponent(symbol)
-    )
-      .then((a) => {
-        if (cancelled) return
-        const equity = Number(a.equity),
-          available = Number(a.available)
-        if (equity > 0 && available > 0)
-          setLimits({
-            ...defaultLimits,
-            equity: a.equity,
-            max_risk: Math.min(10, equity * 0.01).toFixed(6),
-            max_notional: Math.min(500, available * 0.5).toFixed(6),
-            fee_bps: String(Math.max(10, Math.ceil(Number(a.fee_bps)))),
-          })
-      })
-      .catch((e) => !cancelled && setError(e.message))
+    if (exchangeID)
+      planningAPI<{ equity: string; available: string; fee_bps: string }>(
+        'account?exchange_id=' +
+          encodeURIComponent(exchangeID) +
+          '&symbol=' +
+          encodeURIComponent(symbol)
+      )
+        .then((a) => {
+          if (cancelled) return
+          const equity = Number(a.equity),
+            available = Number(a.available)
+          if (equity > 0 && available > 0)
+            setLimits({
+              ...defaultLimits,
+              equity: a.equity,
+              max_risk: Math.min(10, equity * 0.01).toFixed(6),
+              max_notional: Math.min(500, available * 0.5).toFixed(6),
+              fee_bps: String(Math.max(10, Math.ceil(Number(a.fee_bps)))),
+            })
+        })
+        .catch((e) => !cancelled && setError(e.message))
     loadPlanningChart()
       .then(() => {
         if (cancelled) return
@@ -258,8 +260,11 @@ export function TradingPlanningPage() {
   function changeAccount(id: string) {
     abort.current?.abort()
     setExchangeID(id)
+    if (!id) setLimits(defaultLimits)
     const a = accounts.find((v) => v.id === id)
-    const native = a?.exchange_type === 'binance' ? 'BTCUSDT' : 'BTC'
+    const nextVenue = a?.exchange_type || venue
+    setVenue(nextVenue)
+    const native = nextVenue === 'binance' ? 'BTCUSDT' : 'BTC'
     setSymbol(native)
     setSymbolInput(native)
     setSelected('')
@@ -270,10 +275,8 @@ export function TradingPlanningPage() {
   }
   async function send(text = instruction) {
     if (busy || !text.trim()) return
-    if (!modelID || !exchangeID) {
-      setError(
-        'Connect a trading account and enable an AI model in NOFX settings first.'
-      )
+    if (!modelID) {
+      setError('Enable an AI model in NOFX settings first.')
       return
     }
     const context = chart.current?.context()
@@ -325,7 +328,11 @@ export function TradingPlanningPage() {
               ...m,
               { role: 'assistant', content: String(event.data.message) },
             ])
-          if (event.type === 'error') setError(String(event.data.message))
+          if (event.type === 'error') {
+            const message = formatRequestError(String(event.data.message), 'en')
+            setError(message)
+            setMessages((m) => [...m, { role: 'error', content: message }])
+          }
           if (event.type === 'status') setStatus(String(event.data.message))
           if (event.type === 'iteration')
             setStatus(
@@ -430,6 +437,7 @@ export function TradingPlanningPage() {
       }
       const p = await planningAPI<Plan>('compile', {
         exchange_id: exchangeID,
+        venue,
         symbol,
         idea,
         constraints: limits,
@@ -464,17 +472,44 @@ export function TradingPlanningPage() {
       </div>
       <div className="planning-toolbar">
         <select
+          aria-label="Market venue"
+          value={venue}
+          disabled={busy}
+          onChange={(e) => {
+            const next = e.target.value
+            setVenue(next)
+            setLimits(defaultLimits)
+            setExchangeID(
+              accounts.find((a) => a.exchange_type === next)?.id || ''
+            )
+            const native = next === 'binance' ? 'BTCUSDT' : 'BTC'
+            setSymbol(native)
+            setSymbolInput(native)
+            setSelected('')
+            setCompare([])
+            setMessages([])
+            setError('')
+            setPrice('—')
+            session.current = crypto.randomUUID()
+          }}
+        >
+          <option value="binance">Binance · USDT perpetual</option>
+          <option value="hyperliquid">Hyperliquid · perpetual</option>
+        </select>
+        <select
           aria-label="Trading account"
           value={exchangeID}
           onChange={(e) => changeAccount(e.target.value)}
           disabled={busy}
         >
-          {accounts.length === 0 && <option>No connected accounts</option>}
-          {accounts.map((a) => (
-            <option key={a.id} value={a.id}>
-              {a.name} · {a.exchange_type}
-            </option>
-          ))}
+          <option value="">Planning only · no execution account</option>
+          {accounts
+            .filter((a) => a.exchange_type === venue)
+            .map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name} · {a.exchange_type}
+              </option>
+            ))}
         </select>
         <form
           onSubmit={(e) => {
@@ -508,9 +543,8 @@ export function TradingPlanningPage() {
       )}
       {!exchangeID && (
         <div className="planning-empty">
-          Connect a Binance futures account in NOFX settings, or complete
-          Hyperliquid Agent and Builder authorization. Your existing NOFX wallet
-          and AI configuration are reused.
+          Public market planning is available without a trading account. Connect
+          a matching NOFX account before approving or executing any plan.
         </div>
       )}
       <PlanningAI500
@@ -928,6 +962,7 @@ export function TradingPlanningPage() {
                     className="planning-primary"
                     disabled={
                       busy ||
+                      !exchangeID ||
                       expired(current.plan, clock) ||
                       data.accounts[selected] !== exchangeID
                     }

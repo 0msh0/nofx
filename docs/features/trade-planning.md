@@ -199,3 +199,23 @@ finish with an explanation. Streams emit a terminal event on success or failure,
 including model/turn timeouts. Unexpected EOF without a terminal outcome is a
 visible error, never an automatic paid retry. No live paid call, payment transfer
 or real trade was performed by the automated fixture tests.
+
+
+## Public venue selection and receipt compatibility
+
+Market venue selection is independent of execution-account selection. Binance
+USDT perpetual charts and the Claw402 AI500 board are visible even when only a
+Hyperliquid trading account is connected. Public planning drafts can use an
+empty execution-account binding; approval remains disabled, and the backend
+still requires an actual owned, enabled account before approval or execution.
+Choose an account and regenerate the plan before trading; public drafts are
+never silently rebound to an account.
+
+JSON usage receipts accept either standard or legacy receipt headers and may
+carry their settled amount inside the receipt. Missing auxiliary amount headers
+do not erase that value; conflicting values remain invalid. Verification can
+poll the same pending transaction receipt through read-only RPC. It never
+resigns or resends a paid request and still verifies payer, amount, chain,
+facilitator and Permit2 calldata. Unknown outcomes carry a fixed, sanitized
+diagnostic category so the UI can distinguish receipt/RPC failures without
+exposing provider payloads or credentials.

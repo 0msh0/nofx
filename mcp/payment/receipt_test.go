@@ -104,3 +104,42 @@ func TestUsageEstimatesAndBareHeadersAreNotActualCharges(t *testing.T) {
 		}
 	}
 }
+
+func TestJSONReceiptAmountAndHeaderCompatibility(t *testing.T) {
+	signed, envelope := signedUsageFixture(t)
+	for _, legacy := range []bool{false, true} {
+		for _, amountHeader := range []string{"", "0", "1"} {
+			report := settlementReport{Success: true, Network: BaseNetwork, Payer: envelope.Payload.Authorization.From, Amount: "0"}
+			raw, _ := json.Marshal(report)
+			h := http.Header{}
+			header := "Payment-Response"
+			if legacy {
+				header = "X-Payment-Response"
+			}
+			h.Set(header, base64.StdEncoding.EncodeToString(raw))
+			if amountHeader != "" {
+				h.Set("X-Claw402-Settled-Amount", amountHeader)
+			}
+			req, _ := http.NewRequest("POST", "https://fixture.invalid", nil)
+			resp := &http.Response{Header: h, Body: io.NopCloser(strings.NewReader(`{}`)), Request: req}
+			err := guardUsageResponse(resp, signed)
+			if amountHeader == "1" {
+				if err == nil {
+					t.Fatal("conflicting payment amounts accepted")
+				}
+				continue
+			}
+			if err != nil || h.Get("X-Nofx-Receipt-Verified") != "true" {
+				t.Fatalf("legacy=%v amount=%q error=%v", legacy, amountHeader, err)
+			}
+		}
+	}
+}
+func TestUnknownPaymentDiagnosticDoesNotExposeCause(t *testing.T) {
+	for _, v := range []struct{ cause, code string }{{"missing payment receipt https://secret.invalid/key", "receipt_missing"}, {"missing or invalid settled amount", "settled_amount_missing"}, {"receipt RPC chain mismatch or unavailable", "receipt_rpc_unavailable"}, {"arbitrary private credential", "verification_failed"}} {
+		err := &PaymentOutcomeUnknownError{Cause: errors.New(v.cause)}
+		if err.ReasonCode() != v.code || strings.Contains(err.Error(), "secret") || strings.Contains(err.Error(), "credential") {
+			t.Fatal(err)
+		}
+	}
+}

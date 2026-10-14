@@ -256,8 +256,35 @@ func (e *PaymentOutcomeUnknownError) Error() string {
 	if e.Cause != nil && strings.Contains(strings.ToLower(e.Cause.Error()), "malformed http response") {
 		reason = "payment response could not be read due to an HTTP protocol error"
 	}
-	return "paid request outcome unknown; refusing automatic replay: " + reason + "; check the original payment before retrying"
+	return "paid request outcome unknown; refusing automatic replay: " + reason + "; check the original payment before retrying [diagnostic:" + e.ReasonCode() + "]"
 }
+
+// ReasonCode exposes only a fixed diagnostic category, never remote text,
+// response bodies, wallet credentials or transport URLs.
+func (e *PaymentOutcomeUnknownError) ReasonCode() string {
+	if e.Cause == nil {
+		return "verification_failed"
+	}
+	text := strings.ToLower(e.Cause.Error())
+	for _, r := range []struct{ match, code string }{
+		{"malformed http response", "http_protocol_error"},
+		{"missing payment receipt", "receipt_missing"},
+		{"missing or invalid settled amount", "settled_amount_missing"},
+		{"conflicting", "receipt_conflict"},
+		{"rpc chain mismatch or unavailable", "receipt_rpc_unavailable"},
+		{"receipt unavailable", "settlement_pending"},
+		{"not confirmed successfully", "settlement_pending"},
+		{"does not match authorization", "authorization_mismatch"},
+		{"on-chain amount mismatch", "settlement_mismatch"},
+		{"deadline exceeded", "request_timeout"},
+	} {
+		if strings.Contains(text, r.match) {
+			return r.code
+		}
+	}
+	return "verification_failed"
+}
+
 func (e *PaymentOutcomeUnknownError) Unwrap() error   { return e.Cause }
 func (e *PaymentOutcomeUnknownError) Retryable() bool { return false }
 

@@ -172,6 +172,7 @@ func TestVerifySettlementReadOnlyRPC(t *testing.T) {
 		t.Fatal(err)
 	}
 	receipt := receiptFixture(a, tx.Hash())
+	receiptReads := 0
 	rpc := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		var req struct{ Method string }
 		json.NewDecoder(r.Body).Decode(&req)
@@ -180,7 +181,10 @@ func TestVerifySettlementReadOnlyRPC(t *testing.T) {
 		case "eth_chainId":
 			result = "0x2105"
 		case "eth_getTransactionReceipt":
-			result = receipt
+			receiptReads++
+			if receiptReads > 1 {
+				result = receipt
+			}
 		case "eth_getTransactionByHash":
 			result = tx
 		default:
@@ -191,6 +195,9 @@ func TestVerifySettlementReadOnlyRPC(t *testing.T) {
 	defer rpc.Close()
 	if err := VerifySettlement(context.Background(), rpc.URL, tx.Hash().Hex(), a, big.NewInt(55000)); err != nil {
 		t.Fatal(err)
+	}
+	if receiptReads != 2 {
+		t.Fatal("pending receipt was not reconciled using read-only queries", receiptReads)
 	}
 	a.Nonce = "2"
 	if VerifySettlement(context.Background(), rpc.URL, tx.Hash().Hex(), a, big.NewInt(55000)) == nil {

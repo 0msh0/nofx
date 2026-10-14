@@ -56,3 +56,12 @@ describe('readable payment errors', () => {
     expect(formatRequestError('bad\u0000response')).toBe('bad response')
   })
 })
+
+it('preserves a safe payment diagnostic code', () => {
+  expect(
+    formatRequestError(
+      'paid request outcome unknown [diagnostic:settled_amount_missing]',
+      'en'
+    )
+  ).toContain('Diagnostic: settled_amount_missing')
+})

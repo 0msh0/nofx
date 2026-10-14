@@ -413,6 +413,7 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
     try {
       const q = new URLSearchParams({
         exchange_id: exchangeID,
+        venue,
         symbol,
         plugin: item.id,
         window: windowDays,
@@ -471,7 +472,6 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
                 <button
                   disabled={
                     busy ||
-                    !exchangeID ||
                     !item.enabled ||
                     (item.id.startsWith('hyperdata_') &&
                       venue !== 'hyperliquid')

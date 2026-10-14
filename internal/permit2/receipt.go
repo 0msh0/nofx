@@ -36,8 +36,21 @@ func VerifySettlement(ctx context.Context, endpoint, tx string, auth Authorizati
 	}
 	chain := big.NewInt(8453)
 	var receipt *ethTypes.Receipt
-	if err := readRPC(ctx, endpoint, "eth_getTransactionReceipt", []any{tx}, &receipt); err != nil {
-		return fmt.Errorf("upto settlement receipt unavailable")
+	// Retry only read-only confirmation queries for the same transaction. A
+	// recently settled Base transaction may not yet be indexed by this RPC.
+	for attempt := 0; attempt < 5; attempt++ {
+		err := readRPC(ctx, endpoint, "eth_getTransactionReceipt", []any{tx}, &receipt)
+		if err == nil && receipt != nil {
+			break
+		}
+		if attempt == 4 {
+			return fmt.Errorf("upto settlement receipt unavailable")
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(300 * time.Millisecond):
+		}
 	}
 	if err := CheckTransferReceipt(receipt, tx, auth, amount); err != nil {
 		return err

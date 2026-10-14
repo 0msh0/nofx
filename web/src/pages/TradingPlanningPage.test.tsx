@@ -10,19 +10,18 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { TradingPlanningPage } from './TradingPlanningPage'
 const mocks = vi.hoisted(() => ({
   api: vi.fn(),
+  exchanges: [] as {
+    id: string
+    name: string
+    exchange_type: string
+    enabled: boolean
+  }[],
   plot: vi.fn().mockResolvedValue(undefined),
   focus: vi.fn().mockResolvedValue(undefined),
 }))
 vi.mock('../lib/api', () => ({
   api: {
-    getExchangeConfigs: async () => [
-      {
-        id: 'ex',
-        name: 'Connected account',
-        exchange_type: 'binance',
-        enabled: true,
-      },
-    ],
+    getExchangeConfigs: async () => mocks.exchanges,
     getModelConfigs: async () => [
       {
         id: 'model',
@@ -85,6 +84,14 @@ const plan = (id: string) => ({
   orders: [{ index: 1, price: '80000', quantity: '0.01', offset_seconds: 0 }],
 })
 beforeEach(() => {
+  mocks.exchanges = [
+    {
+      id: 'ex',
+      name: 'Connected account',
+      exchange_type: 'binance',
+      enabled: true,
+    },
+  ]
   mocks.api.mockReset()
   mocks.plot.mockClear()
   mocks.api.mockImplementation(async (path: string) => {
@@ -192,4 +199,30 @@ describe('NOFX live planning', () => {
       screen.getByText(/Enter one price and quantity weight per line/)
     ).toBeInTheDocument()
   })
+})
+
+it('shows Binance futures and AI500 even when only a Hyperliquid account is connected', async () => {
+  mocks.exchanges = [
+    {
+      id: 'hl',
+      name: 'Hyperliquid wallet',
+      exchange_type: 'hyperliquid',
+      enabled: true,
+    },
+  ]
+  open()
+  await screen.findByRole('button', { name: /ETH/ })
+  expect(screen.getByLabelText('Market venue')).toHaveValue('binance')
+  expect(screen.getByLabelText('Trading account')).toHaveValue('')
+  expect(
+    screen.getByText(/Public market planning is available/)
+  ).toBeInTheDocument()
+  fireEvent.click(screen.getByRole('button', { name: /ETH/ }))
+  expect(screen.getByLabelText('Symbol')).toHaveValue('ETHUSDT')
+  fireEvent.change(screen.getByLabelText('Market venue'), {
+    target: { value: 'hyperliquid' },
+  })
+  expect(screen.getByLabelText('Trading account')).toHaveValue('hl')
+  expect(screen.getByLabelText('Symbol')).toHaveValue('BTC')
+  expect(screen.queryByLabelText('Binance AI500 markets')).toBeNull()
 })

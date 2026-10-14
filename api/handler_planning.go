@@ -153,6 +153,26 @@ func (s *Server) planningAccount(user, id string) (*store.Exchange, error) {
 	}
 	return ex, nil
 }
+
+// Public-market planning does not require private exchange credentials. Only
+// approval/execution routes may call planningAccount/planningBroker.
+func (s *Server) planningWorkspace(user, id, venue string) (*store.Exchange, error) {
+	if id != "" {
+		ex, e := s.planningAccount(user, id)
+		if e != nil {
+			return nil, e
+		}
+		if venue != "" && venue != ex.ExchangeType {
+			return nil, errors.New("Selected account does not match the market venue")
+		}
+		return ex, nil
+	}
+	if venue != "binance" && venue != "hyperliquid" {
+		return nil, errors.New("Select Binance futures or Hyperliquid")
+	}
+	return &store.Exchange{UserID: user, ExchangeType: venue}, nil
+}
+
 func planningError(c *gin.Context, e error) { c.JSON(http.StatusBadRequest, gin.H{"error": e.Error()}) }
 func (s *Server) registerPlanning(api, protected *gin.RouterGroup) {
 	for _, path := range []string{"instrument", "candles", "feed"} {
@@ -289,6 +309,7 @@ func (s *Server) handlePlanningState(c *gin.Context) {
 func (s *Server) handlePlanningCompile(c *gin.Context) {
 	var in struct {
 		ExchangeID  string           `json:"exchange_id"`
+		Venue       string           `json:"venue"`
 		Symbol      string           `json:"symbol"`
 		Idea        core.Idea        `json:"idea"`
 		Constraints core.Constraints `json:"constraints"`
@@ -298,7 +319,7 @@ func (s *Server) handlePlanningCompile(c *gin.Context) {
 		planningError(c, errors.New("invalid draft input"))
 		return
 	}
-	ex, e := s.planningAccount(c.GetString("user_id"), in.ExchangeID)
+	ex, e := s.planningWorkspace(c.GetString("user_id"), in.ExchangeID, in.Venue)
 	if e != nil {
 		planningError(c, e)
 		return
@@ -341,7 +362,7 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 		return
 	}
 	user := c.GetString("user_id")
-	ex, e := s.planningAccount(user, in.ExchangeID)
+	ex, e := s.planningWorkspace(user, in.ExchangeID, in.Venue)
 	if e != nil {
 		planningError(c, e)
 		return
@@ -679,7 +700,7 @@ func (s *Server) handlePlanningDataPlugins(c *gin.Context) {
 	c.JSON(200, registry.List())
 }
 func (s *Server) handlePlanningPluginData(c *gin.Context) {
-	ex, e := s.planningAccount(c.GetString("user_id"), c.Query("exchange_id"))
+	ex, e := s.planningWorkspace(c.GetString("user_id"), c.Query("exchange_id"), c.Query("venue"))
 	if e != nil {
 		planningError(c, e)
 		return
