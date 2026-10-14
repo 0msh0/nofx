@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { TradingPlanningPage } from './TradingPlanningPage'
 const mocks = vi.hoisted(() => ({
   api: vi.fn(),
+  stream: vi.fn(),
   exchangesGate: undefined as Promise<void> | undefined,
   exchanges: [] as {
     id: string
@@ -46,6 +47,7 @@ vi.mock('../lib/api', () => ({
 vi.mock('../lib/planning', async (importOriginal) => ({
   ...(await importOriginal<object>()),
   planningAPI: mocks.api,
+  streamPlanning: mocks.stream,
   loadPlanningChart: async () => {
     window.WorkspaceChart = class {
       constructor(options: NonNullable<typeof mocks.chartOptions>) {
@@ -108,6 +110,9 @@ beforeEach(() => {
   ]
   mocks.api.mockReset()
   mocks.plot.mockClear()
+  mocks.stream
+    .mockReset()
+    .mockRejectedValue(new Error('Account sizing unavailable'))
   mocks.api.mockImplementation(async (path: string) => {
     if (path === 'state')
       return {
@@ -278,4 +283,22 @@ it('keeps a venue chosen while account configuration is still loading', async ()
   )
   expect(screen.getByLabelText('Symbol')).toHaveValue('BTC')
   expect(screen.getByLabelText('Market venue')).toHaveValue('hyperliquid')
+})
+
+it('preflight failure clears busy state without accumulating phantom user messages', async () => {
+  open()
+  await screen.findByRole('button', { name: /Test plan one/ })
+  const generate = screen.getByRole('button', { name: 'Generate plans' })
+  for (let attempt = 0; attempt < 2; attempt++) {
+    fireEvent.click(generate)
+    await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(attempt + 1))
+    await waitFor(() => expect(generate).toBeEnabled())
+  }
+  expect(
+    screen.queryByText(
+      'Compare single-limit, weighted ladder and TWAP plans for this market.'
+    )
+  ).toBeNull()
+  expect(screen.getAllByText('Account sizing unavailable')).toHaveLength(1)
+  expect(screen.getByLabelText('Trade idea')).toBeEnabled()
 })

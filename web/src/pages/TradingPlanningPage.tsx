@@ -119,6 +119,7 @@ export function TradingPlanningPage() {
     abort = useRef<AbortController | null>(null),
     session = useRef<string>(crypto.randomUUID()),
     chatBox = useRef<HTMLDivElement | null>(null),
+    chatFollow = useRef(true),
     active = useRef(true)
   const account = accounts.find((a) => a.id === exchangeID)
   const records = useMemo(
@@ -270,9 +271,8 @@ export function TradingPlanningPage() {
   }, [current, compare, data.records, symbol, venue])
   useEffect(() => {
     const box = chatBox.current
-    if (box && box.scrollHeight - box.scrollTop - box.clientHeight < 200)
-      box.scrollTop = box.scrollHeight
-  }, [messages])
+    if (box && chatFollow.current) box.scrollTop = box.scrollHeight
+  }, [messages, trace])
   async function choose(p: Plan) {
     setSelected(p.id)
     setCompare([])
@@ -324,10 +324,12 @@ export function TradingPlanningPage() {
     setError('')
     setInstruction('')
     resetTurn()
+    chatFollow.current = true
     setStatus('Reading current market context…')
     setMessages((m) => [...m, { role: 'user', content: text }])
     const controller = new AbortController()
     abort.current = controller
+    let streamStarted = false
     try {
       await streamPlanning(
         {
@@ -350,6 +352,7 @@ export function TradingPlanningPage() {
         },
         controller.signal,
         (event) => {
+          streamStarted = true
           setTrace((items) => recordActivity(items, event))
           if (event.type === 'assistant')
             setMessages((m) => [
@@ -359,7 +362,6 @@ export function TradingPlanningPage() {
           if (event.type === 'error') {
             const message = formatRequestError(String(event.data.message), 'en')
             setError(message)
-            setMessages((m) => [...m, { role: 'error', content: message }])
           }
           if (event.type === 'status') setStatus(String(event.data.message))
           if (event.type === 'iteration')
@@ -402,6 +404,7 @@ export function TradingPlanningPage() {
       )
     } catch (e) {
       if (!controller.signal.aborted) {
+        if (!streamStarted) setMessages(messages)
         const message = formatRequestError(e, 'en')
         setError(message)
         setTrace((items) =>
@@ -529,7 +532,7 @@ export function TradingPlanningPage() {
     <div className="planning-page">
       <div className="planning-heading">
         <div>
-          <h1>Trade Planning</h1>
+          <h1>Frontier</h1>
           <p>Explore the market. Compare plans. Decide every trade.</p>
         </div>
         <Link to={ROUTES.settings}>Manage accounts and AI →</Link>
@@ -600,14 +603,17 @@ export function TradingPlanningPage() {
         </form>
         <span className="planning-live">Live trading · approval required</span>
       </div>
-      {error && (
-        <div className="planning-error" role="alert">
-          {formatRequestError(error, 'en')}
-          <button onClick={() => setError('')} aria-label="Dismiss">
-            ×
-          </button>
-        </div>
-      )}
+      {error &&
+        !trace.some(
+          (item) => item.state === 'failed' && item.detail === error
+        ) && (
+          <div className="planning-error" role="alert">
+            {formatRequestError(error, 'en')}
+            <button onClick={() => setError('')} aria-label="Dismiss">
+              ×
+            </button>
+          </div>
+        )}
       {!exchangeID && (
         <div className="planning-empty">
           Public market planning is available without a trading account. Connect
@@ -742,14 +748,14 @@ export function TradingPlanningPage() {
               <b>
                 {busy || checks.length
                   ? `Entry alternatives · ${turnPlanIDs.length} saved`
-                  : `Candidate plans ${records.length}`}
+                  : `Ready plans ${records.filter((r) => r.state === 'draft' && !expired(r.plan, clock)).length}`}
               </b>
               <button
                 className="planning-primary"
                 disabled={busy}
                 onClick={() =>
                   send(
-                    'Read current market data and candles. Propose multiple one-time plans including single-limit, weighted ladder and finite TWAP entries within the risk constraints. Explain conditional assumptions.'
+                    'Compare single-limit, weighted ladder and TWAP plans for this market.'
                   )
                 }
               >
@@ -767,9 +773,15 @@ export function TradingPlanningPage() {
             />
             <details
               className="planning-all-plans"
-              open={!checks.length && !busy}
+              open={
+                !checks.length &&
+                !busy &&
+                records.some(
+                  (r) => r.state === 'draft' && !expired(r.plan, clock)
+                )
+              }
             >
-              <summary>All saved drafts · {records.length}</summary>
+              <summary>Saved plans · {records.length}</summary>
               <div className="planning-card-list">
                 {records.map((r) => (
                   <button
@@ -986,7 +998,7 @@ export function TradingPlanningPage() {
         </section>
         <aside className="planning-assistant">
           <div className="planning-assistant-title">
-            <b>NOFX Planning Assistant</b>
+            <b>NOFX Frontier</b>
             <button onClick={newSession} disabled={busy}>
               New idea
             </button>
@@ -1013,20 +1025,30 @@ export function TradingPlanningPage() {
               <button onClick={() => abort.current?.abort()}>Stop</button>
             </div>
           )}
-          <div className="planning-messages" ref={chatBox}>
-            {messages.length === 0 && (
-              <p>
-                Start with the market, then build a plan. Plans appear on the
-                chart. AI cannot approve or place trades.
-              </p>
-            )}
-            {messages.map((m, i) => (
-              <div key={i} className={'planning-message ' + m.role}>
-                {m.content}
-              </div>
-            ))}
+          <div className="planning-thread" ref={chatBox} onScroll={() => { const box = chatBox.current; if (box) chatFollow.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80 }}>
+            <div className="planning-messages">
+              {messages.length === 0 && (
+                <p>
+                  Start with the market, then build a plan. Plans appear on the
+                  chart. AI cannot approve or place trades.
+                </p>
+              )}
+              {messages
+                .filter(
+                  (m, i) =>
+                    m.role !== 'user' ||
+                    i === 0 ||
+                    messages[i - 1].role !== 'user' ||
+                    messages[i - 1].content !== m.content
+                )
+                .map((m, i) => (
+                  <div key={i} className={'planning-message ' + m.role}>
+                    {m.content}
+                  </div>
+                ))}
+            </div>
+            <PlanningActivity items={trace} busy={busy} />
           </div>
-          <PlanningActivity items={trace} busy={busy} />
 
           <form
             className="planning-composer"

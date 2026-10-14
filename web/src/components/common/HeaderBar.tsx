@@ -132,7 +132,7 @@ export default function HeaderBar({
                   {
                     page: 'planning',
                     path: ROUTES.planning,
-                    label: language === 'zh' ? '交易规划' : 'Trade Planning',
+                    label: 'Frontier',
                     requiresAuth: true,
                   },
                   {
@@ -421,7 +421,7 @@ export default function HeaderBar({
                     {
                       page: 'planning',
                       path: ROUTES.planning,
-                      label: language === 'zh' ? '交易规划' : 'Trade Planning',
+                      label: 'Frontier',
                       requiresAuth: true,
                     },
                     {

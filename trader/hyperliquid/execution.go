@@ -9,6 +9,7 @@ import (
 	hl "github.com/sonirico/go-hyperliquid"
 	"math/big"
 	"nofx/trader/execution"
+	"regexp"
 	"strconv"
 	"strings"
 )
@@ -54,6 +55,18 @@ func (b *HyperliquidTrader) AccountSnapshot(ctx context.Context, symbol string) 
 	}
 	out.Equity = execution.Decimal(state.MarginSummary.AccountValue)
 	out.Available = execution.Decimal(state.Withdrawable)
+	if b.isUnifiedAccount {
+		// Same collateral policy as NOFX GetBalance: unified Spot USDC is
+		// already account equity. Do not add core/xyz collateral views or PnL.
+		spotRaw, err := b.directAccountInfo(ctx, map[string]any{"type": "spotClearinghouseState", "user": b.walletAddr})
+		if err != nil {
+			return out, errors.New("could not read unified account USDC collateral")
+		}
+		out.Equity, out.Available, err = unifiedExecutionCollateral(spotRaw)
+		if err != nil {
+			return out, err
+		}
+	}
 	qty := new(big.Rat)
 	for _, p := range state.AssetPositions {
 		if p.Position.Coin == coin {
@@ -98,6 +111,53 @@ func (b *HyperliquidTrader) AccountSnapshot(ctx context.Context, symbol string) 
 	a.Add(a, big.NewRat(5, 1))
 	out.FeeBPS = execution.Decimal(a.FloatString(12))
 	return out, nil
+}
+
+var executionCollateralDecimal = regexp.MustCompile(`^[0-9]+(?:\.[0-9]{1,12})?$`)
+
+func unifiedExecutionCollateral(raw []byte) (execution.Decimal, execution.Decimal, error) {
+	var state struct {
+		Balances *[]struct {
+			Coin  string  `json:"coin"`
+			Total string  `json:"total"`
+			Hold  *string `json:"hold"`
+		} `json:"balances"`
+	}
+	if json.Unmarshal(raw, &state) != nil || state.Balances == nil {
+		return "", "", errors.New("unified USDC collateral response is incomplete")
+	}
+	var total, held *big.Rat
+	for _, balance := range *state.Balances {
+		if balance.Coin != "USDC" {
+			continue
+		}
+		if total != nil || balance.Hold == nil {
+			return "", "", errors.New("unified USDC collateral reservations are ambiguous")
+		}
+		parse := func(value string) (*big.Rat, bool) {
+			if len(value) > 40 || !executionCollateralDecimal.MatchString(value) {
+				return nil, false
+			}
+			return new(big.Rat).SetString(value)
+		}
+		var ok bool
+		total, ok = parse(balance.Total)
+		if !ok {
+			return "", "", errors.New("invalid unified USDC total")
+		}
+		held, ok = parse(*balance.Hold)
+		if !ok {
+			return "", "", errors.New("invalid unified USDC hold")
+		}
+	}
+	if total == nil {
+		return "0", "0", nil
+	}
+	available := new(big.Rat).Sub(total, held)
+	if available.Sign() < 0 {
+		available.SetInt64(0)
+	}
+	return execution.Decimal(total.FloatString(12)), execution.Decimal(available.FloatString(12)), nil
 }
 func (b *HyperliquidTrader) PrepareExecution(ctx context.Context, symbol string) error {
 	return b.PrepareExecutionLeverage(ctx, symbol, 1)

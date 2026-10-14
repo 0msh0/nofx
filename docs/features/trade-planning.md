@@ -272,3 +272,18 @@ available balance. The shared NOFX Binance/Hyperliquid adapters set the locked
 leverage before any entry. Failed leverage setup blocks orders. A conservative
 stop-distance guard rejects plans consuming 80% of initial margin at the chosen
 leverage; it is not a venue liquidation-price calculation.
+
+### Frontier and unified account collateral
+
+The navigation and workspace are named **Frontier**; existing `/planning` links
+and authenticated API routes remain compatible. The conversation and live
+activity share one scroll area, with the composer kept reachable. A request
+rejected before the event stream starts does not accumulate phantom chat turns.
+Expired drafts remain in the saved-plan disclosure rather than appearing as
+ready-to-trade candidates.
+
+The shared Hyperliquid execution snapshot follows NOFX's unified-account policy:
+Spot USDC total is equity, and total minus authoritative hold is available
+collateral. Core/xyz collateral views and unrealized PnL are not added again.
+Values stay exact decimal strings. Missing or malformed reservation data fails
+closed; separate accounts never spend Spot collateral through this path.
