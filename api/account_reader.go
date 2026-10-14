@@ -31,6 +31,9 @@ func (s *Server) accountReadConfig(user, traderID string) (*store.Exchange, erro
 		if err != nil || !ex.Enabled {
 			return nil, errors.New("Trading account is unavailable or disabled")
 		}
+		if ex.ExchangeType == "binance" && ex.Testnet {
+			return nil, errors.New("Binance testnet inspection is unsupported; mainnet fallback is disabled")
+		}
 		return ex, nil
 	}
 	return nil, errors.New("Trader does not belong to this account")

@@ -75,6 +75,26 @@ func TestPlanningBinanceMissingOrderNeverFilled(t *testing.T) {
 		t.Fatal(got, e)
 	}
 }
+
+func TestOpenOrderReadDoesNotHideFailedProtectionQuery(t *testing.T) {
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/fapi/v1/openOrders" {
+			fmt.Fprint(w, `[]`)
+			return
+		}
+		if r.URL.Path != "/fapi/v1/openAlgoOrders" {
+			t.Error(r.URL.Path)
+		}
+		w.WriteHeader(403)
+		fmt.Fprint(w, `{"code":-2015,"msg":"denied"}`)
+	}))
+	defer s.Close()
+	b := NewExecutionTrader("test", "test", "")
+	b.client.BaseURL, b.client.HTTPClient = s.URL, s.Client()
+	if rows, err := b.GetOpenOrders("BTCUSDT"); err == nil || rows != nil {
+		t.Fatal("protection read failure was reported as a verified empty order list")
+	}
+}
 func TestPlanningBinanceLeverageFailureAndCancelledContext(t *testing.T) {
 	orders := 0
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

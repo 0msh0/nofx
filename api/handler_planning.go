@@ -82,9 +82,9 @@ func accountKey(e *store.Exchange) string {
 }
 
 func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Broker, string, error) {
-	ex, e := s.store.Exchange().GetByID(user, id)
-	if e != nil || !ex.Enabled {
-		return nil, "", errors.New("Trading account is disabled or does not belong to the current user")
+	ex, e := s.planningAccount(user, id)
+	if e != nil {
+		return nil, "", e
 	}
 	running, er := s.store.Trader().ListByExchangeID(user, id)
 	if er != nil {
@@ -103,7 +103,7 @@ func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Brok
 			return nil, "", errors.New("Automatic trading is running on this account. Stop it before using an approved one-time plan.")
 		}
 	}
-	stampBytes, _ := json.Marshal([]any{ex.UpdatedAt, string(ex.APIKey), string(ex.SecretKey), ex.HyperliquidWalletAddr, ex.HyperliquidBuilderApproved, ex.Testnet})
+	stampBytes, _ := json.Marshal([]any{ex.UpdatedAt, string(ex.APIKey), string(ex.SecretKey), ex.HyperliquidWalletAddr, ex.HyperliquidBuilderApproved, ex.Testnet, ex.HyperliquidUnifiedAcct})
 	stampHash := sha256.Sum256(stampBytes)
 	stamp := hex.EncodeToString(stampHash[:])
 	if s.planning != nil {
@@ -131,7 +131,7 @@ func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Brok
 		if ex.APIKey == "" || ex.HyperliquidWalletAddr == "" || !ex.HyperliquidBuilderApproved || ex.Testnet {
 			return nil, "", errors.New("Complete Hyperliquid mainnet wallet, Agent and Builder authorization in NOFX first")
 		}
-		t, e := hyperliquid.NewHyperliquidTrader(string(ex.APIKey), ex.HyperliquidWalletAddr, false, true)
+		t, e := hyperliquid.NewHyperliquidTrader(string(ex.APIKey), ex.HyperliquidWalletAddr, false, ex.HyperliquidUnifiedAcct)
 		if e != nil {
 			return nil, "", errors.New("Could not initialize the authorized Hyperliquid account")
 		}

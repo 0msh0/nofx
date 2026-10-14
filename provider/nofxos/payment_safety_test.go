@@ -81,6 +81,28 @@ func TestAutomaticClientNeverFallsBackToOrigin(t *testing.T) {
 	}
 }
 
+func TestLegacyConstructorsCannotBypassPaidGateway(t *testing.T) {
+	var requests atomic.Int32
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		fmt.Fprint(w, `{"success":true}`)
+	}))
+	defer origin.Close()
+	for _, key := range []string{"", "legacy-credential-fixture"} {
+		client := NewClient(origin.URL, key)
+		client.SetConfig(origin.URL, key)
+		if _, err := client.doRequest("/api/ai500/list"); err == nil || !strings.Contains(err.Error(), "direct origin access is disabled") {
+			t.Fatal("legacy constructor allowed unsigned origin access", err)
+		}
+	}
+	if requests.Load() != 0 {
+		t.Fatal("unpaid origin was contacted")
+	}
+	if DefaultAuthKey != "" {
+		t.Fatal("a built-in data credential is present")
+	}
+}
+
 func TestLegacyAuthRemovalPreservesFiltersAndNormalizesKey(t *testing.T) {
 	key, _ := crypto.GenerateKey()
 	var requests atomic.Int32

@@ -12,7 +12,7 @@ import (
 // x402 payment gateway. Resolution order:
 // the explicit walletKey argument, then the CLAW402_WALLET_KEY environment
 // variable. Missing/invalid keys fail closed; they must not bypass payment.
-// Explicit standalone API integrations can still construct NewClient directly.
+// Legacy constructors cannot enable a direct-origin fallback.
 func ResolveClient(walletKey string) *Client {
 	walletKey = strings.TrimSpace(walletKey)
 	if walletKey == "" {

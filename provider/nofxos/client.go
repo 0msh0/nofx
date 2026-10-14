@@ -4,9 +4,7 @@
 package nofxos
 
 import (
-	"io/ioutil"
-	"net/http"
-	"nofx/security"
+	"errors"
 	"strings"
 	"sync"
 	"time"
@@ -16,7 +14,8 @@ import (
 const (
 	DefaultBaseURL = "https://nofxos.ai"
 	DefaultTimeout = 30 * time.Second
-	DefaultAuthKey = "cm_568c67eae410d912c54c"
+	// Deprecated: data access requires an explicitly configured Claw402 wallet.
+	DefaultAuthKey = ""
 )
 
 // Client is the NofxOS API client
@@ -37,11 +36,7 @@ var (
 // DefaultClient returns the singleton default client
 func DefaultClient() *Client {
 	clientOnce.Do(func() {
-		defaultClient = &Client{
-			BaseURL: DefaultBaseURL,
-			AuthKey: DefaultAuthKey,
-			Timeout: DefaultTimeout,
-		}
+		defaultClient = ResolveClient("")
 	})
 	return defaultClient
 }
@@ -95,53 +90,19 @@ func (c *Client) GetAuthKey() string {
 	return c.AuthKey
 }
 
-// doRequest performs an HTTP GET request with authentication.
-// If claw402 client is configured, routes through claw402 payment gateway instead.
+// doRequest requires the paid gateway, including for legacy constructor callers.
+// A supplied origin URL/auth key must never enable a payment bypass.
 func (c *Client) doRequest(endpoint string) ([]byte, error) {
 	c.mu.RLock()
-	claw402Client := c.claw402
-	gatewayErr := c.gatewayErr
-	baseURL := c.BaseURL
-	authKey := c.AuthKey
-	timeout := c.Timeout
+	paid, gatewayErr := c.claw402, c.gatewayErr
 	c.mu.RUnlock()
 	if gatewayErr != nil {
 		return nil, gatewayErr
 	}
-
-	// Route through claw402 if configured
-	if claw402Client != nil {
-		return claw402Client.DoRequest(endpoint)
+	if paid == nil {
+		return nil, errors.New("Claw402 paid data routing is required; direct origin access is disabled")
 	}
-
-	url := baseURL + endpoint
-	if !strings.Contains(url, "auth=") {
-		if strings.Contains(url, "?") {
-			url += "&auth=" + authKey
-		} else {
-			url += "?auth=" + authKey
-		}
-	}
-
-	resp, err := security.SafeGet(url, timeout)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return body, &APIError{
-			StatusCode: resp.StatusCode,
-			Message:    string(body),
-		}
-	}
-
-	return body, nil
+	return paid.DoRequest(endpoint)
 }
 
 // APIError represents an API error response

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"nofx/store"
 	"path/filepath"
 	"testing"
@@ -45,6 +46,15 @@ func TestAccountInspectionDoesNotNeedAutopilotOrModel(t *testing.T) {
 		if _, err := s.accountReadConfig(tc[0], tc[1]); err == nil {
 			t.Fatalf("ownership bypass: %v", tc)
 		}
+	}
+	if err := db.Model(&store.Exchange{}).Where("id = ?", "alice-account").Update("testnet", true).Error; err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.accountReadConfig("alice", "alice-trader"); err == nil {
+		t.Fatal("testnet inspection fell back to mainnet")
+	}
+	if _, _, err := s.planningBroker(context.Background(), "alice", "alice-account"); err == nil {
+		t.Fatal("testnet execution fell back to mainnet")
 	}
 	if err := db.Model(&store.Exchange{}).Where("id = ?", "alice-account").Update("enabled", false).Error; err != nil {
 		t.Fatal(err)

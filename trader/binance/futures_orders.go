@@ -604,7 +604,10 @@ func (t *FuturesTrader) GetOpenOrders(symbol string) ([]types.OpenOrder, error) 
 		Symbol(symbol).
 		Do(context.Background())
 
-	if err == nil {
+	if err != nil {
+		return nil, fmt.Errorf("failed to verify Binance protective orders: %w", err)
+	}
+	{
 		for _, algoOrder := range algoOrders {
 			triggerPrice, _ := strconv.ParseFloat(algoOrder.TriggerPrice, 64)
 			quantity, _ := strconv.ParseFloat(algoOrder.Quantity, 64)
