@@ -2,7 +2,10 @@ package binance
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -12,7 +15,9 @@ import (
 )
 
 func planningOrder() live.Order {
-	return live.Order{ClientID: strings.Repeat("a", 32), Role: "entry", Symbol: "BTCUSDT", Side: "long", Price: "100000", Quantity: "0.001", Status: "submitting", Filled: "0"}
+	o := live.Order{ClientID: strings.Repeat("a", 32), Role: "entry", Symbol: "BTCUSDT", Side: "long", Price: "100000", Quantity: "0.001", Status: "submitting", Filled: "0"}
+	o.VenueClientID, _ = (&PlanningBroker{}).RouteClientID(o.ClientID)
+	return o
 }
 func TestPlanningBinanceExactLimitAndProtection(t *testing.T) {
 	var sent []url.Values
@@ -47,10 +52,10 @@ func TestPlanningBinanceExactLimitAndProtection(t *testing.T) {
 	if e != nil || r.OrderID != "456" {
 		t.Fatalf("%+v %v", r, e)
 	}
-	if sent[0].Get("type") != "LIMIT" || sent[0].Get("timeInForce") != "GTC" || sent[0].Get("quantity") != "0.001" || sent[0].Get("newClientOrderId") != o.ClientID {
+	if sent[0].Get("type") != "LIMIT" || sent[0].Get("timeInForce") != "GTC" || sent[0].Get("quantity") != "0.001" || sent[0].Get("newClientOrderId") != o.VenueClientID {
 		t.Fatal(sent[0])
 	}
-	if sent[1].Get("reduceOnly") != "true" || sent[1].Get("side") != "SELL" || sent[1].Get("triggerPrice") != "99000" || sent[1].Get("type") != "STOP_MARKET" {
+	if sent[1].Get("clientAlgoId") != o.VenueClientID || sent[1].Get("reduceOnly") != "true" || sent[1].Get("side") != "SELL" || sent[1].Get("triggerPrice") != "99000" || sent[1].Get("type") != "STOP_MARKET" {
 		t.Fatal(sent[1])
 	}
 }
@@ -98,5 +103,83 @@ func TestPlanningBinanceLeverageFailureAndCancelledContext(t *testing.T) {
 	}
 	if orders != 0 {
 		t.Fatal("ordered after failure")
+	}
+}
+
+func TestPlanningBrokerIDStableLosslessAndLegacyLookup(t *testing.T) {
+	b := &PlanningBroker{}
+	raw := "0123456789abcdef0123456789abcdef"
+	native, e := b.RouteClientID(raw)
+	if e != nil || len(native) != 32 || !strings.HasPrefix(native, futuresBrokerPrefix) {
+		t.Fatal(native, e)
+	}
+	again, _ := b.RouteClientID(raw)
+	if again != native {
+		t.Fatal("broker attribution broke idempotency")
+	}
+	decoded, e := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(native, futuresBrokerPrefix))
+	if e != nil || hex.EncodeToString(decoded) != raw {
+		t.Fatal("durable ID was truncated")
+	}
+	for _, role := range []string{"entry", "sl", "tp"} {
+		t.Run(role, func(t *testing.T) {
+			var gotID string
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.ParseForm()
+				body, _ := io.ReadAll(r.Body)
+				values, _ := url.ParseQuery(string(body))
+				for k, vs := range values {
+					if r.Form.Get(k) == "" {
+						for _, v := range vs {
+							r.Form.Add(k, v)
+						}
+					}
+				}
+				if role == "entry" {
+					gotID = r.Form.Get("origClientOrderId")
+				} else {
+					gotID = r.Form.Get("clientAlgoId")
+				}
+				w.WriteHeader(400)
+				fmt.Fprint(w, `{"code":-2013,"msg":"not confirmed"}`)
+			}))
+			defer s.Close()
+			broker := NewPlanningBroker("test", "test")
+			broker.Client.BaseURL = s.URL
+			broker.Client.HTTPClient = s.Client()
+			o := planningOrder()
+			o.Role = role
+			broker.Lookup(context.Background(), o)
+			if gotID != o.VenueClientID {
+				t.Fatal("lookup lost persisted broker ID", gotID)
+			}
+			broker.Cancel(context.Background(), o)
+			if gotID != o.VenueClientID {
+				t.Fatal("cancel lost persisted broker ID", gotID)
+			}
+			o.VenueClientID = ""
+			broker.Lookup(context.Background(), o)
+			if gotID != o.ClientID {
+				t.Fatal("legacy order identity changed", gotID)
+			}
+		})
+	}
+}
+func TestPlanningRejectsMissingOrChangedPersistedBrokerRoute(t *testing.T) {
+	calls := 0
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; t.Error("invalid route reached exchange") }))
+	defer s.Close()
+	b := NewPlanningBroker("test", "test")
+	b.Client.BaseURL = s.URL
+	b.Client.HTTPClient = s.Client()
+	for _, route := range []string{"", "x-other-broker"} {
+		o := planningOrder()
+		o.VenueClientID = route
+		if _, e := b.Place(context.Background(), o); e == nil {
+			t.Fatal("invalid broker route accepted")
+		}
+	}
+	if calls != 0 {
+		t.Fatal("invalid route sent network request")
 	}
 }

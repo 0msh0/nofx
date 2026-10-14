@@ -2,6 +2,8 @@ package binance
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"github.com/adshao/go-binance/v2/futures"
@@ -17,6 +19,27 @@ import (
 type PlanningBroker struct {
 	Client *futures.Client
 	Hedge  bool
+}
+
+// RouteClientID retains all 128 bits of the durable ID and shares NOFX's
+// Binance attribution prefix. Raw URL base64 needs 22 characters, so the
+// complete tagged ID fits the existing 32-character bound without truncation.
+func (b *PlanningBroker) RouteClientID(id string) (string, error) {
+	raw, e := hex.DecodeString(id)
+	if e != nil || len(raw) != 16 {
+		return "", errors.New("invalid planning client ID")
+	}
+	return futuresBrokerPrefix + base64.RawURLEncoding.EncodeToString(raw), nil
+}
+func (b *PlanningBroker) nativeClientID(o live.Order) (string, error) {
+	if o.VenueClientID == "" {
+		return o.ClientID, nil
+	} // Historical untagged orders: query their original ID only.
+	expected, e := b.RouteClientID(o.ClientID)
+	if e != nil || expected != o.VenueClientID {
+		return "", errors.New("persisted Broker route mismatch")
+	}
+	return expected, nil
 }
 
 func (b *PlanningBroker) Venue() string { return "binance" }
@@ -112,6 +135,14 @@ func (b *PlanningBroker) position(side string) futures.PositionSideType {
 	return futures.PositionSideTypeShort
 }
 func (b *PlanningBroker) Place(ctx context.Context, o live.Order) (live.Order, error) {
+	nativeID, err := b.nativeClientID(o)
+	if err != nil {
+		return o, err
+	}
+	if o.VenueClientID == "" {
+		return o, errors.New("Broker route must be persisted before submitting a new order")
+	}
+
 	if len(o.ClientID) != 32 || !core.Positive(o.Price) || !core.Positive(o.Quantity) || (o.Side != "long" && o.Side != "short") {
 		return o, errors.New("invalid locked order")
 	}
@@ -132,11 +163,11 @@ func (b *PlanningBroker) Place(ctx context.Context, o live.Order) (live.Order, e
 		}
 	}
 	if o.Role == "entry" {
-		r, e := b.Client.NewCreateOrderService().Symbol(o.Symbol).Side(side).PositionSide(b.position(o.Side)).Type(futures.OrderTypeLimit).TimeInForce(futures.TimeInForceTypeGTC).Price(string(o.Price)).Quantity(string(o.Quantity)).NewClientOrderID(o.ClientID).Do(ctx)
+		r, e := b.Client.NewCreateOrderService().Symbol(o.Symbol).Side(side).PositionSide(b.position(o.Side)).Type(futures.OrderTypeLimit).TimeInForce(futures.TimeInForceTypeGTC).Price(string(o.Price)).Quantity(string(o.Quantity)).NewClientOrderID(nativeID).Do(ctx)
 		if e != nil {
 			return o, errors.New("Binance 入场回报未确认，请按 client ID 核对")
 		}
-		if r.OrderID <= 0 || r.ClientOrderID != o.ClientID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) || r.Side != side || r.Type != futures.OrderTypeLimit || r.TimeInForce != futures.TimeInForceTypeGTC {
+		if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) || r.Side != side || r.Type != futures.OrderTypeLimit || r.TimeInForce != futures.TimeInForceTypeGTC {
 			return o, errors.New("invalid Binance order receipt")
 		}
 		o.OrderID = fmt.Sprint(r.OrderID)
@@ -151,7 +182,7 @@ func (b *PlanningBroker) Place(ctx context.Context, o live.Order) (live.Order, e
 	} else if o.Role != "sl" {
 		return o, errors.New("unsupported protective order")
 	}
-	service := b.Client.NewCreateAlgoOrderService().Symbol(o.Symbol).Side(side).PositionSide(b.position(o.Side)).Type(typ).Quantity(string(o.Quantity)).TriggerPrice(string(o.Price)).WorkingType(futures.WorkingTypeContractPrice).ClientAlgoId(o.ClientID)
+	service := b.Client.NewCreateAlgoOrderService().Symbol(o.Symbol).Side(side).PositionSide(b.position(o.Side)).Type(typ).Quantity(string(o.Quantity)).TriggerPrice(string(o.Price)).WorkingType(futures.WorkingTypeContractPrice).ClientAlgoId(nativeID)
 	if !b.Hedge {
 		service.ReduceOnly(true)
 	}
@@ -159,7 +190,7 @@ func (b *PlanningBroker) Place(ctx context.Context, o live.Order) (live.Order, e
 	if e != nil {
 		return o, errors.New("Binance 保护订单回报未确认")
 	}
-	if r.AlgoId <= 0 || r.ClientAlgoId != o.ClientID || r.Symbol != o.Symbol || !sameNativeDecimal(r.Quantity, string(o.Quantity)) || !sameNativeDecimal(r.TriggerPrice, string(o.Price)) || r.Side != side || r.OrderType != typ || (!b.Hedge && !r.ReduceOnly) {
+	if r.AlgoId <= 0 || r.ClientAlgoId != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.Quantity, string(o.Quantity)) || !sameNativeDecimal(r.TriggerPrice, string(o.Price)) || r.Side != side || r.OrderType != typ || (!b.Hedge && !r.ReduceOnly) {
 		return o, errors.New("invalid Binance protection receipt")
 	}
 	o.OrderID = fmt.Sprint(r.AlgoId)
@@ -168,12 +199,17 @@ func (b *PlanningBroker) Place(ctx context.Context, o live.Order) (live.Order, e
 	return o, nil
 }
 func (b *PlanningBroker) Lookup(ctx context.Context, o live.Order) (live.Order, error) {
+	nativeID, err := b.nativeClientID(o)
+	if err != nil {
+		return o, err
+	}
+
 	if o.Role != "entry" {
-		r, e := b.Client.NewGetAlgoOrderService().ClientAlgoID(o.ClientID).Do(ctx)
+		r, e := b.Client.NewGetAlgoOrderService().ClientAlgoID(nativeID).Do(ctx)
 		if e != nil {
 			return o, errors.New("Binance 保护订单查询未确认")
 		}
-		if r.AlgoId <= 0 || r.ClientAlgoId != o.ClientID || r.Symbol != o.Symbol || !sameNativeDecimal(r.Quantity, string(o.Quantity)) || !sameNativeDecimal(r.TriggerPrice, string(o.Price)) {
+		if r.AlgoId <= 0 || r.ClientAlgoId != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.Quantity, string(o.Quantity)) || !sameNativeDecimal(r.TriggerPrice, string(o.Price)) {
 			return o, errors.New("protection identity mismatch")
 		}
 		o.OrderID = fmt.Sprint(r.AlgoId)
@@ -205,11 +241,11 @@ func (b *PlanningBroker) Lookup(ctx context.Context, o live.Order) (live.Order, 
 		}
 		return o, nil
 	}
-	r, e := b.Client.NewGetOrderService().Symbol(o.Symbol).OrigClientOrderID(o.ClientID).Do(ctx)
+	r, e := b.Client.NewGetOrderService().Symbol(o.Symbol).OrigClientOrderID(nativeID).Do(ctx)
 	if e != nil {
 		return o, errors.New("Binance 订单查询未确认；查不到不代表成交")
 	}
-	if r.OrderID <= 0 || r.ClientOrderID != o.ClientID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) {
+	if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) {
 		return o, errors.New("order identity mismatch")
 	}
 	o.OrderID = fmt.Sprint(r.OrderID)
@@ -219,15 +255,20 @@ func (b *PlanningBroker) Lookup(ctx context.Context, o live.Order) (live.Order, 
 	return o, nil
 }
 func (b *PlanningBroker) Cancel(ctx context.Context, o live.Order) error {
+	nativeID, err := b.nativeClientID(o)
+	if err != nil {
+		return err
+	}
+
 	if o.Role == "entry" {
-		r, e := b.Client.NewCancelOrderService().Symbol(o.Symbol).OrigClientOrderID(o.ClientID).Do(ctx)
-		if e != nil || r.ClientOrderID != o.ClientID {
+		r, e := b.Client.NewCancelOrderService().Symbol(o.Symbol).OrigClientOrderID(nativeID).Do(ctx)
+		if e != nil || r.ClientOrderID != nativeID {
 			return errors.New("Binance 撤销入场未确认")
 		}
 		return nil
 	}
-	r, e := b.Client.NewCancelAlgoOrderService().ClientAlgoID(o.ClientID).Do(ctx)
-	if e != nil || r.ClientAlgoId != o.ClientID {
+	r, e := b.Client.NewCancelAlgoOrderService().ClientAlgoID(nativeID).Do(ctx)
+	if e != nil || r.ClientAlgoId != nativeID {
 		return errors.New("Binance 撤销保护单未确认")
 	}
 	return nil

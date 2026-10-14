@@ -270,7 +270,11 @@ func (c *Controller) Execute(ctx context.Context, user, id, hash string) (View, 
 		specs = []core.OrderSpec{{Index: 1, Price: v.Plan.Idea.Entry, Quantity: v.Plan.Quantity}}
 	}
 	for _, o := range specs {
-		v.Orders = append(v.Orders, Order{ClientID: cid(v.ID, o.Index, "entry", ""), Role: "entry", Symbol: v.Plan.Snapshot.Symbol, Side: v.Plan.Idea.Side, Price: o.Price, Quantity: o.Quantity, Status: "scheduled", Filled: "0"})
+		intent, err := routedOrder(b, Order{ClientID: cid(v.ID, o.Index, "entry", ""), Role: "entry", Symbol: v.Plan.Snapshot.Symbol, Side: v.Plan.Idea.Side, Price: o.Price, Quantity: o.Quantity, Status: "scheduled", Filled: "0"})
+		if err != nil {
+			return v, err
+		}
+		v.Orders = append(v.Orders, intent)
 	}
 	if e = c.save(&v); e != nil {
 		return v, e
@@ -499,6 +503,11 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 				price = v.Plan.Idea.Target
 			}
 			o := Order{ClientID: client, Role: role, Symbol: entry.Symbol, Side: entry.Side, Price: price, Quantity: delta, Status: "submitting", Filled: "0", ParentID: entry.ClientID}
+			o, er := routedOrder(broker, o)
+			if er != nil {
+				attention("保护订单路由无法确认，停止后续入场")
+				break
+			}
 			v.Orders = append(v.Orders, o)
 			if e = c.save(&v); e != nil {
 				return true
@@ -648,7 +657,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 var nativeDecimal = regexp.MustCompile(`^[0-9]{1,24}(\.[0-9]{1,12})?$`)
 
 func validReceipt(request, got Order) bool {
-	if got.ClientID != request.ClientID || got.Role != request.Role || got.ParentID != request.ParentID || got.Symbol != request.Symbol || got.Side != request.Side || cmp(got.Quantity, request.Quantity) != 0 || cmp(got.Price, request.Price) != 0 || got.OrderID == "" {
+	if got.VenueClientID != request.VenueClientID || got.ClientID != request.ClientID || got.Role != request.Role || got.ParentID != request.ParentID || got.Symbol != request.Symbol || got.Side != request.Side || cmp(got.Quantity, request.Quantity) != 0 || cmp(got.Price, request.Price) != 0 || got.OrderID == "" {
 		return false
 	}
 	if _, e := decimal(got.Filled); e != nil || cmp(got.Filled, got.Quantity) > 0 {

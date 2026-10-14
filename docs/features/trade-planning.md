@@ -126,3 +126,25 @@ payment authorization, gasless approval, receipt verification and model updates.
 Unknown paid-call outcomes retain their safe upstream classification and are
 shown as requiring payment reconciliation, never as an instruction to resend.
 No remote push, PR, deployment or real transaction is part of local validation.
+
+## Builder and Broker routing
+
+The AI and connected-account configuration are NOFX's existing per-user records.
+Planning execution adds a strict finite-order adapter inside NOFX's exchange
+packages; it does not directly call legacy helpers that ignore caller IDs or
+infer fills from missing orders. Native credentials, SDKs and attribution are
+shared with NOFX.
+
+Hyperliquid planning entry and protective orders carry the existing NOFX
+`defaultBuilder` address and fee (50 tenths of a basis point = 0.05%). Binance
+entry and protective orders use the same `x-KzrpZaP9` prefix as NOFX automatic
+orders. The prefix is shared as a constant, and a lossless base64url encoding of
+the durable 128-bit ID keeps the complete client ID within 32 characters. Native
+routing IDs are persisted before sending, and reused for querying/canceling;
+historical untagged orders keep their original lookup ID.
+
+These fields establish requested routing, not verified earnings. Builder fees
+belong to the configured builder, and Binance rebate eligibility belongs to the
+registered Link/Broker account. Neither account ownership nor successful rebate
+settlement has been verified here. No real order or fee receipt was produced by
+the tests.

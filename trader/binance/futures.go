@@ -15,12 +15,15 @@ import (
 	"github.com/adshao/go-binance/v2/futures"
 )
 
+const futuresBrokerID = "KzrpZaP9"
+const futuresBrokerPrefix = "x-" + futuresBrokerID
+
 // getBrOrderID generates unique order ID (for futures contracts)
 // Format: x-{BR_ID}{TIMESTAMP}{RANDOM}
 // Futures limit is 32 characters, use this limit consistently
 // Uses nanosecond timestamp + random number to ensure global uniqueness (collision probability < 10^-20)
 func getBrOrderID() string {
-	brID := "KzrpZaP9" // Futures br ID
+	brID := futuresBrokerID // Shared by automatic and approved planning orders
 
 	// Calculate available space: 32 - len("x-KzrpZaP9") = 32 - 11 = 21 characters
 	// Allocation: 13-digit timestamp + 8-digit random = 21 characters (perfect utilization)

@@ -29,6 +29,10 @@ func TestPlanningHyperliquidNativeReceiptsAndUnknownLookup(t *testing.T) {
 			actions = append(actions, a)
 			switch a["type"] {
 			case "order":
+				builder, ok := a["builder"].(map[string]any)
+				if !ok || builder["b"] != defaultBuilder.Builder || builder["f"] != float64(defaultBuilder.Fee) {
+					t.Errorf("planning order lost NOFX Builder routing: %v", a["builder"])
+				}
 				fmt.Fprint(w, `{"status":"ok","response":{"type":"order","data":{"statuses":[{"resting":{"oid":12345}}]}}}`)
 			case "cancelByCloid":
 				fmt.Fprint(w, `{"status":"ok","response":{"type":"cancel","data":{"statuses":["success"]}}}`)

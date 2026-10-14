@@ -353,3 +353,33 @@ func TestExpiredApprovalCanBeCancelledWithoutOrders(t *testing.T) {
 		t.Fatal("unreleased expired lease")
 	}
 }
+
+type routedTestBroker struct{ *testBroker }
+
+func (*routedTestBroker) RouteClientID(id string) (string, error) { return "test-broker-" + id, nil }
+func TestExecutionPersistsBrokerRouteBeforeSubmit(t *testing.T) {
+	c, b, _, p := setup(t, "limit")
+	c.Factory = func(context.Context, string, string) (Broker, string, error) {
+		return &routedTestBroker{b}, "account", nil
+	}
+	v := approved(t, c, p)
+	got, e := c.Execute(context.Background(), "alice", v.ID, v.ApprovalHash)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if got.Orders[0].VenueClientID != "test-broker-"+got.Orders[0].ClientID {
+		t.Fatal("route was not included in durable intent")
+	}
+	c.Shutdown()
+	durable, e := c.Get("alice", v.ID)
+	if e != nil || durable.Orders[0].VenueClientID != got.Orders[0].VenueClientID {
+		t.Fatal("route lost across reload", e)
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, o := range b.placed {
+		if o.VenueClientID != got.Orders[0].VenueClientID {
+			t.Fatal("submit did not use persisted route")
+		}
+	}
+}

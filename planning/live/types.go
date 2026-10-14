@@ -9,18 +9,19 @@ import (
 )
 
 type Order struct {
-	ParentID string       `json:"parent_id,omitempty"`
-	ClientID string       `json:"client_id"`
-	OrderID  string       `json:"order_id"`
-	Role     string       `json:"role"`
-	Symbol   string       `json:"symbol"`
-	Side     string       `json:"side"`
-	Price    core.Decimal `json:"price"`
-	Quantity core.Decimal `json:"quantity"`
-	Status   string       `json:"status"`
-	Filled   core.Decimal `json:"filled"`
-	Average  core.Decimal `json:"average,omitempty"`
-	Error    string       `json:"error,omitempty"`
+	VenueClientID string       `json:"venue_client_id,omitempty"`
+	ParentID      string       `json:"parent_id,omitempty"`
+	ClientID      string       `json:"client_id"`
+	OrderID       string       `json:"order_id"`
+	Role          string       `json:"role"`
+	Symbol        string       `json:"symbol"`
+	Side          string       `json:"side"`
+	Price         core.Decimal `json:"price"`
+	Quantity      core.Decimal `json:"quantity"`
+	Status        string       `json:"status"`
+	Filled        core.Decimal `json:"filled"`
+	Average       core.Decimal `json:"average,omitempty"`
+	Error         string       `json:"error,omitempty"`
 }
 type Account struct {
 	Equity, Available, FeeBPS core.Decimal
@@ -28,8 +29,23 @@ type Account struct {
 	OpenOrders                int
 }
 
-// Broker preserves exact approved decimal strings and stable client IDs.
-// Lookup must return actual exchange state; absence is never a fill or a retry permit.
+// ClientIDRouter supplies an exchange-native route before intent is persisted.
+// Empty routes on historical records retain their original raw ID for lookup.
+type ClientIDRouter interface{ RouteClientID(string) (string, error) }
+
+func routedOrder(b Broker, o Order) (Order, error) {
+	if router, ok := b.(ClientIDRouter); ok {
+		id, e := router.RouteClientID(o.ClientID)
+		if e != nil {
+			return o, e
+		}
+		o.VenueClientID = id
+	}
+	return o, nil
+}
+
+// Broker preserves exact approved decimals and stable client IDs. Missing orders
+// are never assumed filled and never authorize blind resubmission.
 type Broker interface {
 	Venue() string
 	Account(context.Context, string) (Account, error)
