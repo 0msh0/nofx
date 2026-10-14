@@ -302,3 +302,24 @@ it('preflight failure clears busy state without accumulating phantom user messag
   expect(screen.getAllByText('Account sizing unavailable')).toHaveLength(1)
   expect(screen.getByLabelText('Trade idea')).toBeEnabled()
 })
+
+it('account review does not restart model activity or show a planning stop button', async () => {
+  let finish!: (value: unknown) => void
+  const pending = new Promise((resolve) => {
+    finish = resolve
+  })
+  const base = mocks.api.getMockImplementation()!
+  mocks.api.mockImplementation((path: string, body?: unknown) =>
+    path === 'compile' ? pending : base(path, body)
+  )
+  open()
+  fireEvent.click(await screen.findByRole('button', { name: /Test plan one/ }))
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Review and approve live trade' })
+  )
+  await screen.findByText('Validating account and order details…')
+  expect(screen.queryByText('Live activity')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Stop planning' })).toBeNull()
+  finish({ ...plan('resized'), constraints: { leverage: 5 } })
+  await screen.findByRole('dialog')
+})

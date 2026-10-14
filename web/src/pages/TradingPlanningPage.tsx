@@ -84,6 +84,7 @@ export function TradingPlanningPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]),
     [instruction, setInstruction] = useState(''),
     [busy, setBusy] = useState(false),
+    [planningBusy, setPlanningBusy] = useState(false),
     [status, setStatus] = useState(''),
     [error, setError] = useState(''),
     [price, setPrice] = useState('—'),
@@ -321,6 +322,7 @@ export function TradingPlanningPage() {
       .filter((m) => m.role !== 'error')
       .slice(-16)
     setBusy(true)
+    setPlanningBusy(true)
     setError('')
     setInstruction('')
     resetTurn()
@@ -417,6 +419,7 @@ export function TradingPlanningPage() {
           recordActivity(items, { type: 'cancelled', data: {} })
         )
       setBusy(false)
+      setPlanningBusy(false)
       setStatus(
         controller.signal.aborted ? 'Planning stopped' : 'Planning finished'
       )
@@ -767,7 +770,7 @@ export function TradingPlanningPage() {
               plans={records
                 .filter((record) => turnPlanIDs.includes(record.plan.id))
                 .map((record) => record.plan)}
-              busy={busy}
+              busy={planningBusy}
               selected={selected}
               onSelect={choose}
             />
@@ -1021,11 +1024,24 @@ export function TradingPlanningPage() {
           {busy && (
             <div className="planning-progress" role="status" aria-live="polite">
               <span className="planning-spinner" />
-              {status || 'Preparing plans…'}
-              <button onClick={() => abort.current?.abort()}>Stop</button>
+              {planningBusy
+                ? status || 'Preparing plans…'
+                : 'Validating account and order details…'}
+              {planningBusy && (
+                <button onClick={() => abort.current?.abort()}>Stop</button>
+              )}
             </div>
           )}
-          <div className="planning-thread" ref={chatBox} onScroll={() => { const box = chatBox.current; if (box) chatFollow.current = box.scrollHeight - box.scrollTop - box.clientHeight < 80 }}>
+          <div
+            className="planning-thread"
+            ref={chatBox}
+            onScroll={() => {
+              const box = chatBox.current
+              if (box)
+                chatFollow.current =
+                  box.scrollHeight - box.scrollTop - box.clientHeight < 80
+            }}
+          >
             <div className="planning-messages">
               {messages.length === 0 && (
                 <p>
@@ -1047,7 +1063,7 @@ export function TradingPlanningPage() {
                   </div>
                 ))}
             </div>
-            <PlanningActivity items={trace} busy={busy} />
+            <PlanningActivity items={trace} busy={planningBusy} />
           </div>
 
           <form
@@ -1077,12 +1093,12 @@ export function TradingPlanningPage() {
               >
                 Mark support / resistance
               </button>
-              {busy ? (
+              {planningBusy ? (
                 <button type="button" onClick={() => abort.current?.abort()}>
                   Stop planning
                 </button>
               ) : (
-                <button type="submit" disabled={!instruction.trim()}>
+                <button type="submit" disabled={busy || !instruction.trim()}>
                   Send
                 </button>
               )}
