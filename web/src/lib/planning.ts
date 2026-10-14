@@ -187,7 +187,7 @@ export function loadPlanningChart(): Promise<void> {
     return promise
   }
   return load('/charting_library/charting_library.standalone.js').then(() =>
-    load('/planning/chart.js')
+    load('/planning/chart.js?v=nofx-paper-1')
   )
 }
 export function expired(p: Plan, clock = Date.now()) {

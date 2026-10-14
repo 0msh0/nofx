@@ -432,9 +432,14 @@ export function TradingPlanningPage() {
   }
   return (
     <div className="planning-page">
+      <div className="planning-heading">
+        <div>
+          <h1>交易规划</h1>
+          <p>看行情，比较方案，由你决定每一次交易。</p>
+        </div>
+        <Link to={ROUTES.settings}>管理交易账户与 AI →</Link>
+      </div>
       <div className="planning-toolbar">
-        <strong>交易规划</strong>
-        <span className="planning-live">真实交易 · 明确批准后下单</span>
         <select
           aria-label="交易账户"
           value={exchangeID}
@@ -468,7 +473,7 @@ export function TradingPlanningPage() {
           />
           <button disabled={busy}>打开标的</button>
         </form>
-        <Link to={ROUTES.settings}>连接账户／配置 AI</Link>
+        <span className="planning-live">真实交易 · 批准后执行</span>
       </div>
       {error && (
         <div className="planning-error" role="alert">
@@ -595,6 +600,7 @@ export function TradingPlanningPage() {
             <div className="planning-section-title">
               <b>候选方案 {records.length}</b>
               <button
+                className="planning-primary"
                 disabled={busy}
                 onClick={() =>
                   send(

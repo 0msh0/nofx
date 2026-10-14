@@ -76,7 +76,7 @@
         interval: this.resolution,
         locale: "zh",
         timezone: "Etc/UTC",
-        theme: "dark",
+        theme: "light",
         autosize: true,
         datafeed: this.datafeed,
         enabled_features: ["iframe_loading_same_origin"],
@@ -92,20 +92,20 @@
         ],
         overrides: {
           "paneProperties.backgroundType": "solid",
-          "paneProperties.background": "#0c1017",
-          "paneProperties.vertGridProperties.color": "#1c2533",
-          "paneProperties.horzGridProperties.color": "#1c2533",
-          "scalesProperties.textColor": "#8b99ac",
-          "mainSeriesProperties.candleStyle.upColor": "#5fcdb4",
-          "mainSeriesProperties.candleStyle.downColor": "#f28c98",
-          "mainSeriesProperties.candleStyle.borderUpColor": "#5fcdb4",
-          "mainSeriesProperties.candleStyle.borderDownColor": "#f28c98",
-          "mainSeriesProperties.candleStyle.wickUpColor": "#5fcdb4",
-          "mainSeriesProperties.candleStyle.wickDownColor": "#f28c98",
+          "paneProperties.background": "#F7F4EC",
+          "paneProperties.vertGridProperties.color": "#e5e0d6",
+          "paneProperties.horzGridProperties.color": "#e5e0d6",
+          "scalesProperties.textColor": "#6B6557",
+          "mainSeriesProperties.candleStyle.upColor": "#2E8B57",
+          "mainSeriesProperties.candleStyle.downColor": "#D6433A",
+          "mainSeriesProperties.candleStyle.borderUpColor": "#2E8B57",
+          "mainSeriesProperties.candleStyle.borderDownColor": "#D6433A",
+          "mainSeriesProperties.candleStyle.wickUpColor": "#2E8B57",
+          "mainSeriesProperties.candleStyle.wickDownColor": "#D6433A",
         },
         loading_screen: {
-          backgroundColor: "#0c1017",
-          foregroundColor: "#5fcdb4",
+          backgroundColor: "#F7F4EC",
+          foregroundColor: "#2E8B57",
         },
         auto_save_delay: 1,
       });
@@ -583,11 +583,11 @@
           if(version===this.plotVersion && this.aiCandidates.length)await this.draw(this.aiCandidates.slice(),"ai");
           return;
         }
-        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["挂单 "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#e6bf76"]) : [[plan.idea.execution?.kind==="twap"?"TWAP 限价":"入场",plan.idea.entry,"#e6bf76"]];
+        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["挂单 "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#9b6a14"]) : [[plan.idea.execution?.kind==="twap"?"TWAP 限价":"入场",plan.idea.entry,"#9b6a14"]];
         for (const [label, price, color] of [
           ...entries,
-          ["止损", plan.idea.stop, "#f28c98"],
-          ["止盈", plan.idea.target, "#5fcdb4"],
+          ["止损", plan.idea.stop, "#D6433A"],
+          ["止盈", plan.idea.target, "#2E8B57"],
         ]) {
           const id = await this.chart.createShape(
             { time: start, price: Number(price) },
@@ -617,8 +617,8 @@
             } catch {}
         }
         for (const [p, color] of [
-          [plan.idea.stop, "#f28c98"],
-          [plan.idea.target, "#5fcdb4"],
+          [plan.idea.stop, "#D6433A"],
+          [plan.idea.target, "#2E8B57"],
         ])
           await make(
             [
@@ -646,17 +646,17 @@
       }
     }
     async paintComparisons(plans,selected,times,common,make,version) {
-      const colors=["#edc477","#83b8ff","#c2a0ff"],letters=["A","B","C"],span=Math.min(times.length-1,Math.max(2,Math.floor((times.length-1)*0.72))),base=times.length-1-span,lane=Math.max(2,Math.floor(span/plans.length));
+      const colors=["#9b6a14","#3575a8","#8050a1"],letters=["A","B","C"],span=Math.min(times.length-1,Math.max(2,Math.floor((times.length-1)*0.72))),base=times.length-1-span,lane=Math.max(2,Math.floor(span/plans.length));
       for(let i=0;i<plans.length;i++) {
         if(version!==this.plotVersion)return;
         const p=plans[i],orders=p.orders?.length?p.orders:[{price:p.idea.entry,quantity:p.quantity}],total=orders.reduce((n,o)=>n+Number(o.quantity),0),entry=total?orders.reduce((n,o)=>n+Number(o.price)*Number(o.quantity),0)/total:Number(p.idea.entry);
         const start=times[Math.min(times.length-2,base+i*lane)],end=times[Math.min(times.length-1,base+(i+1)*lane-1)],active=p.id===selected,color=colors[i],tag=letters[i];
-        for(const [price,c]of [[p.idea.stop,"#f28c98"],[p.idea.target,"#5fcdb4"]])await make([{time:start,price:entry},{time:end,price:Number(price)}],{...common,shape:"rectangle",zOrder:"bottom",overrides:{color:c,backgroundColor:c,fillBackground:true,transparency:active?84:93,linewidth:active?1:0}});
+        for(const [price,c]of [[p.idea.stop,"#D6433A"],[p.idea.target,"#2E8B57"]])await make([{time:start,price:entry},{time:end,price:Number(price)}],{...common,shape:"rectangle",zOrder:"bottom",overrides:{color:c,backgroundColor:c,fillBackground:true,transparency:active?84:93,linewidth:active?1:0}});
         const levels=active?orders.map(o=>[Number(o.price),color]):[[entry,color]];
-        levels.push([Number(p.idea.stop),"#f28c98"],[Number(p.idea.target),"#5fcdb4"]);
+        levels.push([Number(p.idea.stop),"#D6433A"],[Number(p.idea.target),"#2E8B57"]);
         for(const [price,c]of levels)await make([{time:start,price},{time:end,price}],{...common,shape:"trend_line",text:"",overrides:{linecolor:c,linewidth:active?2:1,linestyle:active?0:2,extendLeft:false,extendRight:false,showLabel:false,showPrice:false,showDistance:false,showAngle:false}});
         const fmt=x=>window.PlanCompare?.format(x) || Number(x).toLocaleString("en-US",{maximumFractionDigits:4});
-        const labels=[[Number(p.idea.target),tag+" · "+(p.idea.side==="long"?"多":"空")+" 目标 "+fmt(p.idea.target),"#5fcdb4"],[entry,(orders.length>1 && p.idea.execution?.kind==="ladder"?"均价 ≈ ":"入场 ")+fmt(entry),color],[Number(p.idea.stop),"止损 "+fmt(p.idea.stop),"#f28c98"]];
+        const labels=[[Number(p.idea.target),tag+" · "+(p.idea.side==="long"?"多":"空")+" 目标 "+fmt(p.idea.target),"#2E8B57"],[entry,(orders.length>1 && p.idea.execution?.kind==="ladder"?"均价 ≈ ":"入场 ")+fmt(entry),color],[Number(p.idea.stop),"止损 "+fmt(p.idea.stop),"#D6433A"]];
         for(const [price,text,c]of labels){
           const label=await this.chart.createShape({time:text.startsWith("止损")?times[Math.min(times.length-1,base+i*lane+Math.floor(lane*0.45))]:start,price},{...common,shape:"text",text,overrides:{color:c,textcolor:c,fontsize:text.startsWith("止损")?12:14,bold:active}});
           if(version===this.plotVersion)this.overlays.push(label);else try{this.chart.removeEntity(label);}catch{}
@@ -753,7 +753,7 @@
           time: source==="ai" && d.kind==="horizontal_line" && anchor ? anchor : p.time,
           price: Number(p.price),
         }));
-        const color=source==="ai" ? ({support:"#5fcdb4",resistance:"#f28c98",other:"#91b9e8"}[this.annotationKind(d)]) : "#91b9e8";
+        const color=source==="ai" ? ({support:"#2E8B57",resistance:"#D6433A",other:"#3575a8"}[this.annotationKind(d)]) : "#3575a8";
         const options = {
           shape: d.kind,
           text: source==="ai"?"":d.label,

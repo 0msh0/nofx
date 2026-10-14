@@ -58,10 +58,10 @@ const num = (n: string | number) =>
 const money = (n: string | number) =>
   Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 const series = [
-  ['longCost', '多仓成本', '#60cbb6'],
-  ['shortCost', '空仓成本', '#83baff'],
-  ['longLiq', '多仓估计清算', '#f18d9a'],
-  ['shortLiq', '空仓估计清算', '#edc274'],
+  ['longCost', '多仓成本', '#2E8B57'],
+  ['shortCost', '空仓成本', '#3575a8'],
+  ['longLiq', '多仓估计清算', '#D6433A'],
+  ['shortLiq', '空仓估计清算', '#9b6a14'],
 ] as const
 
 export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
@@ -135,7 +135,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
           aria-label="成本与估计清算金额价格分布"
           viewBox="0 0 1000 270"
         >
-          <text x="10" y="15" fill="#a8bbd1">
+          <text x="10" y="15" fill="#6B6557">
             金额 / USDC
           </text>
           {[0, 0.5, 1].map((t) => (
@@ -145,9 +145,9 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                 x2="930"
                 y1={220 - t * 180}
                 y2={220 - t * 180}
-                stroke="#263448"
+                stroke="#ddd7cb"
               />
-              <text x="2" y={224 - t * 180} fill="#a8bbd1" fontSize="11">
+              <text x="2" y={224 - t * 180} fill="#6B6557" fontSize="11">
                 {money(peak * t)}
               </text>
             </g>
@@ -175,7 +175,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
               x={70 + t * 860}
               y="244"
               textAnchor="middle"
-              fill="#a8bbd1"
+              fill="#6B6557"
               fontSize="11"
             >
               {num(min + t * (max - min))}
@@ -188,15 +188,15 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                 x2={x(v.mark)}
                 y1="30"
                 y2="220"
-                stroke="#f0d48a"
+                stroke="#9b6a14"
                 strokeDasharray="4"
               />
-              <text x={x(v.mark)} y="25" fill="#f0d48a" fontSize="12">
+              <text x={x(v.mark)} y="25" fill="#9b6a14" fontSize="12">
                 参考价 {num(v.mark)}
               </text>
             </g>
           )}
-          <text x="930" y="266" textAnchor="end" fill="#a8bbd1" fontSize="11">
+          <text x="930" y="266" textAnchor="end" fill="#6B6557" fontSize="11">
             价格 / USDC →
           </text>
         </svg>
@@ -266,7 +266,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                   key={t}
                   x="2"
                   y={250 - t * 220}
-                  fill="#a8bbd1"
+                  fill="#6B6557"
                   fontSize="12"
                 >
                   {num(v.win_min + t * (v.win_max - v.win_min))}%
@@ -290,7 +290,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                       fill={
                         datum
                           ? `rgba(${side === 'long' ? '120,182,251' : '242,140,140'},${0.06 + 0.94 * Math.sqrt(Number(datum.notional) / peak)})`
-                          : '#172232'
+                          : '#e8e2d7'
                       }
                       onMouseEnter={() => show(label)}
                       onFocus={() => show(label)}
@@ -313,7 +313,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                   x={60 + ((1 + t * (v.columns - 2)) * 550) / v.columns}
                   y="270"
                   textAnchor="middle"
-                  fill="#a8bbd1"
+                  fill="#6B6557"
                   fontSize="11"
                 >
                   {t === 0 ? '＜' : t === 1 ? '≥' : ''}
@@ -324,7 +324,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                 x="610"
                 y="300"
                 textAnchor="end"
-                fill="#a8bbd1"
+                fill="#6B6557"
                 fontSize="12"
               >
                 开仓成本 / 统计参考价 →
