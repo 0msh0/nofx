@@ -72,3 +72,12 @@ it('preserves safe diagnostics when formatting an error twice', () => {
     'Diagnostic: gateway_http_502'
   )
 })
+
+it('explains unsupported model tools without claiming a free failed request', () => {
+  const text = formatRequestError(
+    'paid request outcome unknown [diagnostic:gateway_tools_unsupported]'
+  )
+  expect(text).toContain('does not support native tool calls')
+  expect(text).toContain('DeepSeek')
+  expect(text).toContain('Payment result is unconfirmed')
+})

@@ -219,3 +219,18 @@ resigns or resends a paid request and still verifies payer, amount, chain,
 facilitator and Permit2 calldata. Unknown outcomes carry a fixed, sanitized
 diagnostic category so the UI can distinguish receipt/RPC failures without
 exposing provider payloads or credentials.
+
+### Model tool capabilities
+
+Planning reuses the configured NOFX model client and fee wallet. Native function
+calls remain enabled for DeepSeek. Claw402 OpenAI routes that reject `tools` use
+an explicit text-tool protocol selected before the request: schemas are supplied
+as text, the model returns a bounded JSON envelope, and Go validates every tool
+name and argument object before dispatching it. The available tools only read
+market data, annotate charts, and create risk-validated drafts. Approval and order
+execution are never model tools. Malformed envelopes or unauthorized tool names
+fail without dispatch. A failed paid request is never automatically retried with
+a different protocol or a new payment authorization.
+
+A gateway HTTP 400 is not proof that no payment occurred. The UI retains only
+allowlisted error classifications and never displays upstream response bodies.

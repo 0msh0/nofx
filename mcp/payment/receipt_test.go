@@ -143,3 +143,19 @@ func TestUnknownPaymentDiagnosticDoesNotExposeCause(t *testing.T) {
 		}
 	}
 }
+
+func TestPaidFailureMetadataNeverEchoesRemoteMessages(t *testing.T) {
+	for _, tc := range []struct{ body, want string }{
+		{`{"error":{"code":"invalid_function_parameters","message":"secret key and private prompt"}}`, " validation:invalid_function_parameters"},
+		{`{"error":{"type":"invalid_request_error","message":"secret"}}`, " validation:invalid_request_error"},
+		{`{"error":{"code":"private_secret","message":"secret"}}`, ""},
+		{`{"error":"secret"}`, ""},
+		{`{"error":"upstream_request_rejected","code":"invalid_function_parameters","message":"secret"}`, " validation:invalid_function_parameters"},
+		{`{"error":"upstream_request_rejected","message":"Invalid schema: required field missing. private prompt"}`, " hint:schema_required"},
+		{`{"error":{"message":"stream must be true, private prompt"}}`, " hint:stream_required"},
+	} {
+		if got := paidFailureMetadata([]byte(tc.body)); got != tc.want {
+			t.Fatalf("metadata: %q", got)
+		}
+	}
+}

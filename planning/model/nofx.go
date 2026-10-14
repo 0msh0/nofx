@@ -6,11 +6,16 @@ import (
 	"errors"
 	"nofx/mcp"
 	"nofx/mcp/payment"
+	"sync/atomic"
 )
 
 // NOFXAdapter reuses NOFX's provider, wallet billing and transient reasoning.
 // Credentials remain in NOFX's configured client and never enter model messages.
-type NOFXAdapter struct{ Client mcp.AIClient }
+type NOFXAdapter struct {
+	Client    mcp.AIClient
+	TextTools bool
+	turn      atomic.Uint64
+}
 
 func (a *NOFXAdapter) Chat(ctx context.Context, messages []Message, tools []Tool) (Message, error) {
 	wire := make([]mcp.Message, 0, len(messages))
@@ -38,6 +43,11 @@ func (a *NOFXAdapter) Chat(ctx context.Context, messages []Message, tools []Tool
 	if len(defs) > 0 {
 		request.ToolChoice = "auto"
 	}
+	if a.TextTools {
+		request.Messages = textToolMessages(wire, defs)
+		request.Tools = nil
+		request.ToolChoice = ""
+	}
 	result, e := a.Client.CallWithRequestFull(request)
 	if e != nil {
 		// Preserve the upstream paid-call safety classification without exposing
@@ -57,6 +67,12 @@ func (a *NOFXAdapter) Chat(ctx context.Context, messages []Message, tools []Tool
 	}
 	if result == nil || len(result.Content) > 24000 || len(result.ToolCalls) > 5 || len(result.ReasoningContent) > 256<<10 {
 		return Message{}, errors.New("invalid NOFX AI response")
+	}
+	if a.TextTools {
+		if len(result.ToolCalls) != 0 {
+			return Message{}, errors.New("unexpected native tool response on text-only model")
+		}
+		return parseTextTools(result.Content, tools, a.turn.Add(1))
 	}
 	out := Message{Role: "assistant", Content: result.Content, ReasoningContent: result.ReasoningContent}
 	for _, t := range result.ToolCalls {

@@ -426,7 +426,7 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 		planningError(c, e)
 		return
 	}
-	engine := harness.Engine{Store: ds, Market: p.source, Charts: p.source, Model: &model.NOFXAdapter{Client: client}, Limits: in.Constraints, Forge: forgeRegistry, Plugins: registry}
+	engine := harness.Engine{Store: ds, Market: p.source, Charts: p.source, Model: &model.NOFXAdapter{Client: client, TextTools: model.RequiresTextTools(ai.Provider, ai.CustomModelName)}, Limits: in.Constraints, Forge: forgeRegistry, Plugins: registry}
 	var preferences planning.Preferences
 	if s.store.GormDB().Where("user_id = ?", user).First(&preferences).Error == nil && preferences.Text != "" {
 		engine.Memory = []string{preferences.Text}

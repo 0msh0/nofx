@@ -266,7 +266,15 @@ func (e *PaymentOutcomeUnknownError) ReasonCode() string {
 		return "verification_failed"
 	}
 	text := strings.ToLower(e.Cause.Error())
+	for _, hint := range []string{"schema_required", "schema_additional_properties", "function_schema", "stream_required", "tools_unsupported", "context_length"} {
+		if strings.Contains(text, "hint:"+hint) {
+			return "gateway_" + hint
+		}
+	}
 	for _, r := range []struct{ match, code string }{
+		{"validation:invalid_function_parameters", "gateway_invalid_function_parameters"},
+		{"validation:unsupported_parameter", "gateway_unsupported_parameter"},
+		{"validation:invalid_request_error", "gateway_invalid_request"},
 		{"paid request returned status 400", "gateway_http_400"},
 		{"paid request returned status 429", "gateway_http_429"},
 		{"paid request returned status 502", "gateway_http_502"},
@@ -365,13 +373,14 @@ func DoX402RequestStream(ctx context.Context, httpClient *http.Client,
 		return nil, &PaymentOutcomeUnknownError{Cause: err}
 	}
 	if paidResp.StatusCode != http.StatusOK {
-		// Don't include a gateway body: it may contain credentials or signatures.
-		_, _ = io.Copy(io.Discard, io.LimitReader(paidResp.Body, 4096))
+		// Retain only allowlisted protocol metadata. Never include a remote error
+		// message or arbitrary response body: these may echo private inputs.
+		failureBody, _ := io.ReadAll(io.LimitReader(paidResp.Body, 16384))
 		paidResp.Body.Close()
 		if paidResp.StatusCode == http.StatusPaymentRequired && paidResp.Header.Get("X-Claw402-Payment-Stage") == "verification_rejected" && paidResp.Header.Get("Payment-Response") == "" && paidResp.Header.Get("X-Payment-Response") == "" {
 			return nil, &PaymentVerificationRejectedError{Status: paidResp.StatusCode}
 		}
-		return nil, &PaymentOutcomeUnknownError{Cause: fmt.Errorf("%s paid request returned status %d; reconcile the original payment before retrying", providerTag, paidResp.StatusCode)}
+		return nil, &PaymentOutcomeUnknownError{Cause: fmt.Errorf("%s paid request returned status %d%s; reconcile the original payment before retrying", providerTag, paidResp.StatusCode, paidFailureMetadata(failureBody))}
 	}
 	// Remote headers cannot manufacture this internal verification flag.
 	paidResp.Header.Del("X-Nofx-Receipt-Verified")
@@ -380,6 +389,57 @@ func DoX402RequestStream(ctx context.Context, httpClient *http.Client,
 		return nil, &PaymentOutcomeUnknownError{Cause: err}
 	}
 	return paidResp, nil
+}
+
+func paidFailureMetadata(body []byte) string {
+	var response struct {
+		Error   json.RawMessage `json:"error"`
+		Code    string          `json:"code"`
+		Message string          `json:"message"`
+	}
+	if json.Unmarshal(body, &response) != nil {
+		return ""
+	}
+	var nested struct {
+		Code    string `json:"code"`
+		Type    string `json:"type"`
+		Message string `json:"message"`
+	}
+	if json.Unmarshal(response.Error, &nested) == nil {
+		if nested.Code != "" {
+			response.Code = nested.Code
+		} else if nested.Type != "" {
+			response.Code = nested.Type
+		}
+		if nested.Message != "" {
+			response.Message = nested.Message
+		}
+	}
+	message := strings.ToLower(response.Message)
+	if strings.Contains(message, "schema") {
+		if strings.Contains(message, "required") {
+			return " hint:schema_required"
+		}
+		if strings.Contains(message, "additionalproperties") {
+			return " hint:schema_additional_properties"
+		}
+		return " hint:function_schema"
+	}
+	if strings.Contains(message, "stream") && strings.Contains(message, "true") {
+		return " hint:stream_required"
+	}
+	if strings.Contains(message, "tools") && strings.Contains(message, "not supported") {
+		return " hint:tools_unsupported"
+	}
+	if strings.Contains(message, "context length") {
+		return " hint:context_length"
+	}
+	for _, code := range []string{"invalid_function_parameters", "unsupported_parameter", "invalid_request_error"} {
+		if response.Code == code {
+			return " validation:" + code
+		}
+	}
+	return ""
 }
 
 // x402StreamIdleTimeout is the idle timeout for SSE streaming through x402.
