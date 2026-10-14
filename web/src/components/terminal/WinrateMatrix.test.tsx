@@ -305,3 +305,33 @@ it('keeps demo queries offline and stops pagination at the last page', () => {
   expect(mocks.map).not.toHaveBeenCalled()
   expect(mocks.holders).not.toHaveBeenCalled()
 })
+
+const unknownPayment = 'paid request outcome unknown; refusing automatic replay: malformed HTTP response "\\x00\\x00\\x12\\x04"'
+
+it('does not expose a binary dump or offer a blind paid matrix retry', async () => {
+  mocks.map.mockRejectedValue(new Error(unknownPayment))
+  render(view('SOL'))
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('Payment result is unconfirmed')
+  expect(document.body.textContent).not.toContain('\\x00')
+  expect(screen.getAllByRole('alert')).toHaveLength(1)
+  const retry = screen.getByRole('button', {name:'Check original payment before retrying'})
+  expect(retry).toBeDisabled()
+  fireEvent.click(retry)
+  expect(mocks.map).toHaveBeenCalledTimes(1)
+  expect(mocks.holders).not.toHaveBeenCalled()
+})
+
+it('blocks blind paid drilldown retries after an unknown payment', async () => {
+  mocks.holders.mockRejectedValue(new Error(unknownPayment))
+  render(view('NVDA'))
+  await screen.findByText('● current snapshot')
+  fireEvent.click(cell())
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('Payment result is unconfirmed')
+  expect(document.body.textContent).not.toContain('\\x00')
+  const retry = screen.getByRole('button', {name:'Check original payment before retrying'})
+  expect(retry).toBeDisabled()
+  fireEvent.click(retry)
+  expect(mocks.holders).toHaveBeenCalledTimes(1)
+})

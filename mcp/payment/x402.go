@@ -249,7 +249,14 @@ func captureSettledUSD(c *mcp.Client, h http.Header) {
 type PaymentOutcomeUnknownError struct{ Cause error }
 
 func (e *PaymentOutcomeUnknownError) Error() string {
-	return "paid request outcome unknown; refusing automatic replay: " + e.Cause.Error()
+	// This message reaches API responses and persisted decision logs. Keep raw
+	// transport bytes, URLs and remote bodies out of user-visible errors; callers
+	// can still inspect the original typed cause via errors.Is/As and Unwrap.
+	reason := "payment response or settlement receipt could not be verified"
+	if e.Cause != nil && strings.Contains(strings.ToLower(e.Cause.Error()), "malformed http response") {
+		reason = "payment response could not be read due to an HTTP protocol error"
+	}
+	return "paid request outcome unknown; refusing automatic replay: " + reason + "; check the original payment before retrying"
 }
 func (e *PaymentOutcomeUnknownError) Unwrap() error   { return e.Cause }
 func (e *PaymentOutcomeUnknownError) Retryable() bool { return false }
@@ -318,23 +325,9 @@ func DoX402RequestStream(ctx context.Context, httpClient *http.Client,
 	req = req.WithContext(ctx)
 	req.Header.Set("X-Payment", paymentSig)
 	req.Header.Set("Payment-Signature", paymentSig)
-	// Never forward a spending authorization through an HTTP redirect.
-	paidClient := *httpClient
-	paidClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	// A reused Go transport can silently replay GET on EOF even without an
 	// application retry. Send paid requests over a fresh, non-reused connection.
-	transport := httpClient.Transport
-	if transport == nil {
-		transport = http.DefaultTransport
-	}
-	if original, ok := transport.(*http.Transport); ok {
-		fresh := original.Clone()
-		fresh.DisableKeepAlives = true
-		fresh.ForceAttemptHTTP2 = false
-		fresh.Protocols = new(http.Protocols)
-		fresh.Protocols.SetHTTP1(true)
-		paidClient.Transport = fresh
-	}
+	paidClient := singleUsePaidClient(httpClient)
 	paidResp, err := paidClient.Do(req)
 	if err != nil {
 		return nil, &PaymentOutcomeUnknownError{Cause: err}

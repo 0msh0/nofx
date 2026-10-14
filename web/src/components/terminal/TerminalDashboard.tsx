@@ -17,6 +17,7 @@ import { LiquidationMap } from './LiquidationMap'
 import { WinrateMatrix } from './WinrateMatrix'
 import { KlineChart } from './KlineChart'
 import { ExecutionLog } from './ExecutionLog'
+import { formatRequestError } from '../../lib/requestErrors'
 import { SignalMatrix } from './SignalMatrix'
 import { RiskRadar } from './RiskRadar'
 import { EdgeProfile } from './EdgeProfile'
@@ -385,7 +386,7 @@ export function TerminalDashboard({
         {!on && status?.trading_blocked && (
           <div role="alert" className="tm-mono" style={{ margin: '8px 14px 0', padding: '12px', fontSize: 12, border: '1px solid var(--tm-dn)', color: 'var(--tm-dn)', background: 'rgba(200,60,40,0.06)' }}>
             <strong>Trading blocked / 交易已阻断</strong>
-            <div>{status.trading_error}</div>
+            <div className="tm-error">{formatRequestError(status.trading_error)}</div>
             <div>自动开仓、平仓不可用；请用主钱包重新签名授权。修复前不会为此决策轮次调用付费 AI 或数据。</div>
           </div>
         )}

@@ -67,6 +67,28 @@ canary still requires its owner's authorization; compare payer and recipient
 balance changes with the verified receipt. Passing unit tests does not prove a
 live facilitator transaction or eliminate upstream/settlement failure costs.
 
+### HTTPS paid-transport correction (2026-10-14)
+
+Unsigned discovery may negotiate HTTP/2. A cloned one-shot paid connection must
+not retain that transport's `h2` TLS ALPN advertisement while parsing HTTP/1.1.
+The paid transport now pins both ALPN and protocol dispatch to HTTP/1.1, without
+changing TLS certificate verification, the original client's configuration,
+proxy/dialer, one-authorization limit, or redirect/replay protections.
+
+Regression tests exercise a real local TLS server advertising HTTP/2 and
+HTTP/1.1, including GET/POST, JSON/SSE receipts, disconnections and redirects.
+An optional `NOFX_LIVE_X402_HTTP_TEST=1` test checks the same transport against
+the public `/health` endpoint only; it never signs or purchases a request.
+
+New unknown-payment errors do not expose raw transport bytes/URLs in the UI;
+their typed cause remains available through `Unwrap`. Historical records are
+formatted at display time without rewriting the audit database. Matrix retry
+buttons are disabled while the previous payment outcome is unconfirmed.
+
+Do not apply a local runtime update by restarting a live trading container
+without the operator's confirmation: its saved configuration may automatically
+resume trading. Passing transport tests is not a funded settlement canary.
+
 References:
 - https://github.com/x402-foundation/x402/blob/main/specs/schemes/upto/scheme_upto_evm.md
 - https://github.com/x402-foundation/x402/blob/main/specs/extensions/eip2612_gas_sponsoring.md

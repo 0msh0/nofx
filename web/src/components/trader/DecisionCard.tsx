@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { DecisionRecord, DecisionAction } from '../../types'
 import { t, type Language } from '../../i18n/translations'
+import { formatRequestError } from '../../lib/requestErrors'
 
 interface DecisionCardProps {
   decision: DecisionRecord
@@ -202,14 +203,14 @@ function ActionCard({ action, language, onSymbolClick }: { action: DecisionActio
       {/* Error Message */}
       {action.error && (
         <div
-          className="mt-3 rounded p-2 text-xs"
+          className="mt-3 rounded p-2 text-xs break-words"
           style={{
             background: 'rgba(214, 67, 58, 0.1)',
             border: '1px solid rgba(214, 67, 58, 0.3)',
             color: '#D6433A',
           }}
         >
-          ❌ {action.error}
+          ❌ {formatRequestError(action.error, language)}
         </div>
       )}
     </div>
@@ -454,8 +455,8 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
           style={{ background: '#E8E2D5', border: '1px solid rgba(26,24,19,0.14)' }}
         >
           {decision.execution_log.map((log, index) => (
-            <div key={`${log}-${index}`} style={{ color: '#1A1813' }}>
-              {log}
+            <div key={`${log}-${index}`} style={{ color: '#1A1813', overflowWrap: 'anywhere' }}>
+              {formatRequestError(log, language)}
             </div>
           ))}
         </div>
@@ -471,7 +472,7 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
             color: '#D6433A',
           }}
         >
-          ❌ {decision.error_message}
+          <span style={{ overflowWrap: 'anywhere' }}>❌ {formatRequestError(decision.error_message, language)}</span>
         </div>
       )}
     </div>
