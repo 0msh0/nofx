@@ -33,6 +33,7 @@ vi.mock('../lib/api', () => ({
       await mocks.exchangesGate
       return mocks.exchanges
     },
+    getTraders: async () => [],
     getModelConfigs: async () => [
       {
         id: 'model',
@@ -157,11 +158,9 @@ describe('NOFX live planning', () => {
     await waitFor(() =>
       expect(screen.getByLabelText('NOFX AI model')).toHaveValue('model')
     )
-    fireEvent.click(
-      screen.getByRole('button', { name: 'Review and approve live trade' })
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
     const execute = await screen.findByRole('button', {
-      name: 'Approve and execute live trade',
+      name: 'Confirm and place live order',
     })
     expect(execute).toBeEnabled()
     expect(screen.queryByLabelText('Live trade confirmation text')).toBeNull()
@@ -220,7 +219,7 @@ describe('NOFX live planning', () => {
   })
 })
 
-it('shows Binance futures and AI500 even when only a Hyperliquid account is connected', async () => {
+it('opens the only connected account by default and keeps Binance AI500 reachable', async () => {
   mocks.exchanges = [
     {
       id: 'hl',
@@ -230,6 +229,14 @@ it('shows Binance futures and AI500 even when only a Hyperliquid account is conn
     },
   ]
   open()
+  await waitFor(() =>
+    expect(screen.getByLabelText('Trading account')).toHaveValue('hl')
+  )
+  expect(screen.getByLabelText('Market venue')).toHaveValue('hyperliquid')
+  fireEvent.change(screen.getByLabelText('Market venue'), {
+    target: { value: 'binance' },
+  })
+  fireEvent.click(screen.getByText('Find a market · AI500'))
   await screen.findByRole('button', { name: /ETH/ })
   expect(screen.getByLabelText('Market venue')).toHaveValue('binance')
   expect(screen.getByLabelText('Trading account')).toHaveValue('')
@@ -314,9 +321,7 @@ it('account review does not restart model activity or show a planning stop butto
   )
   open()
   fireEvent.click(await screen.findByRole('button', { name: /Test plan one/ }))
-  fireEvent.click(
-    screen.getByRole('button', { name: 'Review and approve live trade' })
-  )
+  fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
   await screen.findByText('Validating account and order details…')
   expect(screen.queryByText('Live activity')).toBeNull()
   expect(screen.queryByRole('button', { name: 'Stop planning' })).toBeNull()

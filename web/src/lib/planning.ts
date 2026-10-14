@@ -58,6 +58,7 @@ export interface LiveOrder {
   filled: string
   status: string
   error?: string
+  average?: string
 }
 export interface LiveRun {
   id: string
@@ -65,6 +66,7 @@ export interface LiveRun {
   plan_id: string
   plan_hash: string
   approval_hash: string
+  updated_at?: string
   state: string
   error?: string
   plan: Plan

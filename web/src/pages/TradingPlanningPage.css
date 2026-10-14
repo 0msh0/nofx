@@ -1043,3 +1043,158 @@
 .planning-message.user {
   margin: 8px 0 12px 16px;
 }
+
+.frontier-account {
+  margin-top: 14px;
+  padding: 18px 20px;
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.frontier-account > header,
+.frontier-account-subhead,
+.frontier-trade-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.frontier-account h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.frontier-account header p {
+  margin: 5px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.frontier-account-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.planning-page .frontier-long {
+  background: #e6f2e9;
+  color: #236b44;
+  border-color: #b8d5bf;
+  font-weight: 600;
+}
+.planning-page .frontier-short {
+  background: #f9e7e1;
+  color: #ad4335;
+  border-color: #e6c0b5;
+  font-weight: 600;
+}
+.frontier-account-subhead {
+  margin: 18px 0 8px;
+  font-size: 12px;
+}
+.frontier-account-subhead span,
+.frontier-account small {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.frontier-account > small {
+  display: block;
+  margin-top: 10px;
+}
+.frontier-table-scroll {
+  overflow-x: auto;
+}
+.frontier-account td {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.frontier-account th {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+.frontier-account th,
+.frontier-account td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+.frontier-account td:first-child,
+.frontier-account th:first-child {
+  padding-left: 0;
+}
+.frontier-flat {
+  color: var(--text-secondary);
+  padding: 8px 0;
+}
+.frontier-notice {
+  background: #f9efdc;
+  border: 1px solid #dfc89e;
+  padding: 10px 12px;
+  border-radius: 8px;
+  line-height: 1.5;
+}
+.frontier-protection {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: var(--panel-bg-hover);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.frontier-native-orders {
+  margin-top: 12px;
+  font-size: 12px;
+}
+.frontier-trade-summary {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 14px;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--background);
+}
+.frontier-trade-summary.attention {
+  border-color: #d7b87d;
+}
+.frontier-trade-summary p {
+  margin: 5px 0;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.frontier-trade-summary > div:last-of-type {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.frontier-trade-summary details {
+  width: 100%;
+  overflow-x: auto;
+  font-size: 11px;
+}
+.frontier-trade-summary a {
+  color: var(--text-secondary);
+  text-decoration: underline;
+  white-space: nowrap;
+}
+.frontier-market-picker {
+  margin: 10px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.frontier-market-picker > summary {
+  cursor: pointer;
+  padding: 8px 0;
+}
+@media (max-width: 850px) {
+  .frontier-account > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .frontier-account {
+    padding: 14px 12px;
+  }
+  .frontier-account-actions {
+    width: 100%;
+  }
+}

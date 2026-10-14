@@ -20,6 +20,7 @@ import {
   streamPlanning,
 } from '../lib/planning'
 import { formatRequestError } from '../lib/requestErrors'
+import { preservePlanningPlans } from '../lib/planningPresentation'
 import { PlanningDataPanel } from '../components/planning/PlanningDataPanel'
 import { PlanningAI500 } from '../components/planning/PlanningAI500'
 import { ExecutionSchedule } from '../components/planning/ExecutionSchedule'
@@ -32,6 +33,8 @@ import {
   PlanStructures,
   type PlanCheck,
 } from '../components/planning/PlanStructures'
+import { FrontierAccount } from '../components/planning/FrontierAccount'
+import { nativeMarket } from '../lib/frontierAccount'
 import './TradingPlanningPage.css'
 const format = (n: string | number) =>
   Number(n).toLocaleString('en-US', { maximumFractionDigits: 8 })
@@ -69,6 +72,7 @@ export function TradingPlanningPage() {
     [modelID, setModelID] = useState('')
   const [venue, setVenue] = useState('binance')
   const requestedVenue = useRef('binance')
+  const marketChosen = useRef(false)
   const [symbol, setSymbol] = useState('BTCUSDT'),
     [symbolInput, setSymbolInput] = useState('BTCUSDT'),
     [limits, setLimits] = useState<Constraints>(defaultLimits)
@@ -92,6 +96,7 @@ export function TradingPlanningPage() {
   const [trace, setTrace] = useState<ActivityItem[]>([]),
     [review, setReview] = useState<Plan | null>(null),
     [leverage, setLeverage] = useState(1),
+    [extrasOpen, setExtrasOpen] = useState(false),
     [builder, setBuilder] = useState(false),
     [builderIdea, setBuilderIdea] = useState<Idea>({
       name: 'Custom plan',
@@ -144,11 +149,19 @@ export function TradingPlanningPage() {
     setTurnPlanIDs([])
     setTrace([])
   }
-  const current = data.records[selected],
-    run = data.runs.find(
-      (r) => r.plan_id === selected && r.exchange_id === exchangeID
-    ),
-    clock = Date.parse(data.now) || Date.now()
+  const selectedRun = data.runs.find(
+    (r) => r.plan_id === selected && r.exchange_id === exchangeID
+  )
+  const current = useMemo(
+    () =>
+      data.records[selected] ||
+      (selectedRun
+        ? { plan: selectedRun.plan, state: selectedRun.state }
+        : undefined),
+    [data.records, selected, selectedRun?.plan, selectedRun?.state]
+  )
+  const run = selectedRun
+  const clock = Date.parse(data.now) || Date.now()
   const reload = useCallback(async () => {
     const next = await planningAPI<PlanningState>('state')
     if (active.current)
@@ -156,7 +169,7 @@ export function TradingPlanningPage() {
         JSON.stringify({ ...old, now: '' }) ===
         JSON.stringify({ ...next, now: '' })
           ? { ...old, now: next.now }
-          : next
+          : preservePlanningPlans(old, next)
       )
   }, [])
   const refreshHistory = useCallback(async () => {
@@ -176,10 +189,24 @@ export function TradingPlanningPage() {
         const enabled = ai.filter((m) => m.enabled && m.has_api_key)
         setAccounts(supported)
         setModels(enabled)
-        setExchangeID(
-          supported.find((a) => a.exchange_type === requestedVenue.current)
-            ?.id || ''
-        )
+        const preferred =
+          supported.find((a) => a.exchange_type === requestedVenue.current) ||
+          (!marketChosen.current && supported.length === 1
+            ? supported[0]
+            : undefined)
+        setExchangeID(preferred?.id || '')
+        if (
+          preferred &&
+          !marketChosen.current &&
+          preferred.exchange_type !== requestedVenue.current
+        ) {
+          requestedVenue.current = preferred.exchange_type
+          setVenue(preferred.exchange_type)
+          const native =
+            preferred.exchange_type === 'binance' ? 'BTCUSDT' : 'BTC'
+          setSymbol(native)
+          setSymbolInput(native)
+        }
         setModelID(enabled[0]?.id || '')
       })
       .catch((e) => setError(String(e.message)))
@@ -265,11 +292,11 @@ export function TradingPlanningPage() {
     chart.current
       .plot(
         current?.plan || null,
-        current?.state || 'draft',
+        run?.state || current?.state || 'draft',
         list.length >= 2 ? list : []
       )
       .catch((e) => setError(e.message))
-  }, [current, compare, data.records, symbol, venue])
+  }, [current, compare, data.records, symbol, venue, run?.state])
   useEffect(() => {
     const box = chatBox.current
     if (box && chatFollow.current) box.scrollTop = box.scrollHeight
@@ -282,6 +309,7 @@ export function TradingPlanningPage() {
     await chart.current?.focusPlan()
   }
   function changeAccount(id: string) {
+    marketChosen.current = true
     abort.current?.abort()
     setExchangeID(id)
     if (!id) setLimits(defaultLimits)
@@ -298,6 +326,34 @@ export function TradingPlanningPage() {
     setMessages([])
     session.current = crypto.randomUUID()
     setPrice('—')
+  }
+  function viewTrade(trade: LiveRun) {
+    marketChosen.current = true
+    requestedVenue.current = trade.plan.snapshot.venue
+    setVenue(trade.plan.snapshot.venue)
+    setExchangeID(trade.exchange_id)
+    setSymbol(
+      nativeMarket(trade.plan.snapshot.symbol, trade.plan.snapshot.venue)
+    )
+    setSymbolInput(
+      nativeMarket(trade.plan.snapshot.symbol, trade.plan.snapshot.venue)
+    )
+    setSelected(trade.plan_id)
+    setCompare([])
+    resetTurn()
+    setMessages([])
+  }
+  function manualEntry(side: 'long' | 'short') {
+    setBuilderIdea({
+      name: `Manual ${symbol} ${side}`,
+      rationale: 'User-created manual limit entry',
+      side,
+      entry: price === '—' ? '' : price,
+      stop: '',
+      target: '',
+      execution: { kind: 'limit' },
+    })
+    setBuilder(true)
   }
   async function send(text = instruction) {
     if (busy || !text.trim()) return
@@ -515,6 +571,7 @@ export function TradingPlanningPage() {
       await reload()
       setSelected(p.id)
       setCompare([])
+      setReview(p)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -536,7 +593,7 @@ export function TradingPlanningPage() {
       <div className="planning-heading">
         <div>
           <h1>Frontier</h1>
-          <p>Explore the market. Compare plans. Decide every trade.</p>
+          <p>Your positions, orders and next trade.</p>
         </div>
         <Link to={ROUTES.settings}>Manage accounts and AI →</Link>
       </div>
@@ -547,6 +604,7 @@ export function TradingPlanningPage() {
           disabled={busy}
           onChange={(e) => {
             const next = e.target.value
+            marketChosen.current = true
             requestedVenue.current = next
             setVenue(next)
             setLimits(defaultLimits)
@@ -623,17 +681,32 @@ export function TradingPlanningPage() {
           a matching NOFX account before approving or executing any plan.
         </div>
       )}
-      <PlanningAI500
+      <FrontierAccount
+        account={account}
+        accounts={accounts}
         venue={venue}
-        disabled={busy}
-        onSelect={(next) => {
-          setSymbol(next)
-          setSymbolInput(next)
-          setSelected('')
-          resetTurn()
-          setCompare([])
-        }}
+        symbol={symbol}
+        runs={data.runs}
+        busy={busy}
+        onView={viewTrade}
+        onManual={manualEntry}
+        onBusy={setBusy}
+        onRefresh={reload}
       />
+      <details className="frontier-market-picker">
+        <summary>Find a market · AI500</summary>
+        <PlanningAI500
+          venue={venue}
+          disabled={busy}
+          onSelect={(next) => {
+            setSymbol(next)
+            setSymbolInput(next)
+            setSelected('')
+            resetTurn()
+            setCompare([])
+          }}
+        />
+      </details>
       <div className="planning-workspace">
         <section className="planning-chart-pane">
           <div className="planning-market">
@@ -683,6 +756,9 @@ export function TradingPlanningPage() {
           {current && (
             <div className="planning-selected">
               <b>
+                {current.state === 'draft'
+                  ? 'Draft · not submitted · '
+                  : 'Trade · '}
                 {current.plan.idea.name} ·{' '}
                 {current.plan.idea.side === 'long' ? 'Long' : 'Short'}
               </b>
@@ -840,12 +916,20 @@ export function TradingPlanningPage() {
               </p>
             )}
           </div>
-          <PlanningDataPanel
-            exchangeID={exchangeID}
-            symbol={symbol}
-            venue={venue}
-            onWindowChange={setPluginWindow}
-          />
+          <details
+            className="planning-tools"
+            onToggle={(e) => setExtrasOpen(e.currentTarget.open)}
+          >
+            <summary>Market data and indicators</summary>
+            {extrasOpen && (
+              <PlanningDataPanel
+                exchangeID={exchangeID}
+                symbol={symbol}
+                venue={venue}
+                onWindowChange={setPluginWindow}
+              />
+            )}
+          </details>
           <div className="planning-price-row">
             <label>
               Leverage{' '}
@@ -957,9 +1041,20 @@ export function TradingPlanningPage() {
             {tools.length > 0 && <pre>{JSON.stringify(tools, null, 2)}</pre>}
           </details>
           <details className="planning-tools">
-            <summary>Execution history {data.runs.length}</summary>
+            <summary>
+              Previous executions ·{' '}
+              {
+                data.runs.filter((r) =>
+                  ['completed', 'cancelled', 'expired'].includes(r.state)
+                ).length
+              }
+            </summary>
             {data.runs
-              .filter((r) => r.exchange_id === exchangeID)
+              .filter(
+                (r) =>
+                  r.exchange_id === exchangeID &&
+                  ['completed', 'cancelled', 'expired'].includes(r.state)
+              )
               .map((r) => (
                 <div className="planning-run" key={r.id}>
                   <b>
@@ -1129,7 +1224,7 @@ export function TradingPlanningPage() {
                   >
                     {expired(current.plan, clock)
                       ? 'Expired; generate a new plan'
-                      : 'Review and approve live trade'}
+                      : 'Review order'}
                   </button>
                 ) : run?.state === 'approved' ? (
                   <>
@@ -1137,7 +1232,7 @@ export function TradingPlanningPage() {
                       disabled={busy}
                       onClick={() => runAction('execute', run)}
                     >
-                      Execute this approved plan
+                      Place approved orders
                     </button>
                     <button
                       disabled={busy}
@@ -1198,7 +1293,10 @@ export function TradingPlanningPage() {
             aria-labelledby="planning-approval-title"
             className="planning-modal"
           >
-            <h2 id="planning-approval-title">Approve live trade</h2>
+            <h2 id="planning-approval-title">
+              Place {review.idea.side === 'long' ? 'Long' : 'Short'} ·{' '}
+              {review.snapshot.symbol}
+            </h2>
             <p>
               {account?.name} · {review.snapshot.venue} ·{' '}
               {review.snapshot.symbol} ·{' '}
@@ -1232,14 +1330,17 @@ export function TradingPlanningPage() {
               {review.snapshot.quote_asset} · fees reserved separately. Quantity
               is locked at this review; balance changes require a new review.
             </p>
-            <p>
-              Only the locked, fixed-limit basket will be submitted. Ladder
-              entries are released immediately; TWAP slices follow the schedule.
-              Partial fills receive matching reduce-only protection. Protection
-              failures stop further entries and require manual review. Stopping
-              entries does not close filled positions. Actual loss can exceed
-              the estimate.
-            </p>
+            <details>
+              <summary>Execution and protection details</summary>
+              <p>
+                Only the locked, fixed-limit basket will be submitted. Ladder
+                entries are released immediately; TWAP slices follow the
+                schedule. Partial fills receive matching reduce-only protection.
+                Protection failures stop further entries and require manual
+                review. Stopping entries does not close filled positions. Actual
+                loss can exceed the estimate.
+              </p>
+            </details>
             <table>
               <thead>
                 <tr>
@@ -1258,7 +1359,10 @@ export function TradingPlanningPage() {
                 ))}
               </tbody>
             </table>
-            <code>{review.hash}</code>
+            <details>
+              <summary>Locked order reference</summary>
+              <code>{review.hash}</code>
+            </details>
             <div>
               <button disabled={busy} onClick={() => setReview(null)}>
                 Back to review
@@ -1268,7 +1372,7 @@ export function TradingPlanningPage() {
                 disabled={busy || expired(review, clock)}
                 onClick={approveAndExecute}
               >
-                Approve and execute live trade
+                Confirm and place live order
               </button>
             </div>
           </section>
@@ -1277,7 +1381,11 @@ export function TradingPlanningPage() {
       {builder && (
         <div className="planning-modal-backdrop">
           <section role="dialog" aria-modal="true" className="planning-modal">
-            <h2>Custom order draft</h2>
+            <h2>Manual entry · {symbol}</h2>
+            <p>
+              {account?.name} · {venue} · {leverage}x · automatically sized from
+              free margin. Review before submitting.
+            </p>
             <select
               aria-label="Custom entry method"
               value={builderIdea.execution.kind}
@@ -1310,14 +1418,14 @@ export function TradingPlanningPage() {
               <option value="long">Long</option>
               <option value="short">Short</option>
             </select>
-            {(['name', 'entry', 'stop', 'target'] as const).map((k) => (
+            {(['entry', 'stop', 'target'] as const).map((k) => (
               <label key={k}>
                 {
                   {
                     name: 'Name',
-                    entry: 'Entry / TWAP limit',
-                    stop: 'Shared stop loss',
-                    target: 'Shared take profit',
+                    entry: 'Limit price',
+                    stop: 'Stop loss',
+                    target: 'Take profit',
                   }[k]
                 }
                 <input
@@ -1378,7 +1486,7 @@ export function TradingPlanningPage() {
               Cancel
             </button>
             <button disabled={busy} onClick={saveBuilder}>
-              Validate draft
+              Review order
             </button>
           </section>
         </div>

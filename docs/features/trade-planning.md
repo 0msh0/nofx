@@ -289,3 +289,37 @@ Spot USDC total is equity, and total minus authoritative hold is available
 collateral. Core/xyz collateral views and unrealized PnL are not added again.
 Values stay exact decimal strings. Missing or malformed reservation data fails
 closed; separate accounts never spend Spot collateral through this path.
+
+### Account-first trading workspace
+
+Frontier now shows the selected NOFX account's complete position list above the
+chart: direction, quantity, average fill, mark, unrealized PnL and leverage.
+It reuses authenticated `/api/my-traders` and `/api/positions` with an exact
+exchange-account binding. Reads refresh every ten seconds without overlap and
+pause in hidden tabs. Read failures preserve explicitly stale values rather
+than presenting an empty account. The only connected account is selected on
+initial load unless the user already chose a different market.
+
+Native `/api/open-orders` results are scoped to the named chart market. Exit
+orders are displayed beside positions; native current order reads and persisted
+Frontier execution records are labeled separately. Active executions are shown
+across accounts so switching the market cannot hide an unresolved trade.
+
+Buy / Long and Sell / Short open a manual limit/ladder/TWAP ticket without a
+model request. The existing compiler, account sizing, review, approval and NOFX
+execution path remain in use. Existing same-market positions must be closed
+before another independent entry. Market entry orders are not implemented by
+this ticket; the manual close action is a market close.
+
+Each position has a close review with an explicit final click and no typed
+phrase. It reuses NOFX's existing `/api/traders/:id/close-position` operation.
+Matching Frontier entries are stopped first; the UI verifies their cancellation
+before closing, rereads the position, and refuses a position that grew or changed
+entry after review. It blocks manual close while account Autopilot is running,
+and checks the current account binding again. An ambiguous close response is
+never repeated automatically. Existing exchange/API authority checks remain the
+server boundary; this UI does not add a new order execution adapter.
+
+Data plugins and previous executions are collapsed. Plugin visuals are mounted
+only when explicitly opened. Manual entry and close paths are covered with
+mocked-API tests; development verification never submits a live order.
