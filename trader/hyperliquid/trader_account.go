@@ -651,35 +651,47 @@ func (t *HyperliquidTrader) GetTrades(startTime time.Time, limit int) ([]types.T
 
 // GetOpenOrders gets all open/pending orders for a symbol
 func (t *HyperliquidTrader) GetOpenOrders(symbol string) ([]types.OpenOrder, error) {
-	openOrders, err := t.exchange.Info().OpenOrders(t.ctx, t.walletAddr)
+	coin := convertSymbolToHyperliquid(strings.TrimSuffix(strings.ToUpper(symbol), "USDT"))
+	request := map[string]any{"type": "frontendOpenOrders", "user": t.walletAddr}
+	if strings.HasPrefix(coin, "xyz:") {
+		request["dex"] = "xyz"
+	}
+	raw, err := t.directAccountInfo(t.ctx, request)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get open orders: %w", err)
 	}
-
-	var result []types.OpenOrder
-	for _, order := range openOrders {
-		if order.Coin != symbol {
+	var orders []hl.FrontendOpenOrder
+	if err := json.Unmarshal(raw, &orders); err != nil {
+		return nil, fmt.Errorf("invalid open order response: %w", err)
+	}
+	result := make([]types.OpenOrder, 0)
+	for _, o := range orders {
+		if o.Coin != coin {
 			continue
 		}
-
-		side := "BUY"
-		if order.Side == "A" {
+		side, positionSide, kind := "BUY", "", "LIMIT"
+		if o.Side == hl.OrderSideAsk {
 			side = "SELL"
 		}
-
-		result = append(result, types.OpenOrder{
-			OrderID:      fmt.Sprintf("%d", order.Oid),
-			Symbol:       order.Coin,
-			Side:         side,
-			PositionSide: "",
-			Type:         "LIMIT",
-			Price:        order.LimitPx,
-			StopPrice:    0,
-			Quantity:     order.Size,
-			Status:       "NEW",
-		})
+		if o.ReduceOnly {
+			if side == "BUY" {
+				positionSide = "SHORT"
+			} else {
+				positionSide = "LONG"
+			}
+		}
+		switch {
+		case strings.Contains(strings.ToLower(o.OrderType), "take profit"):
+			kind = "TAKE_PROFIT"
+		case strings.Contains(strings.ToLower(o.OrderType), "stop"):
+			kind = "STOP"
+		case o.IsTrigger:
+			kind = "TRIGGER"
+		}
+		result = append(result, types.OpenOrder{OrderID: fmt.Sprint(o.Oid), Symbol: o.Coin,
+			Side: side, PositionSide: positionSide, Type: kind, Price: o.LimitPx,
+			StopPrice: o.TriggerPx, Quantity: o.Sz, Status: "NEW"})
 	}
-
 	return result, nil
 }
 

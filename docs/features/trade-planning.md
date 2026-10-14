@@ -323,3 +323,10 @@ server boundary; this UI does not add a new order execution adapter.
 Data plugins and previous executions are collapsed. Plugin visuals are mounted
 only when explicitly opened. Manual entry and close paths are covered with
 mocked-API tests; development verification never submits a live order.
+
+The position and open-order read routes resolve ownership from stored NOFX
+accounts without loading an autonomous trader. An unresolved planning lease
+therefore cannot hide an existing position. Binance inspection uses the existing
+constructor that does not change account hedge mode. Hyperliquid order reads use
+`frontendOpenOrders` with the exact core/xyz market and retain stop/take-profit
+trigger prices and reduce-only direction. These reads do not submit orders.
