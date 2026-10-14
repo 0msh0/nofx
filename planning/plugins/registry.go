@@ -100,7 +100,7 @@ func Open(path string, definitions ...Definition) (*Registry, error) {
 }
 func Builtins(source Source) []Definition {
 	defs := []Definition{}
-	for _, m := range []Manifest{{ID: "funding", Name: "资金费率", Version: "1.0.0", Description: "公开资金费率与标记价格；结算口径因交易所而异，不计入纸交易风险。", Capability: "public.read", Enabled: true}, {ID: "open_interest", Name: "持仓量 OI", Version: "1.0.0", Description: "当前合约未平仓数量，保留交易所原生单位；单个快照不能证明增仓方向。", Capability: "public.read", Enabled: true}} {
+	for _, m := range []Manifest{{ID: "funding", Name: "资金费率", Version: "1.0.0", Description: "公开资金费率与标记价格；结算口径因交易所而异，不自动计入本次交易风险估算。", Capability: "public.read", Enabled: true}, {ID: "open_interest", Name: "持仓量 OI", Version: "1.0.0", Description: "当前合约未平仓数量，保留交易所原生单位；单个快照不能证明增仓方向。", Capability: "public.read", Enabled: true}} {
 		id := m.ID
 		defs = append(defs, Definition{Manifest: m, Read: func(ctx context.Context, q Request) (Result, error) {
 			if source == nil {

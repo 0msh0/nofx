@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"nofx/mcp"
+	"nofx/mcp/payment"
 )
 
 // NOFXAdapter reuses NOFX's provider, wallet billing and transient reasoning.
@@ -39,7 +40,20 @@ func (a *NOFXAdapter) Chat(ctx context.Context, messages []Message, tools []Tool
 	}
 	result, e := a.Client.CallWithRequestFull(request)
 	if e != nil {
-		return Message{}, errors.New("NOFX AI 请求失败；请检查模型账户余额、连接或重试")
+		// Preserve the upstream paid-call safety classification without exposing
+		// wrapped transport URLs, authorization headers or provider response bodies.
+		var unknown *payment.PaymentOutcomeUnknownError
+		if errors.As(e, &unknown) {
+			return Message{}, errors.New(unknown.Error())
+		}
+		var rejected *payment.PaymentVerificationRejectedError
+		if errors.As(e, &rejected) {
+			return Message{}, errors.New("本次付费验证被拒绝，不会自动重试；请检查报价、模型费用钱包及客户端版本。此前请求仍可能已扣款。")
+		}
+		if ctx.Err() != nil {
+			return Message{}, ctx.Err()
+		}
+		return Message{}, errors.New("NOFX AI 请求失败；请检查模型账户余额或连接，确认付款状态后再操作")
 	}
 	if result == nil || len(result.Content) > 24000 || len(result.ToolCalls) > 5 || len(result.ReasoningContent) > 256<<10 {
 		return Message{}, errors.New("invalid NOFX AI response")

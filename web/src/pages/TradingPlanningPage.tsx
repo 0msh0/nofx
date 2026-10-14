@@ -19,6 +19,8 @@ import {
   planningAPI,
   streamPlanning,
 } from '../lib/planning'
+import { formatRequestError } from '../lib/requestErrors'
+import { PlanningDataPanel } from '../components/planning/PlanningDataPanel'
 import './TradingPlanningPage.css'
 const format = (n: string | number) =>
   Number(n).toLocaleString('en-US', { maximumFractionDigits: 8 })
@@ -87,6 +89,7 @@ export function TradingPlanningPage() {
       execution: { kind: 'limit' },
     }),
     [levels, setLevels] = useState('')
+  const [pluginWindow, setPluginWindow] = useState('7d')
   const [preferences, setPreferences] = useState(''),
     [history, setHistory] = useState<
       {
@@ -300,6 +303,7 @@ export function TradingPlanningPage() {
           message: text,
           plan_id: selected || undefined,
           execution_kind: 'auto',
+          plugin_window: pluginWindow,
           session_id: session.current,
           turn_id: crypto.randomUUID(),
           history: historyMessages,
@@ -468,7 +472,7 @@ export function TradingPlanningPage() {
       </div>
       {error && (
         <div className="planning-error" role="alert">
-          {error}
+          {formatRequestError(error, 'zh')}
           <button onClick={() => setError('')} aria-label="关闭提示">
             ×
           </button>
@@ -652,6 +656,12 @@ export function TradingPlanningPage() {
               </p>
             )}
           </div>
+          <PlanningDataPanel
+            exchangeID={exchangeID}
+            symbol={symbol}
+            venue={venue}
+            onWindowChange={setPluginWindow}
+          />
           <details className="planning-tools">
             <summary>风险预算、分批订单与高级工具</summary>
             <div className="planning-limit-grid">

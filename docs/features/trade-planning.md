@@ -94,8 +94,12 @@ by NOFX user; transient provider reasoning is not saved in chat JSON.
 Public funding/open-interest sources and Hyperdata cost/profit/win-rate sources
 are available to the harness through the data-plugin registry. Hyperdata is only
 used for its matching Hyperliquid market; it is never substituted for Binance
-or OKX data. The initial NOFX page shows plugin activity in the collapsed process
-view, not the separate Vergex SI visual analytics panels.
+or OKX data. Open **数据插件** to enable or disable individual sources for the same user
+registry used by the AI, and explicitly read the selected market. Funding/OI
+metrics, cost/liquidation distributions, labeled long/short win-rate heatmaps and
+7/30-day profit tables are rendered from bounded typed data. Missing/incomplete
+data is shown explicitly. There is no background paid-data polling. Switching
+markets discards pending/stale visual responses.
 
 On-site entry calculators use a bounded Starlark runtime, test cases, immutable
 source hashes and session-scoped enabling. They can output proposed finite
@@ -114,3 +118,11 @@ funded wallets or production order submission. Passing tests/builds does not
 prove that an account has trading permission or that an actual live order has
 succeeded. This integration must not claim such success without an authorized,
 observed real transaction. Routine validation must not place real orders.
+
+## Local integration with dev
+
+The feature has been merged locally with upstream dev `294d0641`, including its
+payment authorization, gasless approval, receipt verification and model updates.
+Unknown paid-call outcomes retain their safe upstream classification and are
+shown as requiring payment reconciliation, never as an instruction to resend.
+No remote push, PR, deployment or real transaction is part of local validation.

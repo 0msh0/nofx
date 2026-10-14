@@ -36,12 +36,13 @@ type planningBrokerCache struct {
 }
 
 type planningServices struct {
-	brokers   sync.Map
-	feedSlots chan struct{}
-	source    *market.Client
-	live      *live.Controller
-	turns     sync.Map
-	mutex     sync.Mutex
+	brokers     sync.Map
+	dataPlugins sync.Map
+	feedSlots   chan struct{}
+	source      *market.Client
+	live        *live.Controller
+	turns       sync.Map
+	mutex       sync.Mutex
 }
 
 func (s *Server) planningService() (*planningServices, error) {
@@ -167,6 +168,9 @@ func (s *Server) registerPlanning(api, protected *gin.RouterGroup) {
 	protected.GET("/planning/preferences", s.handlePlanningPreferences)
 	protected.PUT("/planning/preferences", s.handlePlanningPreferences)
 	protected.GET("/planning/entry-plugins", s.handlePlanningEntryPlugins)
+	protected.GET("/planning/data-plugins", s.handlePlanningDataPlugins)
+	protected.POST("/planning/data-plugins", s.handlePlanningDataPlugins)
+	protected.GET("/planning/plugin-data", s.handlePlanningPluginData)
 }
 func (s *Server) handlePlanningMarket(c *gin.Context) {
 	p, e := s.planningService()
@@ -393,7 +397,7 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 		planningError(c, e)
 		return
 	}
-	registry, e := plugins.Open(filepath.Join(root, "plugins.json"), append(plugins.Builtins(p.source), (plugins.Hyperdata{HTTP: p.source.HTTP, Base: "https://hyperdata.vergex.exchange"}).Definitions()...)...)
+	registry, e := s.planningDataRegistry(user)
 	if e != nil {
 		planningError(c, e)
 		return
@@ -615,4 +619,74 @@ func (s *Server) handlePlanningReadAccount(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"equity": a.Equity, "available": a.Available, "fee_bps": a.FeeBPS, "position": a.Position, "open_orders": a.OpenOrders})
+}
+
+// Registry state is scoped to the logged-in user and shared with its tool loop.
+func (s *Server) planningDataRegistry(user string) (*plugins.Registry, error) {
+	p, e := s.planningService()
+	if e != nil {
+		return nil, e
+	}
+	if cached, ok := p.dataPlugins.Load(user); ok {
+		return cached.(*plugins.Registry), nil
+	}
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
+	if cached, ok := p.dataPlugins.Load(user); ok {
+		return cached.(*plugins.Registry), nil
+	}
+	hash := sha256.Sum256([]byte(user))
+	root := filepath.Join("data", "planning", hex.EncodeToString(hash[:16]))
+	registry, e := plugins.Open(filepath.Join(root, "plugins.json"), append(plugins.Builtins(p.source), (plugins.Hyperdata{HTTP: p.source.HTTP, Base: "https://hyperdata.vergex.exchange"}).Definitions()...)...)
+	if e != nil {
+		return nil, e
+	}
+	p.dataPlugins.Store(user, registry)
+	return registry, nil
+}
+func (s *Server) handlePlanningDataPlugins(c *gin.Context) {
+	registry, e := s.planningDataRegistry(c.GetString("user_id"))
+	if e != nil {
+		planningError(c, e)
+		return
+	}
+	if c.Request.Method == http.MethodPost {
+		var in struct {
+			ID      string `json:"id"`
+			Enabled *bool  `json:"enabled"`
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+		if c.ShouldBindJSON(&in) != nil || in.Enabled == nil {
+			planningError(c, errors.New("invalid plugin setting"))
+			return
+		}
+		if e = registry.SetEnabled(in.ID, *in.Enabled); e != nil {
+			planningError(c, e)
+			return
+		}
+	}
+	c.JSON(200, registry.List())
+}
+func (s *Server) handlePlanningPluginData(c *gin.Context) {
+	ex, e := s.planningAccount(c.GetString("user_id"), c.Query("exchange_id"))
+	if e != nil {
+		planningError(c, e)
+		return
+	}
+	window := c.DefaultQuery("window", "7d")
+	if window != "7d" && window != "30d" {
+		planningError(c, errors.New("invalid plugin window"))
+		return
+	}
+	registry, e := s.planningDataRegistry(c.GetString("user_id"))
+	if e != nil {
+		planningError(c, e)
+		return
+	}
+	result, e := registry.Read(c.Request.Context(), c.Query("plugin"), plugins.Request{Venue: ex.ExchangeType, Symbol: c.Query("symbol"), Window: window})
+	if e != nil {
+		planningError(c, e)
+		return
+	}
+	c.JSON(200, result)
 }
