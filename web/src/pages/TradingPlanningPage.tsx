@@ -22,6 +22,16 @@ import {
 import { formatRequestError } from '../lib/requestErrors'
 import { PlanningDataPanel } from '../components/planning/PlanningDataPanel'
 import { PlanningAI500 } from '../components/planning/PlanningAI500'
+import { ExecutionSchedule } from '../components/planning/ExecutionSchedule'
+import {
+  PlanningActivity,
+  recordActivity,
+  type ActivityItem,
+} from '../components/planning/PlanningActivity'
+import {
+  PlanStructures,
+  type PlanCheck,
+} from '../components/planning/PlanStructures'
 import './TradingPlanningPage.css'
 const format = (n: string | number) =>
   Number(n).toLocaleString('en-US', { maximumFractionDigits: 8 })
@@ -77,7 +87,7 @@ export function TradingPlanningPage() {
     [error, setError] = useState(''),
     [price, setPrice] = useState('—'),
     [interval, setInterval] = useState('1h')
-  const [trace, setTrace] = useState<string[]>([]),
+  const [trace, setTrace] = useState<ActivityItem[]>([]),
     [review, setReview] = useState<Plan | null>(null),
     [confirmation, setConfirmation] = useState(''),
     [builder, setBuilder] = useState(false),
@@ -124,6 +134,13 @@ export function TradingPlanningPage() {
         ),
     [data, exchangeID, symbol, venue]
   )
+  const [checks, setChecks] = useState<PlanCheck[]>([])
+  const [turnPlanIDs, setTurnPlanIDs] = useState<string[]>([])
+  function resetTurn() {
+    setChecks([])
+    setTurnPlanIDs([])
+    setTrace([])
+  }
   const current = data.records[selected],
     run = data.runs.find(
       (r) => r.plan_id === selected && r.exchange_id === exchangeID
@@ -215,15 +232,13 @@ export function TradingPlanningPage() {
         chart.current = new window.WorkspaceChart({
           venue,
           symbol,
-          onStatus: (text: string) => !cancelled && setStatus(text),
+          onStatus: () => {},
           onPrice: (c: { close: string }) => !cancelled && setPrice(c.close),
           onContext: (c: ChartContext) => !cancelled && setInterval(c.interval),
           onError: reportChartFailure,
           onAvailability: (available: boolean) => {
             if (cancelled) return
-            if (!available)
-              setStatus('Chart is loading or temporarily unavailable')
-            else if (chartFailure)
+            if (available && chartFailure)
               setError((message) => (message === chartFailure ? '' : message))
           },
         })
@@ -277,6 +292,7 @@ export function TradingPlanningPage() {
     setSymbol(native)
     setSymbolInput(native)
     setSelected('')
+    resetTurn()
     setCompare([])
     setMessages([])
     session.current = crypto.randomUUID()
@@ -307,7 +323,8 @@ export function TradingPlanningPage() {
     setBusy(true)
     setError('')
     setInstruction('')
-    setTrace([])
+    resetTurn()
+    setStatus('Reading current market context…')
     setMessages((m) => [...m, { role: 'user', content: text }])
     const controller = new AbortController()
     abort.current = controller
@@ -332,6 +349,7 @@ export function TradingPlanningPage() {
         },
         controller.signal,
         (event) => {
+          setTrace((items) => recordActivity(items, event))
           if (event.type === 'assistant')
             setMessages((m) => [
               ...m,
@@ -351,20 +369,22 @@ export function TradingPlanningPage() {
             setStatus(
               'Planning completed without a validated draft. Review the explanation.'
             )
-          if (event.type === 'tool_start')
-            setTrace((t) => [
-              ...t,
-              'Reading / calculating · ' + String(event.data.name),
-            ])
-          if (event.type === 'tool_result')
-            setTrace((t) => [
-              ...t,
-              (event.data.ok ? 'Completed · ' : 'Failed · ') +
-                String(event.data.name),
-            ])
+          const mergeChecks = (incoming: PlanCheck[]) =>
+            setChecks((previous) => {
+              const merged = new Map(previous.map((check) => [check.id, check]))
+              incoming.forEach((check) => merged.set(check.id, check))
+              return [...merged.values()]
+            })
+          if (event.type === 'candidate_result')
+            mergeChecks([event.data as unknown as PlanCheck])
           if (event.type === 'plans') {
+            if (Array.isArray(event.data.checks))
+              mergeChecks(event.data.checks as PlanCheck[])
             const plans = event.data.plans as Plan[]
             if (plans?.length) {
+              setTurnPlanIDs((ids) => [
+                ...new Set([...ids, ...plans.map((plan) => plan.id)]),
+              ])
               setSelected(plans[0].id)
               setCompare([])
             }
@@ -379,9 +399,18 @@ export function TradingPlanningPage() {
         }
       )
     } catch (e) {
-      if (!controller.signal.aborted)
-        setError(e instanceof Error ? e.message : String(e))
+      if (!controller.signal.aborted) {
+        const message = formatRequestError(e, 'en')
+        setError(message)
+        setTrace((items) =>
+          recordActivity(items, { type: 'error', data: { message } })
+        )
+      }
     } finally {
+      if (controller.signal.aborted)
+        setTrace((items) =>
+          recordActivity(items, { type: 'cancelled', data: {} })
+        )
       setBusy(false)
       setStatus(
         controller.signal.aborted ? 'Planning stopped' : 'Planning finished'
@@ -466,6 +495,7 @@ export function TradingPlanningPage() {
     session.current = crypto.randomUUID()
     setMessages([])
     setSelected('')
+    resetTurn()
     setCompare([])
     setTrace([])
     setError('')
@@ -495,6 +525,7 @@ export function TradingPlanningPage() {
             setSymbol(native)
             setSymbolInput(native)
             setSelected('')
+            resetTurn()
             setCompare([])
             setMessages([])
             setError('')
@@ -529,6 +560,7 @@ export function TradingPlanningPage() {
                 : symbolInput.trim().toUpperCase()
             )
             setSelected('')
+            resetTurn()
             setCompare([])
           }}
         >
@@ -563,6 +595,7 @@ export function TradingPlanningPage() {
           setSymbol(next)
           setSymbolInput(next)
           setSelected('')
+          resetTurn()
           setCompare([])
         }}
       />
@@ -597,7 +630,12 @@ export function TradingPlanningPage() {
               </button>
             </div>
           </div>
-          <div className="planning-chart" id="chart-container" />
+          <div className="planning-chart-frame">
+            <div className="planning-chart" id="chart-container" />
+            {current && compare.length < 2 && (
+              <ExecutionSchedule plan={current.plan} />
+            )}
+          </div>
           <div className="planning-legend">
             Entry <i className="entry" /> Stop loss <i className="stop" /> Take
             profit <i className="target" />
@@ -675,7 +713,11 @@ export function TradingPlanningPage() {
           )}
           <div className="planning-candidates">
             <div className="planning-section-title">
-              <b>Candidate plans {records.length}</b>
+              <b>
+                {busy || checks.length
+                  ? `Entry alternatives · ${turnPlanIDs.length} saved`
+                  : `Candidate plans ${records.length}`}
+              </b>
               <button
                 className="planning-primary"
                 disabled={busy}
@@ -688,52 +730,69 @@ export function TradingPlanningPage() {
                 Generate plans
               </button>
             </div>
-            <div className="planning-card-list">
-              {records.map((r) => (
-                <button
-                  key={r.plan.id}
-                  className={
-                    'planning-card ' +
-                    (selected === r.plan.id ? 'selected' : '')
-                  }
-                  onClick={() => choose(r.plan)}
-                >
-                  <span
+            <PlanStructures
+              checks={checks}
+              plans={records
+                .filter((record) => turnPlanIDs.includes(record.plan.id))
+                .map((record) => record.plan)}
+              busy={busy}
+              selected={selected}
+              onSelect={choose}
+            />
+            <details
+              className="planning-all-plans"
+              open={!checks.length && !busy}
+            >
+              <summary>All saved drafts · {records.length}</summary>
+              <div className="planning-card-list">
+                {records.map((r) => (
+                  <button
+                    key={r.plan.id}
                     className={
-                      r.plan.idea.side === 'long' ? 'target-text' : 'stop-text'
+                      'planning-card ' +
+                      (selected === r.plan.id ? 'selected' : '')
                     }
+                    onClick={() => choose(r.plan)}
                   >
-                    {compare.includes(r.plan.id)
-                      ? String.fromCharCode(65 + compare.indexOf(r.plan.id)) +
-                        ' · '
-                      : ''}
-                    {r.plan.idea.side === 'long' ? '↗ Long' : '↘ Short'} ·{' '}
-                    {r.plan.idea.execution.kind === 'ladder'
-                      ? 'Price ladder'
-                      : r.plan.idea.execution.kind === 'twap'
-                        ? 'TWAP'
-                        : 'Single limit'}
-                  </span>
-                  <strong>{r.plan.idea.name}</strong>
-                  <span>Entry {format(r.plan.idea.entry)}</span>
-                  <div>
-                    <span>
-                      Planned loss <b>{format(r.plan.risk)}</b>
+                    <span
+                      className={
+                        r.plan.idea.side === 'long'
+                          ? 'target-text'
+                          : 'stop-text'
+                      }
+                    >
+                      {compare.includes(r.plan.id)
+                        ? String.fromCharCode(65 + compare.indexOf(r.plan.id)) +
+                          ' · '
+                        : ''}
+                      {r.plan.idea.side === 'long' ? '↗ Long' : '↘ Short'} ·{' '}
+                      {r.plan.idea.execution.kind === 'ladder'
+                        ? 'Price ladder'
+                        : r.plan.idea.execution.kind === 'twap'
+                          ? 'TWAP'
+                          : 'Single limit'}
                     </span>
-                    <span>
-                      Net reward/risk{' '}
-                      <b>{Number(r.plan.reward_risk).toFixed(2)} : 1</b>
-                    </span>
-                  </div>
-                  <small>
-                    {expired(r.plan, clock) && r.state === 'draft'
-                      ? 'Expired · replan'
-                      : states[r.state] || r.state}
-                  </small>
-                </button>
-              ))}
-            </div>
-            {records.length === 0 && (
+                    <strong>{r.plan.idea.name}</strong>
+                    <span>Entry {format(r.plan.idea.entry)}</span>
+                    <div>
+                      <span>
+                        Planned loss <b>{format(r.plan.risk)}</b>
+                      </span>
+                      <span>
+                        Net reward/risk{' '}
+                        <b>{Number(r.plan.reward_risk).toFixed(2)} : 1</b>
+                      </span>
+                    </div>
+                    <small>
+                      {expired(r.plan, clock) && r.state === 'draft'
+                        ? 'Expired · replan'
+                        : states[r.state] || r.state}
+                    </small>
+                  </button>
+                ))}
+              </div>
+            </details>
+            {records.length === 0 && !busy && (
               <p>
                 Describe your idea or generate plans. If none is feasible, no
                 trade is a valid decision.
@@ -909,14 +968,7 @@ export function TradingPlanningPage() {
               </div>
             ))}
           </div>
-          <details className="planning-process">
-            <summary>
-              Activity {trace.length ? `· ${trace.length}` : ''}
-            </summary>
-            {trace.map((t, i) => (
-              <p key={i}>{t}</p>
-            ))}
-          </details>
+          <PlanningActivity items={trace} busy={busy} />
 
           <form
             className="planning-composer"
@@ -1034,6 +1086,7 @@ export function TradingPlanningPage() {
                   setModelID(h.model_id)
                   setMessages(JSON.parse(h.messages))
                   setSelected('')
+                  resetTurn()
                 }}
               >
                 {h.symbol} · {h.id.slice(0, 8)}

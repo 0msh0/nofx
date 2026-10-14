@@ -583,7 +583,7 @@
           if(version===this.plotVersion && this.aiCandidates.length)await this.draw(this.aiCandidates.slice(),"ai");
           return;
         }
-        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["Limit order "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#9b6a14"]) : [[plan.idea.execution?.kind==="twap"?"TWAP Limit price":"Entry",plan.idea.entry,"#9b6a14"]];
+        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["Limit order "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#9b6a14"]) : [[plan.idea.execution?.kind==="twap"?"TWAP · "+plan.orders.length+" slices · T+0s to T+"+Math.max(...plan.orders.map(o=>o.offset_seconds))+"s":"Entry",plan.idea.entry,"#9b6a14"]];
         for (const [label, price, color] of [
           ...entries,
           ["Stop loss", plan.idea.stop, "#D6433A"],

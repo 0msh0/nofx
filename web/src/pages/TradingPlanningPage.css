@@ -761,3 +761,242 @@
 .planning-ai500-symbols button {
   padding: 5px 8px;
 }
+
+/* Execution preview shares the chart frame but has its own honest time axis. */
+.planning-execution-band {
+  padding: 14px 20px 12px 64px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-bg-hover);
+}
+.planning-execution-band header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.planning-execution-band header div {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  flex-wrap: wrap;
+}
+.planning-execution-band header span,
+.planning-execution-band small,
+.planning-execution-band p {
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+.planning-execution-band p {
+  margin: 10px 0 0;
+  line-height: 1.5;
+}
+.planning-execution-steps {
+  display: flex;
+  list-style: none;
+  gap: 0;
+  padding: 0;
+  margin: 16px 0 0;
+  overflow-x: auto;
+}
+.planning-execution-steps li {
+  position: relative;
+  display: flex;
+  flex: 1 0 135px;
+  gap: 9px;
+  padding-right: 14px;
+}
+.planning-execution-steps li:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 23px;
+  right: 8px;
+  top: 11px;
+  height: 1px;
+  background: var(--line);
+  z-index: 0;
+}
+.planning-step-dot {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  height: 24px;
+  width: 24px;
+  border-radius: 50%;
+  background: var(--panel-bg);
+  border: 1px solid #9b6a14;
+  color: #9b6a14;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.planning-execution-steps li > div {
+  z-index: 1;
+  background: var(--panel-bg-hover);
+  padding-right: 10px;
+}
+.planning-execution-steps b,
+.planning-execution-steps span:not(.planning-step-dot),
+.planning-execution-steps div > small {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.planning-execution-steps span small {
+  display: inline;
+}
+.planning-structures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+.planning-structures article {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 14px;
+  background: var(--panel-bg);
+}
+.planning-structures article.selected {
+  border-color: var(--nofx-accent);
+  box-shadow: inset 0 2px var(--nofx-accent);
+}
+.planning-structures header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.planning-structures header span,
+.planning-structures p {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.planning-structures article > b {
+  font-size: 12px;
+}
+.planning-structures p {
+  color: var(--text-secondary);
+  overflow-wrap: anywhere;
+}
+.planning-all-plans > summary {
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  margin: 12px 0;
+}
+.planning-live-activity {
+  flex-shrink: 0;
+  margin: 8px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-bg);
+  overflow: hidden;
+}
+.planning-live-activity > header {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.planning-live-activity > header strong {
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.planning-live-activity > header > span {
+  color: var(--text-secondary);
+  font-size: 10px;
+  margin-left: auto;
+}
+.planning-live-activity > header button {
+  padding: 3px 7px;
+  font-size: 10px;
+}
+.activity-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #2e8b57;
+  box-shadow: 0 0 0 3px #2e8b5718;
+  animation: activityPulse 1.6s ease-in-out infinite;
+}
+.planning-activity-list {
+  max-height: 240px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+.planning-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line);
+}
+.planning-activity-item:last-child {
+  border-bottom: 0;
+}
+.planning-activity-item .activity-state {
+  display: grid;
+  place-items: center;
+  min-width: 18px;
+  height: 18px;
+  font-size: 11px;
+  border-radius: 50%;
+  background: var(--panel-bg-hover);
+  color: #2e8b57;
+}
+.planning-activity-item.failed .activity-state {
+  color: #b67718;
+}
+.planning-activity-item.running {
+  background: var(--panel-bg-hover);
+}
+.planning-activity-item > div {
+  flex: 1;
+  min-width: 0;
+}
+.planning-activity-item b {
+  font-size: 11px;
+  font-weight: 600;
+}
+.planning-activity-item p {
+  color: var(--text-secondary);
+  line-height: 1.5;
+  font-size: 10px;
+  overflow-wrap: anywhere;
+  margin: 4px 0 0;
+}
+.planning-activity-item time {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  white-space: nowrap;
+}
+@keyframes activityPulse {
+  50% {
+    box-shadow: 0 0 0 5px #2e8b570a;
+  }
+}
+@media (max-width: 900px) {
+  .planning-structures {
+    grid-template-columns: 1fr;
+  }
+  .planning-execution-band {
+    padding-left: 18px;
+  }
+  .planning-execution-band header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .activity-live-dot {
+    animation: none;
+  }
+}

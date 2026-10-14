@@ -201,7 +201,7 @@ export function loadPlanningChart(): Promise<void> {
     return promise
   }
   return load('/charting_library/charting_library.standalone.js').then(() =>
-    load('/planning/chart.js?v=nofx-paid-en-2')
+    load('/planning/chart.js?v=' + __PLANNING_CHART_VERSION__)
   )
 }
 export function expired(p: Plan, clock = Date.now()) {

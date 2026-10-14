@@ -455,6 +455,11 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 		return e
 	}
 	_ = emit(harness.Event{Type: "status", Data: gin.H{"message": "Loading market context and paid data; preparing the planning model"}})
+	transport := "native_tools"
+	if model.RequiresTextTools(ai.Provider, ai.CustomModelName) {
+		transport = "text_tools"
+	}
+	_ = emit(harness.Event{Type: "model_transport", Data: gin.H{"transport": transport}})
 	e = engine.Run(ctx, in.Input, emit)
 	if e != nil && c.Request.Context().Err() == nil {
 		message := e.Error()

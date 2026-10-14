@@ -234,3 +234,23 @@ a different protocol or a new payment authorization.
 
 A gateway HTTP 400 is not proof that no payment occurred. The UI retains only
 allowlisted error classifications and never displays upstream response bodies.
+
+### Planning progress and entry structures
+
+A turn can make up to three proposal calls and retain at most five unique drafts.
+A partially accepted batch no longer prevents correction of rejected candidates
+within that turn. Previously accepted ideas are deduplicated independently of
+names and explanations, and an original selected draft is revised only once.
+Risk limits, per-child validation and separate execution approval are unchanged.
+
+The event stream publishes candidate validation starts/results and each structure's
+rejection reason. Model waiting heartbeats arrive every two seconds. The Activity
+panel follows these real events and measures elapsed time; it does not simulate
+model reasoning or fabricate progress percentages. It stops following when the
+user scrolls back to inspect earlier steps.
+
+Selecting a TWAP draft displays every planned child quantity, common limit price
+and release offset in an always-visible band attached to the chart. This band has
+its own seconds axis: T+0 means execution start after approval, never a historical
+candle timestamp. Ladder previews show distinct price levels placed together.
+These previews are not submitted orders, and neither release nor fill is implied.
