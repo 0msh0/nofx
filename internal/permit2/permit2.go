@@ -152,6 +152,13 @@ func Sign(key *ecdsa.PrivateKey, chainID int64, a Authorization) (Payload, error
 	if key == nil || !strings.EqualFold(crypto.PubkeyToAddress(key.PublicKey).Hex(), a.From) {
 		return Payload{}, fmt.Errorf("Permit2 signer mismatch")
 	}
+	// Facilitator JSON schemas require decimal text for this uint256.
+	// EIP-3009 exact nonces remain bytes32 hex in their separate signer.
+	nonce, err := Uint256(a.Nonce)
+	if err != nil {
+		return Payload{}, err
+	}
+	a.Nonce = nonce.String()
 	td, err := TypedData(chainID, a)
 	if err != nil {
 		return Payload{}, err

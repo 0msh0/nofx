@@ -11,20 +11,10 @@ import (
 
 	"nofx/mcp"
 	"nofx/mcp/provider"
-	"nofx/store"
-	"nofx/wallet"
-)
-
-// Per-call cost buffers for preflight. Reasoner models emit long chain-of-thought
-// tokens whose cost can far exceed the flat per-call estimate in store.GetModelPrice,
-// so they use a larger multiplier.
-const (
-	preflightSafetyMultiplier         = 1.5
-	preflightReasonerSafetyMultiplier = 4.0
 )
 
 // ErrInsufficientFunds is returned when the claw402 wallet does not hold
-// enough USDC to cover the estimated cost of a call. Callers can type-assert
+// enough USDC to cover the live quoted ceiling. Callers can type-assert
 // to surface balance/needed/address to the UI.
 type ErrInsufficientFunds struct {
 	Address string
@@ -35,10 +25,12 @@ type ErrInsufficientFunds struct {
 
 func (e *ErrInsufficientFunds) Error() string {
 	return fmt.Sprintf(
-		"claw402 insufficient USDC: wallet=%s balance=$%.4f needed=$%.4f model=%s",
+		"claw402 insufficient Base USDC: wallet=%s balance=$%.6f quoted_ceiling=$%.6f model=%s; fund the fee wallet with Base USDC (not ETH); no payment submitted",
 		shortAddr(e.Address), e.Balance, e.Needed, e.Model,
 	)
 }
+
+func (e *ErrInsufficientFunds) Retryable() bool { return false }
 
 // shortAddr renders 0x1234…abcd for log/error strings that may leak into
 // telemetry bundles. The full address stays on the struct for programmatic use.
@@ -59,15 +51,21 @@ const (
 var claw402ModelEndpoints = map[string]string{
 	// OpenAI
 	"gpt-6":         "/api/v1/ai/openai/chat/6",
+	"gpt6":          "/api/v1/ai/openai/chat/6",
+	"gpt-6-astra":   "/api/v1/ai/openai/chat/6",
 	"gpt-5.6":       "/api/v1/ai/openai/chat/5.6",
+	"gpt-5.6-sol":   "/api/v1/ai/openai/chat/5.6",
 	"gpt-5.6-terra": "/api/v1/ai/openai/chat/5.6-terra",
 	"gpt-5.6-luna":  "/api/v1/ai/openai/chat/5.6-luna",
 	// Anthropic
-	"claude-fable": "/api/v1/ai/anthropic/messages/fable",
-	"claude-opus":  "/api/v1/ai/anthropic/messages/opus",
+	"claude-fable":    "/api/v1/ai/anthropic/messages/fable",
+	"claude-fable-5":  "/api/v1/ai/anthropic/messages/fable",
+	"claude-opus":     "/api/v1/ai/anthropic/messages/opus",
+	"claude-opus-4-8": "/api/v1/ai/anthropic/messages/opus",
 	// DeepSeek
-	"deepseek":          "/api/v1/ai/deepseek/chat",
-	"deepseek-reasoner": "/api/v1/ai/deepseek/chat/reasoner",
+	"deepseek":          "/api/v1/ai/deepseek/v4-flash",
+	"deepseek-flash":    "/api/v1/ai/deepseek/v4-flash",
+	"deepseek-reasoner": "/api/v1/ai/deepseek/v4-pro",
 	"deepseek-v4-flash": "/api/v1/ai/deepseek/v4-flash",
 	"deepseek-v4-pro":   "/api/v1/ai/deepseek/v4-pro",
 	// Z.AI (Zhipu)
@@ -168,7 +166,7 @@ func (c *Claw402Client) resolveEndpoint() string {
 	if strings.HasPrefix(c.Model, "/api/") {
 		return c.Model
 	}
-	return claw402ModelEndpoints[DefaultClaw402Model]
+	return ""
 }
 
 func (c *Claw402Client) SetAuthHeader(h http.Header) { X402SetAuthHeader(h) }
@@ -178,20 +176,20 @@ func (c *Claw402Client) SetAuthHeader(h http.Header) { X402SetAuthHeader(h) }
 func (c *Claw402Client) IsRetryableError(error) bool { return false }
 
 func (c *Claw402Client) Call(systemPrompt, userPrompt string) (string, error) {
+	if c.resolveEndpoint() == "" {
+		return "", fmt.Errorf("unsupported Claw402 model %q; select a model listed in the gateway catalog; no payment submitted", c.Model)
+	}
 	unlock := lockFeeWallet(c.walletAddress())
 	defer unlock()
-	if err := c.preflightBalance(); err != nil {
-		return "", err
-	}
 	return X402CallStream(c.Client, c.signPayment, "Claw402", systemPrompt, userPrompt, nil)
 }
 
 func (c *Claw402Client) CallWithRequestFull(req *mcp.Request) (*mcp.LLMResponse, error) {
+	if c.resolveEndpoint() == "" {
+		return nil, fmt.Errorf("unsupported Claw402 model %q; select a model listed in the gateway catalog; no payment submitted", c.Model)
+	}
 	unlock := lockFeeWallet(c.walletAddress())
 	defer unlock()
-	if err := c.preflightBalance(); err != nil {
-		return nil, err
-	}
 	return X402CallFull(c.Client, c.signPayment, "Claw402", req)
 }
 
@@ -202,35 +200,6 @@ func (c *Claw402Client) walletAddress() string {
 		return ""
 	}
 	return crypto.PubkeyToAddress(c.privateKey.PublicKey).Hex()
-}
-
-// preflightBalance short-circuits a call when the wallet cannot cover the
-// estimated cost. RPC failures fall through — x402 will still reject an
-// actually-empty wallet, so we prefer availability over extra strictness.
-func (c *Claw402Client) preflightBalance() error {
-	addr := c.walletAddress()
-	if addr == "" {
-		return nil
-	}
-	balance, err := wallet.QueryUSDCBalanceCached(addr)
-	if err != nil {
-		c.Log.Warnf("⚠️  [MCP] Claw402 balance preflight skipped (RPC error): %v", err)
-		return nil
-	}
-	multiplier := preflightSafetyMultiplier
-	if strings.Contains(strings.ToLower(c.Model), "reasoner") {
-		multiplier = preflightReasonerSafetyMultiplier
-	}
-	needed := store.GetModelPrice(c.Model) * multiplier
-	if balance < needed {
-		return &ErrInsufficientFunds{
-			Address: addr,
-			Balance: balance,
-			Needed:  needed,
-			Model:   c.Model,
-		}
-	}
-	return nil
 }
 
 // signPayment requires usage settlement for model calls. It never silently
@@ -268,7 +237,8 @@ func (c *Claw402Client) signPayment(paymentHeaderB64 string) (string, error) {
 // token_max_out_cap). Sending a small max_tokens here on a thinking model
 // (Kimi K2.5, DeepSeek R1/V4) caused reasoning tokens to consume the entire
 // budget and left `delta.content` empty, surfacing as "no content received".
-// upto settles on real usage, so removing the cap costs nothing extra.
+// The live gateway ceiling is checked against the wallet balance before signing;
+// upto charges actual usage, which can increase when more output is allowed.
 func stripMaxTokens(body map[string]any) map[string]any {
 	if body == nil {
 		return body
@@ -286,7 +256,7 @@ func applyClawModelControls(body map[string]any, model string) map[string]any {
 		return body
 	}
 	switch model {
-	case "deepseek-v4-flash", "deepseek-v4-pro":
+	case "deepseek", "deepseek-flash", "deepseek-reasoner", "deepseek-v4-flash", "deepseek-v4-pro":
 		body["thinking"] = map[string]any{"type": "disabled"}
 	}
 	return body

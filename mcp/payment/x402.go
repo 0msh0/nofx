@@ -208,7 +208,12 @@ func SignBasePaymentHeader(privateKey *ecdsa.PrivateKey, paymentHeaderB64 string
 	}
 
 	senderAddr := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-	return signSponsoredPayment(privateKey, senderAddr, req.Accepts[0], req)
+	for _, option := range req.Accepts {
+		if option.Network == BaseNetwork && strings.EqualFold(option.Asset, BaseUSDCContract) && (option.Scheme == "exact" || option.Scheme == "upto") {
+			return signSponsoredPayment(privateKey, senderAddr, option, req)
+		}
+	}
+	return "", fmt.Errorf("no supported Base USDC payment option; no payment submitted")
 }
 
 // X402SettledUSDHeader carries the actually-settled cost (USD) of an upto
@@ -248,6 +253,15 @@ func (e *PaymentOutcomeUnknownError) Error() string {
 }
 func (e *PaymentOutcomeUnknownError) Unwrap() error   { return e.Cause }
 func (e *PaymentOutcomeUnknownError) Retryable() bool { return false }
+
+// A gateway's explicit pre-settlement rejection is different from an ambiguous
+// paid/network failure. Neither authorizes automatic re-signing or replay.
+type PaymentVerificationRejectedError struct{ Status int }
+
+func (e *PaymentVerificationRejectedError) Error() string {
+	return fmt.Sprintf("payment verification rejected (status %d); gateway reports no settlement for this attempt; check the current quote, fee-wallet balance and client version before a new request (earlier submissions may still have charged)", e.Status)
+}
+func (e *PaymentVerificationRejectedError) Retryable() bool { return false }
 
 // DoX402Request shares the one-authorization flow with streaming requests.
 func DoX402Request(ctx context.Context, httpClient *http.Client,
@@ -329,6 +343,9 @@ func DoX402RequestStream(ctx context.Context, httpClient *http.Client,
 		// Don't include a gateway body: it may contain credentials or signatures.
 		_, _ = io.Copy(io.Discard, io.LimitReader(paidResp.Body, 4096))
 		paidResp.Body.Close()
+		if paidResp.StatusCode == http.StatusPaymentRequired && paidResp.Header.Get("X-Claw402-Payment-Stage") == "verification_rejected" && paidResp.Header.Get("Payment-Response") == "" && paidResp.Header.Get("X-Payment-Response") == "" {
+			return nil, &PaymentVerificationRejectedError{Status: paidResp.StatusCode}
+		}
 		return nil, &PaymentOutcomeUnknownError{Cause: fmt.Errorf("%s paid request returned status %d; reconcile the original payment before retrying", providerTag, paidResp.StatusCode)}
 	}
 	// Remote headers cannot manufacture this internal verification flag.

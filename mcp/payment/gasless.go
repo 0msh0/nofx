@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 	"time"
@@ -54,16 +55,28 @@ func lockFeeWallet(owner string) func() {
 // the permit together with settlement; the wallet needs USDC but no Base ETH.
 func signSponsoredPayment(key *ecdsa.PrivateKey, owner string, option X402AcceptOption, required X402v2PaymentRequired) (string, error) {
 	signed, err := SignX402Payment(key, owner, option, required.Resource)
-	if err != nil || option.Scheme != "upto" {
+	if err != nil {
 		return signed, err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
+	amount, _ := permit2.Uint256(option.Amount) // validated by SignX402Payment
+	balance, err := permit2.USDCBalance(ctx, receiptRPC(), owner)
+	if err != nil {
+		return "", fmt.Errorf("cannot check quoted USDC payment balance; no payment submitted: %w", err)
+	}
+	if balance.Cmp(amount) < 0 {
+		balanceUSD, _ := new(big.Rat).SetFrac(balance, big.NewInt(1_000_000)).Float64()
+		neededUSD, _ := new(big.Rat).SetFrac(amount, big.NewInt(1_000_000)).Float64()
+		return "", &ErrInsufficientFunds{Address: owner, Balance: balanceUSD, Needed: neededUSD}
+	}
+	if option.Scheme != "upto" {
+		return signed, nil
+	}
 	allowance, err := permit2.Allowance(ctx, receiptRPC(), owner)
 	if err != nil {
 		return "", fmt.Errorf("cannot check Permit2 allowance; no payment submitted: %w", err)
 	}
-	amount, _ := permit2.Uint256(option.Amount) // validated by SignX402Payment
 	if allowance.Cmp(amount) >= 0 {
 		return signed, nil
 	}

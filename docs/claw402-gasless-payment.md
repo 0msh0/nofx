@@ -23,6 +23,28 @@ service fee as well as token usage. The total remains within the signed cap;
 NOFX records verified actual settlement instead of reconstructing the bill from
 an outdated token-price estimate. Keep enough USDC for the quoted ceiling.
 
+### Payment failure fixes (2026-10-14)
+
+- Permit2 nonces are emitted as decimal uint256 strings required by the
+  facilitator schema. Exact EIP-3009 nonces remain bytes32 hex.
+- Both model and data payments check the fee wallet's Base USDC balance against
+  the live quote before sending any authorization. No cached flat model price
+  or ETH balance substitutes for this check. RPC errors stop before submission.
+- AI500 does not wrap paid requests in an outer retry, including malformed
+  responses after a charge. Gateway verification rejection is surfaced separately
+  from an unknown settlement, but neither is automatically re-signed.
+- Automatic data-client resolution fails closed on a missing or invalid wallet;
+  the strategy engine uses this resolver and never silently switches to the
+  origin, even if a legacy NofxOS API key remains in the strategy configuration.
+  Missing fee-wallet configuration now reports an error for paid data. Explicit
+  standalone API-key integrations constructing `NewClient` are unchanged.
+- Official aliases for deployed models resolve to the corresponding endpoint.
+  Unknown/newer models are rejected instead of silently charging for GPT-5.6.
+  This does not enable Fable 5.1 or GLM-5.3 on the gateway.
+
+Existing NOFX installations must upgrade to receive these fixes. A gateway
+deployment alone cannot update third-party binaries or fund empty fee wallets.
+
 Offline tests use generated/unfunded keys and local mock RPCs, including the
 same EIP-712 golden vector as the web client. A real zero-ETH, funded-USDC wallet
 canary still requires its owner's authorization; compare payer and recipient

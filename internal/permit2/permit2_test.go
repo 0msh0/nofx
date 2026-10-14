@@ -44,6 +44,10 @@ func TestPermit2GoldenAndTamper(t *testing.T) {
 	if err = Verify(8453, p); err != nil {
 		t.Fatal(err)
 	}
+	wantNonce, _ := Uint256(a.Nonce)
+	if p.Authorization.Nonce != wantNonce.String() || strings.HasPrefix(p.Authorization.Nonce, "0x") {
+		t.Fatal("wire nonce must be a decimal uint256 without changing its signed value")
+	}
 	if Verify(1, p) == nil {
 		t.Fatal("wrong chain accepted")
 	}

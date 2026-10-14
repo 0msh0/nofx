@@ -72,6 +72,24 @@ func CheckRPC(ctx context.Context, endpoint string) error {
 	return nil
 }
 
+// USDCBalance reads the quoted payment asset, not native ETH. An unavailable
+// or wrong-chain RPC must not be interpreted as a funded wallet.
+func USDCBalance(ctx context.Context, endpoint, owner string) (*big.Int, error) {
+	if !ValidAddress(owner) {
+		return nil, fmt.Errorf("invalid USDC payer")
+	}
+	var chain string
+	if err := readRPC(ctx, endpoint, "eth_chainId", nil, &chain); err != nil || chain != "0x2105" {
+		return nil, fmt.Errorf("cannot verify Base USDC balance")
+	}
+	data := "0x70a08231" + strings.Repeat("0", 24) + strings.TrimPrefix(strings.ToLower(owner), "0x")
+	var result string
+	if err := readRPC(ctx, endpoint, "eth_call", []any{map[string]string{"to": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", "data": data}, "latest"}, &result); err != nil {
+		return nil, err
+	}
+	return Uint256(result)
+}
+
 // Allowance reads the paying EOA's existing USDC allowance. No approve or
 // transaction-sending method is exposed here.
 func Allowance(ctx context.Context, endpoint, owner string) (*big.Int, error) {

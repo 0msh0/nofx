@@ -28,6 +28,10 @@ func TestClaw402RequiresAllowanceAndNeverApprovesOrDowngrades(t *testing.T) {
 		case "eth_chainId":
 			result = "0x2105"
 		case "eth_call":
+			if len(request.Params) == 2 && strings.Contains(string(request.Params[0]), "0x70a08231") {
+				result = "0xf4240"
+				break
+			}
 			if len(request.Params) != 2 || !strings.Contains(string(request.Params[0]), "0xdd62ed3e") {
 				t.Error("not an allowance read")
 			}

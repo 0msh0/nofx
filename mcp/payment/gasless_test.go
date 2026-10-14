@@ -53,6 +53,8 @@ func TestGaslessFeeWalletUsesBoundedPermitAndNoTransactionRPC(t *testing.T) {
 						t.Errorf("wrong contract %s", call.To)
 					}
 					switch {
+					case strings.HasPrefix(call.Data, "0x70a08231"):
+						result = "0xf4240"
 					case strings.HasPrefix(call.Data, "0xdd62ed3e"):
 						if mode == "existing" {
 							result = "0xf4240"
@@ -107,7 +109,7 @@ func TestGaslessFeeWalletUsesBoundedPermitAndNoTransactionRPC(t *testing.T) {
 				t.Fatal(err)
 			}
 			if mode == "existing" {
-				if len(signed.Extensions) != 0 || calls.Load() != 2 {
+				if len(signed.Extensions) != 0 || calls.Load() != 4 {
 					t.Fatal("unnecessary permit")
 				}
 				return
