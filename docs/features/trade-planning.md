@@ -275,8 +275,10 @@ leverage; it is not a venue liquidation-price calculation.
 
 ### Frontier and unified account collateral
 
-The navigation and workspace are named **Frontier**; existing `/planning` links
-and authenticated API routes remain compatible. The conversation and live
+The navigation and workspace are named **Frontier**, at `/frontier`. Existing
+`/planning` links redirect within the app, and authenticated API routes remain
+compatible. The new address also avoids historical cached redirects from the
+old chart asset directory that dropped nonstandard local ports. The conversation and live
 activity share one scroll area, with the composer kept reachable. A request
 rejected before the event stream starts does not accumulate phantom chat turns.
 Expired drafts remain in the saved-plan disclosure rather than appearing as

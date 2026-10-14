@@ -400,6 +400,10 @@ export function AppRoutes() {
       <LegacyHashRedirect />
       <Routes>
         <Route
+          path="/planning"
+          element={<Navigate to={ROUTES.planning} replace />}
+        />
+        <Route
           path={ROUTES.planning}
           element={
             isAuthenticated ? (

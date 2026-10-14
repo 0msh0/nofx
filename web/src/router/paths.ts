@@ -11,7 +11,7 @@ export type Page =
   | 'register'
 
 export const ROUTES = {
-  planning: '/planning',
+  planning: '/frontier',
   home: '/',
   login: '/login',
   register: '/register',
@@ -53,6 +53,10 @@ export const LEGACY_HASH_ROUTES: Record<string, string> = {
 
 export function getCurrentPageForPath(pathname: string): Page | undefined {
   switch (pathname) {
+    case ROUTES.planning:
+    case '/planning':
+    case '/planning/':
+      return 'planning'
     case ROUTES.welcome:
     case ROUTES.traders:
       return 'traders'
