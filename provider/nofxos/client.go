@@ -21,11 +21,12 @@ const (
 
 // Client is the NofxOS API client
 type Client struct {
-	BaseURL string
-	AuthKey string
-	Timeout time.Duration
-	mu      sync.RWMutex
-	claw402 *Claw402DataClient // If set, routes requests through claw402
+	BaseURL    string
+	AuthKey    string
+	Timeout    time.Duration
+	mu         sync.RWMutex
+	claw402    *Claw402DataClient // If set, routes requests through claw402
+	gatewayErr error              // fail closed when automatic paid-client setup fails
 }
 
 var (
@@ -65,6 +66,7 @@ func (c *Client) SetClaw402(claw402Client *Claw402DataClient) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.claw402 = claw402Client
+	c.gatewayErr = nil
 }
 
 // SetConfig updates client configuration
@@ -98,10 +100,14 @@ func (c *Client) GetAuthKey() string {
 func (c *Client) doRequest(endpoint string) ([]byte, error) {
 	c.mu.RLock()
 	claw402Client := c.claw402
+	gatewayErr := c.gatewayErr
 	baseURL := c.BaseURL
 	authKey := c.AuthKey
 	timeout := c.Timeout
 	c.mu.RUnlock()
+	if gatewayErr != nil {
+		return nil, gatewayErr
+	}
 
 	// Route through claw402 if configured
 	if claw402Client != nil {

@@ -9,6 +9,7 @@ import type {
 } from '../../lib/api/data'
 import { winrateQualityWarnings } from '../../lib/vergexWinrateQuality'
 import { demoSeedPrice } from '../../lib/demo/demoUniverse'
+import { formatRequestError, isPaymentOutcomeUnknown } from '../../lib/requestErrors'
 
 /**
  * WinrateMatrix renders the vergex (claw402) holder win-rate matrix — live
@@ -413,23 +414,22 @@ function WinrateMatrixSession({
         </div>
       )}
       {error && (
-        <div role="alert" className="tm-sc" style={{ padding: '6px 0' }}>
-          Matrix refresh failed: {String((error as Error)?.message || error)}.{' '}
+        <div role="alert" className="tm-error" style={{ padding: '6px 0' }}>
+          Matrix refresh failed: {formatRequestError(error)}{' '}
           {hasView ? 'Showing the previous snapshot, not live data. ' : ''}
           <button
             type="button"
-            disabled={live.isValidating}
+            disabled={live.isValidating || isPaymentOutcomeUnknown(error)}
             onClick={() => void live.mutate().catch(() => {})}
           >
-            Retry matrix query ($0.002)
+            {isPaymentOutcomeUnknown(error) ? 'Check original payment before retrying' : 'Retry matrix query ($0.002)'}
           </button>
         </div>
       )}
 
       {error && !hasView ? (
         <div className="tm-sc" style={{ padding: '14px 0' }}>
-          No win-rate matrix for {dispSymbol} (
-          {String((error as Error)?.message || error)}).
+          No win-rate matrix available for {dispSymbol}.
         </div>
       ) : !hasView ? (
         <div className="tm-sc" style={{ padding: '14px 0' }}>
@@ -577,15 +577,16 @@ function WinrateMatrixSession({
             </button>
           </div>
           {drill.error ? (
-            <div role="alert" className="tm-sc" style={{ padding: '8px 0' }}>
-              Drilldown failed: {drill.error} No automatic retry or snapshot
+            <div role="alert" className="tm-error" style={{ padding: '8px 0' }}>
+              Drilldown failed: {formatRequestError(drill.error)} No automatic retry or snapshot
               switch was made. If the snapshot has expired, select a cell in the
               latest matrix to start over.
               <button
                 type="button"
+                disabled={isPaymentOutcomeUnknown(drill.error)}
                 onClick={() => void loadPage(sel, drillOffset)}
               >
-                Retry this page ($0.002)
+                {isPaymentOutcomeUnknown(drill.error) ? 'Check original payment before retrying' : 'Retry this page ($0.002)'}
               </button>
             </div>
           ) : drill.items.length === 0 && !drill.loading ? (

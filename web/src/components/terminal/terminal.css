@@ -51,6 +51,19 @@
   color: var(--tm-muted);
 }
 
+/* Operational errors are readable prose, not uppercase market labels. */
+.tm-error {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--tm-dn);
+}
+
 .tm-mono {
   font-family: var(--tm-mono);
   font-variant-numeric: tabular-nums;

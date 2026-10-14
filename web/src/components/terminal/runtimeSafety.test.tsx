@@ -61,3 +61,24 @@ it('marks legacy success=true cycles as faults when their orders failed and show
   expect(screen.getByText('FAULT · 1/1 trades failed/blocked')).toBeInTheDocument()
   expect(screen.getAllByText(/2026-08-15/).length).toBeGreaterThan(0)
 })
+
+const protocolError = 'paid request outcome unknown; refusing automatic replay: malformed HTTP response "\\x00\\x00\\x12\\x04"'
+
+it('shows a readable heatmap payment error without a binary dump or another charge', async () => {
+  mocks.heatmap.mockRejectedValue(new Error(protocolError))
+  render(<SWRConfig value={{provider: () => new Map()}}><LiquidationMap symbol="SOL" marketType="core_perp" /></SWRConfig>)
+  const alert = await screen.findByRole('alert')
+  expect(alert).toHaveTextContent('Payment result is unconfirmed')
+  expect(alert).not.toHaveTextContent('\\x00')
+  expect(mocks.heatmap).toHaveBeenCalledTimes(1)
+  expect(screen.queryByText('● live')).not.toBeInTheDocument()
+})
+
+it('keeps historical decision faults visible but formats their protocol error', () => {
+  const record = {cycle_number:2664,timestamp:'2026-10-14T03:41:23Z',success:false,decisions:[],error_message:protocolError,execution_log:[protocolError]} as DecisionRecord
+  render(<ExecutionLog decisions={[record]} />)
+  expect(screen.getByText('FAULT')).toBeInTheDocument()
+  expect(screen.getAllByText(/Payment result is unconfirmed/)).toHaveLength(2)
+  expect(document.body.textContent).not.toContain('\\x00')
+  expect(record.error_message).toBe(protocolError)
+})

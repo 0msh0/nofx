@@ -3,6 +3,7 @@ import useSWR from 'swr'
 import { api } from '../../lib/api'
 import type { VergexHeatmapBin } from '../../lib/api/data'
 import { demoSeedPrice, demoTick } from '../../lib/demo/demoUniverse'
+import { formatRequestError } from '../../lib/requestErrors'
 
 const lmRnd = (a: number, b: number) => a + Math.random() * (b - a)
 
@@ -221,7 +222,7 @@ export function LiquidationMap({ symbol, marketType = 'hip3_perp', height = 460,
       </div>
 
       {error ? (
-        <div className="tm-sc" style={{ padding: '16px 0' }}>Heatmap unavailable for {view.dispSymbol}. {error instanceof Error ? error.message : 'Request failed.'} No automatic paid retry.</div>
+        <div role="alert" className="tm-error" style={{ padding: '16px 0' }}>Heatmap unavailable for {view.dispSymbol}. {formatRequestError(error)} No automatic paid retry.</div>
       ) : !view.rows.length ? (
         <div className="tm-sc" style={{ padding: '16px 0' }}>{isLoading ? 'Loading cost/liquidation map…' : 'No heatmap data in the selected range.'}</div>
       ) : (
