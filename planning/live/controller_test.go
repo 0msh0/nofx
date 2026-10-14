@@ -78,6 +78,18 @@ func (b *testBroker) Cancel(_ context.Context, o Order) error {
 	b.orders[o.ClientID] = r
 	return nil
 }
+
+// Exercise the production NOFX bridge in scheduler/approval/recovery tests.
+type testNOFXTrader struct{ *testBroker }
+
+func (b testNOFXTrader) AccountSnapshot(c context.Context, s string) (Account, error) {
+	return b.Account(c, s)
+}
+func (b testNOFXTrader) PrepareExecution(c context.Context, s string) error    { return b.Prepare(c, s) }
+func (b testNOFXTrader) SubmitOrder(c context.Context, o Order) (Order, error) { return b.Place(c, o) }
+func (b testNOFXTrader) LookupOrder(c context.Context, o Order) (Order, error) { return b.Lookup(c, o) }
+func (b testNOFXTrader) CancelExecutionOrder(c context.Context, o Order) error { return b.Cancel(c, o) }
+
 func setup(t *testing.T, kind string) (*Controller, *testBroker, *testMarket, core.Plan) {
 	t.Helper()
 	db, e := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "planning.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
@@ -101,7 +113,9 @@ func setup(t *testing.T, kind string) (*Controller, *testBroker, *testMarket, co
 		t.Fatal(e)
 	}
 	b := &testBroker{orders: map[string]Order{}, account: Account{Equity: "10000", Available: "10000", FeeBPS: "5", Position: "0"}}
-	c, e := New(db, func(context.Context, string, string) (Broker, string, error) { return b, "account", nil }, m)
+	c, e := New(db, func(context.Context, string, string) (Broker, string, error) {
+		return NOFXBroker{Trader: testNOFXTrader{b}}, "account", nil
+	}, m)
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -381,5 +395,22 @@ func TestExecutionPersistsBrokerRouteBeforeSubmit(t *testing.T) {
 		if o.VenueClientID != got.Orders[0].VenueClientID {
 			t.Fatal("submit did not use persisted route")
 		}
+	}
+}
+
+func TestPersistedExecutionFlagsCannotChangeLockedPlan(t *testing.T) {
+	for _, flag := range []string{"post_only", "reduce_only"} {
+		t.Run(flag, func(t *testing.T) {
+			c, _, _, p := setup(t, "ladder")
+			v := started(t, c, p)
+			if flag == "post_only" {
+				v.Orders[0].PostOnly = true
+			} else {
+				v.Orders[0].ReduceOnly = true
+			}
+			if err := validateIntent(v); err == nil {
+				t.Fatal("changed execution flags escaped locked plan")
+			}
+		})
 	}
 }

@@ -5,29 +5,13 @@ package live
 import (
 	"context"
 	"nofx/planning/core"
+	"nofx/trader/execution"
 	"time"
 )
 
-type Order struct {
-	VenueClientID string       `json:"venue_client_id,omitempty"`
-	ParentID      string       `json:"parent_id,omitempty"`
-	ClientID      string       `json:"client_id"`
-	OrderID       string       `json:"order_id"`
-	Role          string       `json:"role"`
-	Symbol        string       `json:"symbol"`
-	Side          string       `json:"side"`
-	Price         core.Decimal `json:"price"`
-	Quantity      core.Decimal `json:"quantity"`
-	Status        string       `json:"status"`
-	Filled        core.Decimal `json:"filled"`
-	Average       core.Decimal `json:"average,omitempty"`
-	Error         string       `json:"error,omitempty"`
-}
-type Account struct {
-	Equity, Available, FeeBPS core.Decimal
-	Position                  core.Decimal
-	OpenOrders                int
-}
+// Aliases preserve persisted run JSON while execution belongs to NOFX.
+type Order = execution.Order
+type Account = execution.Account
 
 // ClientIDRouter supplies an exchange-native route before intent is persisted.
 // Empty routes on historical records retain their original raw ID for lookup.

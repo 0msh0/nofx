@@ -657,7 +657,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 var nativeDecimal = regexp.MustCompile(`^[0-9]{1,24}(\.[0-9]{1,12})?$`)
 
 func validReceipt(request, got Order) bool {
-	if got.VenueClientID != request.VenueClientID || got.ClientID != request.ClientID || got.Role != request.Role || got.ParentID != request.ParentID || got.Symbol != request.Symbol || got.Side != request.Side || cmp(got.Quantity, request.Quantity) != 0 || cmp(got.Price, request.Price) != 0 || got.OrderID == "" {
+	if got.PostOnly != request.PostOnly || got.ReduceOnly != request.ReduceOnly || got.VenueClientID != request.VenueClientID || got.ClientID != request.ClientID || got.Role != request.Role || got.ParentID != request.ParentID || got.Symbol != request.Symbol || got.Side != request.Side || cmp(got.Quantity, request.Quantity) != 0 || cmp(got.Price, request.Price) != 0 || got.OrderID == "" {
 		return false
 	}
 	if _, e := decimal(got.Filled); e != nil || cmp(got.Filled, got.Quantity) > 0 {
@@ -693,7 +693,7 @@ func validateIntent(v View) error {
 	seen := map[string]bool{}
 	for i, s := range specs {
 		o := v.Orders[i]
-		if o.ClientID != cid(v.ID, s.Index, "entry", "") || o.Role != "entry" || o.Symbol != v.Plan.Snapshot.Symbol || o.Side != v.Plan.Idea.Side || cmp(o.Price, s.Price) != 0 || cmp(o.Quantity, s.Quantity) != 0 || cmp(o.Filled, o.Quantity) > 0 {
+		if o.PostOnly || o.ReduceOnly || o.ClientID != cid(v.ID, s.Index, "entry", "") || o.Role != "entry" || o.Symbol != v.Plan.Snapshot.Symbol || o.Side != v.Plan.Idea.Side || cmp(o.Price, s.Price) != 0 || cmp(o.Quantity, s.Quantity) != 0 || cmp(o.Filled, o.Quantity) > 0 {
 			return errors.New("entry intent no longer matches approval")
 		}
 		if _, e := decimal(o.Filled); e != nil {
@@ -709,7 +709,7 @@ func validateIntent(v View) error {
 		if o.Role == "tp" {
 			price = v.Plan.Idea.Target
 		}
-		if !ok || (o.Role != "sl" && o.Role != "tp") || !core.Positive(o.Quantity) || cmp(o.Quantity, entry.Quantity) > 0 || cmp(o.Price, price) != 0 || o.Side != entry.Side || o.Symbol != entry.Symbol || seen[o.ClientID] {
+		if o.PostOnly || o.ReduceOnly || !ok || (o.Role != "sl" && o.Role != "tp") || !core.Positive(o.Quantity) || cmp(o.Quantity, entry.Quantity) > 0 || cmp(o.Price, price) != 0 || o.Side != entry.Side || o.Symbol != entry.Symbol || seen[o.ClientID] {
 			return errors.New("protective intent exceeds the locked basket")
 		}
 		seen[o.ClientID] = true

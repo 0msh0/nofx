@@ -8,7 +8,8 @@ import (
 	hl "github.com/sonirico/go-hyperliquid"
 	"net/http"
 	"net/http/httptest"
-	"nofx/planning/live"
+	"nofx/trader/execution"
+	"nofx/trader/types"
 	"strings"
 	"testing"
 	"time"
@@ -59,9 +60,9 @@ func TestPlanningHyperliquidNativeReceiptsAndUnknownLookup(t *testing.T) {
 	meta := &hl.Meta{Universe: []hl.AssetInfo{{Name: "BTC", SzDecimals: 5, MaxLeverage: 50}}}
 	ex := hl.NewExchange(context.Background(), key, s.URL, meta, "", "owner", &hl.SpotMeta{}, nil, hl.ExchangeOptClientOptions(hl.ClientOptHTTPClient(s.Client())))
 	tr := &HyperliquidTrader{ctx: context.Background(), apiURL: s.URL, privateKey: key, walletAddr: "owner", meta: meta, exchange: ex}
-	b := PlanningBroker{Trader: tr}
-	o := live.Order{ClientID: clientID, Symbol: "BTC", Role: "entry", Side: "long", Price: "100000", Quantity: "0.001", Status: "submitting", Filled: "0"}
-	got, e := b.Place(context.Background(), o)
+	b := tr
+	o := execution.Order{ClientID: clientID, Symbol: "BTC", Role: "entry", Side: "long", Price: "100000", Quantity: "0.001", Status: "submitting", Filled: "0"}
+	got, e := b.SubmitOrder(context.Background(), o)
 	if e != nil || got.OrderID != "12345" || got.Status != "NEW" {
 		t.Fatalf("%+v %v", got, e)
 	}
@@ -69,25 +70,42 @@ func TestPlanningHyperliquidNativeReceiptsAndUnknownLookup(t *testing.T) {
 	if wire["c"] != "0x"+clientID || wire["r"] != false || wire["p"] != "100000" || wire["s"] != "0.001" {
 		t.Fatal(wire)
 	}
-	got, e = b.Lookup(context.Background(), o)
+	got, e = b.LookupOrder(context.Background(), o)
 	if e != nil || got.Status != "PARTIALLY_FILLED" || got.Filled != "0.000500000000" {
 		t.Fatalf("%+v %v", got, e)
 	}
+	status, err := tr.GetOrderStatus("BTC", "12345")
+	if err != nil || status["status"] != "PARTIALLY_FILLED" || status["executedQty"] != 0.0005 {
+		t.Fatalf("native status: %v %v", status, err)
+	}
 	unknown = true
-	got, e = b.Lookup(context.Background(), o)
+	if status, err = tr.GetOrderStatus("BTC", "12345"); err == nil {
+		t.Fatalf("missing order fabricated status: %v", status)
+	}
+	got, e = b.LookupOrder(context.Background(), o)
 	if e == nil || got.Status == "FILLED" {
 		t.Fatal("unknown order fabricated fill")
 	}
 	o.Role = "sl"
 	o.Price = "99000"
-	if _, e = b.Place(context.Background(), o); e != nil {
+	if _, e = b.SubmitOrder(context.Background(), o); e != nil {
 		t.Fatal(e)
 	}
 	wire = actions[1]["orders"].([]any)[0].(map[string]any)
 	if wire["r"] != true || wire["b"] != false {
 		t.Fatal("protection not reduce only", wire)
 	}
-	if e = b.Cancel(context.Background(), o); e != nil {
+	// The original NOFX API must return the exchange ID, never a timestamp.
+	legacy, e := tr.PlaceLimitOrder(&types.LimitOrderRequest{Symbol: "BTC", Side: "BUY", Price: 100000, Quantity: 0.001, ClientID: "grid-2-456", PostOnly: true, ReduceOnly: true})
+	if e != nil || legacy.OrderID != "12345" {
+		t.Fatalf("legacy API: %+v %v", legacy, e)
+	}
+	last := actions[len(actions)-1]["orders"].([]any)[0].(map[string]any)
+	canonical, _ := execution.CanonicalClientID("grid-2-456")
+	if last["c"] != "0x"+canonical || last["r"] != true || last["t"].(map[string]any)["limit"].(map[string]any)["tif"] != "Alo" {
+		t.Fatalf("legacy intent changed: %v", last)
+	}
+	if e = b.CancelExecutionOrder(context.Background(), o); e != nil {
 		t.Fatal(e)
 	}
 }

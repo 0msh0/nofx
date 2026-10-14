@@ -124,7 +124,7 @@ func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Brok
 		if ex.APIKey == "" || ex.SecretKey == "" {
 			return nil, "", errors.New("请先在 NOFX 设置中连接 Binance 合约账户")
 		}
-		return cache(binance.NewPlanningBroker(string(ex.APIKey), string(ex.SecretKey)), key)
+		return cache(live.NOFXBroker{Trader: binance.NewExecutionTrader(string(ex.APIKey), string(ex.SecretKey), user)}, key)
 	case "hyperliquid":
 		if ex.APIKey == "" || ex.HyperliquidWalletAddr == "" || !ex.HyperliquidBuilderApproved || ex.Testnet {
 			return nil, "", errors.New("请先在 NOFX 中完成 Hyperliquid 主网钱包、Agent 与 Builder 授权")
@@ -133,7 +133,7 @@ func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Brok
 		if e != nil {
 			return nil, "", errors.New("Hyperliquid 授权账户初始化失败")
 		}
-		return cache(&hyperliquid.PlanningBroker{Trader: t}, key)
+		return cache(live.NOFXBroker{Trader: t}, key)
 	default:
 		return nil, "", errors.New("首版真实规划执行支持 Binance USDT 合约和 Hyperliquid；不会使用交易类型回退")
 	}

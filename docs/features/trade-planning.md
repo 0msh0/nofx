@@ -130,10 +130,29 @@ No remote push, PR, deployment or real transaction is part of local validation.
 ## Builder and Broker routing
 
 The AI and connected-account configuration are NOFX's existing per-user records.
-Planning execution adds a strict finite-order adapter inside NOFX's exchange
-packages; it does not directly call legacy helpers that ignore caller IDs or
-infer fills from missing orders. Native credentials, SDKs and attribution are
-shared with NOFX.
+Approved plans now call NOFX's exchange traders through the shared
+`trader/execution.Trader` contract. The planning bridge only forwards calls;
+it contains no exchange SDK or signing/submission code. The original NOFX
+`PlaceLimitOrder` entry points also call the same `SubmitOrder` implementation.
+Binance uses the common credential/client factory (including NOFX hooks) without
+changing position mode when opening the workspace. Hyperliquid uses the existing
+trader, wallet authorization and Builder submission helper.
+
+Single limits, weighted ladders and TWAP remain planning/scheduling choices:
+only the approved basket is released into the shared order API. Approval,
+durable intent, partial-fill protection, cancellation, account exclusion and
+restart reconciliation remain in the finite controller. Existing planning run
+JSON and historical client IDs remain readable; this refactor does not merge
+planning runs into the automatic strategy decision history.
+
+The existing limit API now retains stable client identity, honors maker-only
+and reduce-only flags, fails closed on leverage errors, and returns actual
+Hyperliquid order IDs instead of synthetic timestamps. Existing grid labels
+are deterministically mapped to 128-bit client IDs; exact plan IDs pass through.
+Hyperliquid status queries use native order status and share state decoding
+with planning: missing orders are errors, not presumed fills. The status
+endpoint does not supply weighted average fill price or commission; those
+fields remain zero until filled-trade data supplies them.
 
 Hyperliquid planning entry and protective orders carry the existing NOFX
 `defaultBuilder` address and fee (50 tenths of a basis point = 0.05%). Binance

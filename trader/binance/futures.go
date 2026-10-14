@@ -5,8 +5,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"net/http"
-	"nofx/hook"
 	"nofx/logger"
 	"strings"
 	"sync"
@@ -66,22 +64,8 @@ type FuturesTrader struct {
 
 // NewFuturesTrader creates futures trader
 func NewFuturesTrader(apiKey, secretKey string, userId string) *FuturesTrader {
-	client := futures.NewClient(apiKey, secretKey)
-	// The SDK defaults to http.DefaultClient, which has no timeout — a hung
-	// connection would stall the trading loop indefinitely.
-	client.HTTPClient = &http.Client{Timeout: 30 * time.Second}
-
-	hookRes := hook.HookExec[hook.NewBinanceTraderResult](hook.NEW_BINANCE_TRADER, userId, client)
-	if hookRes != nil && hookRes.GetResult() != nil {
-		client = hookRes.GetResult()
-	}
-
-	// Sync time to avoid "Timestamp ahead" error
-	syncBinanceServerTime(client)
-	trader := &FuturesTrader{
-		client:        client,
-		cacheDuration: 15 * time.Second, // 15-second cache
-	}
+	trader := NewExecutionTrader(apiKey, secretKey, userId)
+	syncBinanceServerTime(trader.client)
 
 	// Set dual-side position mode (Hedge Mode)
 	// This is required because the code uses PositionSide (LONG/SHORT)

@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-func (t *HyperliquidTrader) directPlanningInfo(ctx context.Context, v any) ([]byte, error) {
+func (t *HyperliquidTrader) directAccountInfo(ctx context.Context, v any) ([]byte, error) {
 	raw, e := json.Marshal(v)
 	if e != nil {
 		return nil, e

@@ -9,14 +9,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"nofx/planning/live"
+	"nofx/trader/execution"
+	"nofx/trader/types"
 	"strings"
 	"testing"
 )
 
-func planningOrder() live.Order {
-	o := live.Order{ClientID: strings.Repeat("a", 32), Role: "entry", Symbol: "BTCUSDT", Side: "long", Price: "100000", Quantity: "0.001", Status: "submitting", Filled: "0"}
-	o.VenueClientID, _ = (&PlanningBroker{}).RouteClientID(o.ClientID)
+func planningOrder() execution.Order {
+	o := execution.Order{ClientID: strings.Repeat("a", 32), Role: "entry", Symbol: "BTCUSDT", Side: "long", Price: "100000", Quantity: "0.001", Status: "submitting", Filled: "0"}
+	o.VenueClientID, _ = (&FuturesTrader{}).RouteClientID(o.ClientID)
 	return o
 }
 func TestPlanningBinanceExactLimitAndProtection(t *testing.T) {
@@ -29,7 +30,7 @@ func TestPlanningBinanceExactLimitAndProtection(t *testing.T) {
 			fmt.Fprint(w, `{"dualSidePosition":false}`)
 		case "/fapi/v1/order":
 			sent = append(sent, r.Form)
-			fmt.Fprintf(w, `{"orderId":123,"clientOrderId":%q,"symbol":"BTCUSDT","price":"100000","origQty":"0.001","side":"BUY","type":"LIMIT","timeInForce":"GTC","status":"NEW","executedQty":"0","avgPrice":"0"}`, r.Form.Get("newClientOrderId"))
+			fmt.Fprintf(w, `{"orderId":123,"clientOrderId":%q,"symbol":"BTCUSDT","price":"100000","origQty":"0.001","side":"BUY","positionSide":"BOTH","type":"LIMIT","timeInForce":"GTC","status":"NEW","executedQty":"0","avgPrice":"0"}`, r.Form.Get("newClientOrderId"))
 		case "/fapi/v1/algoOrder":
 			sent = append(sent, r.Form)
 			fmt.Fprintf(w, `{"algoId":456,"clientAlgoId":%q,"symbol":"BTCUSDT","quantity":"0.001","triggerPrice":"99000","side":"SELL","orderType":"STOP_MARKET","reduceOnly":true}`, r.Form.Get("clientAlgoId"))
@@ -38,17 +39,17 @@ func TestPlanningBinanceExactLimitAndProtection(t *testing.T) {
 		}
 	}))
 	defer s.Close()
-	b := NewPlanningBroker("test-key", "test-secret")
-	b.Client.BaseURL = s.URL
-	b.Client.HTTPClient = s.Client()
+	b := NewExecutionTrader("test-key", "test-secret", "")
+	b.client.BaseURL = s.URL
+	b.client.HTTPClient = s.Client()
 	o := planningOrder()
-	r, e := b.Place(context.Background(), o)
+	r, e := b.SubmitOrder(context.Background(), o)
 	if e != nil || r.OrderID != "123" {
 		t.Fatalf("%+v %v", r, e)
 	}
 	o.Role = "sl"
 	o.Price = "99000"
-	r, e = b.Place(context.Background(), o)
+	r, e = b.SubmitOrder(context.Background(), o)
 	if e != nil || r.OrderID != "456" {
 		t.Fatalf("%+v %v", r, e)
 	}
@@ -65,11 +66,11 @@ func TestPlanningBinanceMissingOrderNeverFilled(t *testing.T) {
 		fmt.Fprint(w, `{"code":-2013,"msg":"Order does not exist."}`)
 	}))
 	defer s.Close()
-	b := NewPlanningBroker("test", "test")
-	b.Client.BaseURL = s.URL
-	b.Client.HTTPClient = s.Client()
+	b := NewExecutionTrader("test", "test", "")
+	b.client.BaseURL = s.URL
+	b.client.HTTPClient = s.Client()
 	o := planningOrder()
-	got, e := b.Lookup(context.Background(), o)
+	got, e := b.LookupOrder(context.Background(), o)
 	if e == nil || got.Status == "FILLED" {
 		t.Fatal(got, e)
 	}
@@ -90,15 +91,15 @@ func TestPlanningBinanceLeverageFailureAndCancelledContext(t *testing.T) {
 		t.Error("unexpected order mutation")
 	}))
 	defer s.Close()
-	b := NewPlanningBroker("test", "test")
-	b.Client.BaseURL = s.URL
-	b.Client.HTTPClient = s.Client()
-	if b.Prepare(context.Background(), "BTCUSDT") == nil {
+	b := NewExecutionTrader("test", "test", "")
+	b.client.BaseURL = s.URL
+	b.client.HTTPClient = s.Client()
+	if b.PrepareExecution(context.Background(), "BTCUSDT") == nil {
 		t.Fatal("failed leverage accepted")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, e := b.Place(ctx, planningOrder()); e == nil {
+	if _, e := b.SubmitOrder(ctx, planningOrder()); e == nil {
 		t.Fatal("cancelled request accepted")
 	}
 	if orders != 0 {
@@ -107,7 +108,7 @@ func TestPlanningBinanceLeverageFailureAndCancelledContext(t *testing.T) {
 }
 
 func TestPlanningBrokerIDStableLosslessAndLegacyLookup(t *testing.T) {
-	b := &PlanningBroker{}
+	b := &FuturesTrader{}
 	raw := "0123456789abcdef0123456789abcdef"
 	native, e := b.RouteClientID(raw)
 	if e != nil || len(native) != 32 || !strings.HasPrefix(native, futuresBrokerPrefix) {
@@ -144,21 +145,21 @@ func TestPlanningBrokerIDStableLosslessAndLegacyLookup(t *testing.T) {
 				fmt.Fprint(w, `{"code":-2013,"msg":"not confirmed"}`)
 			}))
 			defer s.Close()
-			broker := NewPlanningBroker("test", "test")
-			broker.Client.BaseURL = s.URL
-			broker.Client.HTTPClient = s.Client()
+			broker := NewExecutionTrader("test", "test", "")
+			broker.client.BaseURL = s.URL
+			broker.client.HTTPClient = s.Client()
 			o := planningOrder()
 			o.Role = role
-			broker.Lookup(context.Background(), o)
+			broker.LookupOrder(context.Background(), o)
 			if gotID != o.VenueClientID {
 				t.Fatal("lookup lost persisted broker ID", gotID)
 			}
-			broker.Cancel(context.Background(), o)
+			broker.CancelExecutionOrder(context.Background(), o)
 			if gotID != o.VenueClientID {
 				t.Fatal("cancel lost persisted broker ID", gotID)
 			}
 			o.VenueClientID = ""
-			broker.Lookup(context.Background(), o)
+			broker.LookupOrder(context.Background(), o)
 			if gotID != o.ClientID {
 				t.Fatal("legacy order identity changed", gotID)
 			}
@@ -169,17 +170,59 @@ func TestPlanningRejectsMissingOrChangedPersistedBrokerRoute(t *testing.T) {
 	calls := 0
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { calls++; t.Error("invalid route reached exchange") }))
 	defer s.Close()
-	b := NewPlanningBroker("test", "test")
-	b.Client.BaseURL = s.URL
-	b.Client.HTTPClient = s.Client()
+	b := NewExecutionTrader("test", "test", "")
+	b.client.BaseURL = s.URL
+	b.client.HTTPClient = s.Client()
 	for _, route := range []string{"", "x-other-broker"} {
 		o := planningOrder()
 		o.VenueClientID = route
-		if _, e := b.Place(context.Background(), o); e == nil {
+		if _, e := b.SubmitOrder(context.Background(), o); e == nil {
 			t.Fatal("invalid broker route accepted")
 		}
 	}
 	if calls != 0 {
 		t.Fatal("invalid route sent network request")
+	}
+}
+
+// The original NOFX limit API and exact planning API must emit the same native
+// order identity and flags; legacy grid labels must remain usable.
+func TestNOFXLimitAPIUsesSharedSubmission(t *testing.T) {
+	for _, postOnly := range []bool{false, true} {
+		t.Run(fmt.Sprint(postOnly), func(t *testing.T) {
+			count := 0
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.ParseForm()
+				w.Header().Set("Content-Type", "application/json")
+				switch r.URL.Path {
+				case "/fapi/v1/exchangeInfo":
+					fmt.Fprint(w, `{"symbols":[{"symbol":"BTCUSDT","filters":[{"filterType":"LOT_SIZE","stepSize":"0.001"},{"filterType":"PRICE_FILTER","tickSize":"0.1"}]}]}`)
+				case "/fapi/v1/positionSide/dual":
+					fmt.Fprint(w, `{"dualSidePosition":false}`)
+				case "/fapi/v1/order":
+					count++
+					id, _ := execution.CanonicalClientID("grid-1-123")
+					want, _ := (&FuturesTrader{}).RouteClientID(id)
+					tif := "GTC"
+					if postOnly {
+						tif = "GTX"
+					}
+					if r.Form.Get("newClientOrderId") != want || r.Form.Get("timeInForce") != tif || r.Form.Get("reduceOnly") != "true" || r.Form.Get("side") != "SELL" {
+						t.Errorf("lost shared order intent: %v", r.Form)
+					}
+					fmt.Fprintf(w, `{"orderId":789,"clientOrderId":%q,"symbol":"BTCUSDT","price":"100000.0","origQty":"0.001","side":"SELL","positionSide":"BOTH","type":"LIMIT","timeInForce":%q,"reduceOnly":true,"status":"NEW","executedQty":"0","avgPrice":"0"}`, want, tif)
+				default:
+					t.Errorf("unexpected request %s", r.URL.Path)
+				}
+			}))
+			defer s.Close()
+			b := NewExecutionTrader("test", "test", "")
+			b.client.BaseURL = s.URL
+			b.client.HTTPClient = s.Client()
+			result, err := b.PlaceLimitOrder(&types.LimitOrderRequest{Symbol: "BTCUSDT", Side: "SELL", Price: 100000, Quantity: 0.001, ClientID: "grid-1-123", PostOnly: postOnly, ReduceOnly: true})
+			if err != nil || result.OrderID != "789" || count != 1 {
+				t.Fatalf("%+v %v calls=%d", result, err, count)
+			}
+		})
 	}
 }

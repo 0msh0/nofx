@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"nofx/trader/execution"
 	"strconv"
 	"strings"
 	"time"
@@ -16,7 +17,7 @@ import (
 
 // Decimal is an exact base-10 number encoded as a JSON string. No binary floats
 // participate in risk calculations or quantity rounding.
-type Decimal string
+type Decimal = execution.Decimal
 
 func rat(d Decimal) (*big.Rat, error) {
 	if len(d) == 0 || len(d) > 40 {

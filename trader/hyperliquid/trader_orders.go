@@ -2,11 +2,13 @@ package hyperliquid
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"nofx/logger"
+	"nofx/trader/execution"
 	"nofx/trader/types"
 	"strconv"
 	"strings"
@@ -23,12 +25,24 @@ const (
 	aggressiveSellPriceFactor = 0.99
 )
 
-func (t *HyperliquidTrader) placeOrderWithBuilderFee(order hyperliquid.CreateOrderRequest) error {
-	_, err := t.exchange.Order(t.ctx, order, defaultBuilder)
-	if err == nil {
-		return nil
+// submitNativeOrder is the single SDK submission point used by NOFX's
+// legacy trading methods and the exact order API. Both retain Builder routing.
+func (t *HyperliquidTrader) submitNativeOrder(ctx context.Context, ex *hyperliquid.Exchange, order hyperliquid.CreateOrderRequest) (hyperliquid.OrderStatus, error) {
+	receipt, err := ex.Order(ctx, order, defaultBuilder)
+	if err != nil {
+		return receipt, wrapBuilderFeeNotApproved(err)
 	}
-	return wrapBuilderFeeNotApproved(err)
+	if receipt.Error != nil {
+		return receipt, fmt.Errorf("Hyperliquid rejected order")
+	}
+	if receipt.Resting == nil && receipt.Filled == nil {
+		return receipt, fmt.Errorf("Hyperliquid missing native order receipt")
+	}
+	return receipt, nil
+}
+func (t *HyperliquidTrader) placeOrderWithBuilderFee(order hyperliquid.CreateOrderRequest) error {
+	_, err := t.submitNativeOrder(t.ctx, t.exchange, order)
+	return err
 }
 
 func isBuilderFeeNotApprovedError(err error) bool {
@@ -1168,68 +1182,38 @@ func (t *HyperliquidTrader) SetTakeProfit(symbol string, positionSide string, qu
 // PlaceLimitOrder places a limit order for grid trading
 // Implements GridTrader interface
 func (t *HyperliquidTrader) PlaceLimitOrder(req *types.LimitOrderRequest) (*types.LimitOrderResult, error) {
-	if err := t.CheckTradingAuthorization(); err != nil {
+	if req == nil || (req.Side != "BUY" && req.Side != "SELL") {
+		return nil, fmt.Errorf("invalid limit order request")
+	}
+	// Preserve the caller ID. Exact execution refuses silent order changes.
+	id, err := execution.CanonicalClientID(req.ClientID)
+	if err != nil {
 		return nil, err
 	}
-	coin := convertSymbolToHyperliquid(req.Symbol)
-
-	// Set leverage if specified.
 	if req.Leverage > 0 {
 		if err := t.SetLeverage(req.Symbol, req.Leverage); err != nil {
 			return nil, fmt.Errorf("order blocked: %w", err)
 		}
 	}
-
-	// Round quantity to allowed decimals
-	roundedQuantity := t.roundToSzDecimals(coin, req.Quantity)
-
-	// Round price to 5 significant figures
-	roundedPrice, err := t.roundOrderPrice(coin, req.Price)
+	side := "long"
+	if req.Side == "SELL" {
+		side = "short"
+	}
+	coin := convertSymbolToHyperliquid(req.Symbol)
+	quantity := strconv.FormatFloat(t.roundToSzDecimals(coin, req.Quantity), 'f', -1, 64)
+	rounded, err := t.roundOrderPrice(coin, req.Price)
 	if err != nil {
 		return nil, err
 	}
-
-	// Determine if buy or sell
-	isBuy := req.Side == "BUY"
-
-	logger.Infof("[Hyperliquid] PlaceLimitOrder: %s %s @ %.4f, qty=%.4f", coin, req.Side, roundedPrice, roundedQuantity)
-
-	order := hyperliquid.CreateOrderRequest{
-		Coin:  coin,
-		IsBuy: isBuy,
-		Size:  roundedQuantity,
-		Price: roundedPrice,
-		OrderType: hyperliquid.OrderType{
-			Limit: &hyperliquid.LimitOrderType{
-				Tif: hyperliquid.TifGtc, // Good Till Cancel for grid orders
-			},
-		},
-		ReduceOnly: req.ReduceOnly,
-	}
-
-	err = t.placeOrderWithBuilderFee(order)
+	price := strconv.FormatFloat(rounded, 'f', -1, 64)
+	nativeID := ""
+	result, err := t.SubmitOrder(context.Background(), execution.Order{ClientID: id, VenueClientID: nativeID, Symbol: req.Symbol, Side: side, Role: "entry", Price: execution.Decimal(price), Quantity: execution.Decimal(quantity), ReduceOnly: req.ReduceOnly, PostOnly: req.PostOnly})
 	if err != nil {
-		return nil, fmt.Errorf("failed to place limit order: %w", err)
+		return nil, err
 	}
-
-	// Note: Hyperliquid's Order response doesn't return the order ID directly
-	// We would need to query open orders to get it, but for grid trading
-	// we can track orders by price level instead
-	orderID := fmt.Sprintf("%d", time.Now().UnixNano())
-
-	logger.Infof("✓ [Hyperliquid] Limit order placed: %s %s @ %.4f",
-		coin, req.Side, roundedPrice)
-
-	return &types.LimitOrderResult{
-		OrderID:      orderID,
-		ClientID:     req.ClientID,
-		Symbol:       req.Symbol,
-		Side:         req.Side,
-		PositionSide: req.PositionSide,
-		Price:        roundedPrice,
-		Quantity:     roundedQuantity,
-		Status:       "NEW",
-	}, nil
+	actualPrice, _ := strconv.ParseFloat(string(result.Price), 64)
+	actualQty, _ := strconv.ParseFloat(string(result.Quantity), 64)
+	return &types.LimitOrderResult{OrderID: result.OrderID, ClientID: result.ClientID, Symbol: req.Symbol, Side: req.Side, PositionSide: req.PositionSide, Price: actualPrice, Quantity: actualQty, Status: result.Status}, nil
 }
 
 // CancelOrder cancels a specific order by ID
