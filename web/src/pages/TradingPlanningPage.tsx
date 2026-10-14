@@ -1371,6 +1371,20 @@ export function TradingPlanningPage() {
               {account?.name} · {venue} · {leverage}x · automatically sized from
               free margin. Review before submitting.
             </p>
+            <label>
+              Leverage
+              <select
+                aria-label="Manual leverage"
+                value={leverage}
+                onChange={(e) => setLeverage(Number(e.target.value))}
+              >
+                {[1, 2, 3, 5, 10, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}x
+                  </option>
+                ))}
+              </select>
+            </label>
             <select
               aria-label="Custom entry method"
               value={builderIdea.execution.kind}
