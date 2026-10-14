@@ -1,6 +1,7 @@
 // Package permit2 implements the x402 EVM upto signing envelope.
 // Protocol: x402-foundation/x402 specs/schemes/upto/scheme_upto_evm.md.
-// It never sends transactions or grants token approvals.
+// It never sends transactions. Gas sponsorship signs a bounded USDC permit
+// for the facilitator to submit with settlement; it never grants unlimited allowance.
 package permit2
 
 import (
@@ -151,6 +152,13 @@ func Sign(key *ecdsa.PrivateKey, chainID int64, a Authorization) (Payload, error
 	if key == nil || !strings.EqualFold(crypto.PubkeyToAddress(key.PublicKey).Hex(), a.From) {
 		return Payload{}, fmt.Errorf("Permit2 signer mismatch")
 	}
+	// Facilitator JSON schemas require decimal text for this uint256.
+	// EIP-3009 exact nonces remain bytes32 hex in their separate signer.
+	nonce, err := Uint256(a.Nonce)
+	if err != nil {
+		return Payload{}, err
+	}
+	a.Nonce = nonce.String()
 	td, err := TypedData(chainID, a)
 	if err != nil {
 		return Payload{}, err
