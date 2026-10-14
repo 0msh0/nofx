@@ -138,25 +138,39 @@ export async function streamPlanning(
     await handleJSONResponse(r)
     return
   }
-  if (!r.body) throw new Error('服务没有返回规划流')
+  if (!r.body) throw new Error('Server returned no planning stream')
   const reader = r.body.getReader(),
     decoder = new TextDecoder()
   let buffer = ''
+  let finished = false
+  let serverError = false
   try {
     for (;;) {
       const { done, value } = await reader.read()
       buffer += decoder.decode(value, { stream: !done })
+      buffer = buffer.replace(/\r\n/g, '\n')
       let at: number
       while ((at = buffer.indexOf('\n\n')) >= 0) {
         const frame = buffer.slice(0, at)
         buffer = buffer.slice(at + 2)
         for (const line of frame.split('\n'))
           if (line.startsWith('data: ')) {
-            onEvent(JSON.parse(line.slice(6)) as PlanningEvent)
+            const event = JSON.parse(line.slice(6)) as PlanningEvent
+            if (event.type === 'done' || event.type === 'outcome')
+              finished = true
+            if (event.type === 'error') serverError = true
+            onEvent(event)
           }
       }
-      if (buffer.length > 1 << 20) throw new Error('规划事件超过限制')
-      if (done) break
+      if (buffer.length > 1 << 20)
+        throw new Error('Planning event exceeds the size limit')
+      if (done) {
+        if (!finished && !serverError)
+          throw new Error(
+            'Planning connection ended without a result. No automatic retry was made; check payment status before retrying.'
+          )
+        break
+      }
     }
   } finally {
     await reader.cancel().catch(() => {})
@@ -176,7 +190,7 @@ export function loadPlanningChart(): Promise<void> {
           script.remove()
           reject(
             new Error(
-              '图表组件加载失败，请检查构建时是否初始化 charting 子模块'
+              'Chart failed to load. Check that the charting submodule was initialized during the build.'
             )
           )
         }
@@ -187,7 +201,7 @@ export function loadPlanningChart(): Promise<void> {
     return promise
   }
   return load('/charting_library/charting_library.standalone.js').then(() =>
-    load('/planning/chart.js?v=nofx-paper-1')
+    load('/planning/chart.js?v=nofx-paid-en-2')
   )
 }
 export function expired(p: Plan, clock = Date.now()) {

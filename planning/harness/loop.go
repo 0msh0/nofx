@@ -37,23 +37,23 @@ type outcome struct {
 
 func (o outcome) summary() string {
 	if o.Drafts > 0 {
-		return fmt.Sprintf("已保存 %d 个未批准草案。请在图表和子订单表中复核；需要你另行明确批准并提交。", o.Drafts)
+		return fmt.Sprintf("Saved %d unapproved drafts. Review the chart and child orders; separate explicit approval is required to execute.", o.Drafts)
 	}
-	text := "当前没有通过约束的交易方案，本次不交易。"
+	text := "No trade plan passed validation. No trade will be placed."
 	if len(o.Rejections) > 0 {
-		text += "\n已检查的限制：\n" + strings.Join(o.Rejections[max(0, len(o.Rejections)-4):], "\n")
+		text += "\nConstraints checked:\n" + strings.Join(o.Rejections[max(0, len(o.Rejections)-4):], "\n")
 	}
 	if o.StopReason == "model_unavailable" {
-		text += "\n模型暂未完成进一步解释，以上验证结果已保留，可继续讨论。"
+		text += "\nThe model did not complete its explanation. Validated results are retained for further discussion."
 	}
 	if o.StopReason == "budget" {
-		text += "\n本次推演资源已用完，以上结果已保留。你可以补充想法继续；不会自动降低风险标准或下单。"
+		text += "\nThe planning budget is exhausted. Results are retained. Continue with more context if needed; risk standards are unchanged and no orders are placed automatically."
 	}
 	return text
 }
 func finishTurn(ctx context.Context, planner model.ChatPlanner, messages []model.Message, result outcome, emit Emit, explain bool) error {
 	if explain && ctx.Err() == nil {
-		messages = append(messages, model.Message{Role: "user", Content: "推演阶段结束。仅根据已验证的工具结果，简短解释当前行情假设、失败原因或已保存草案。禁止继续调用工具、承诺获利或声称已批准/执行。没有通过的草案就明确不交易。"})
+		messages = append(messages, model.Message{Role: "user", Content: "Planning is finished. Briefly explain validated results, assumptions and rejection reasons in English. Do not call tools, promise profit or claim approval/execution. If no draft passed, explicitly state no trade."})
 		answer, err := chatWithProgress(ctx, planner, messages, nil, emit)
 		if err == nil && len(answer.ToolCalls) == 0 && answer.Content != "" {
 			if err = emit(Event{"assistant", map[string]string{"message": answer.Content}}); err != nil {
@@ -97,7 +97,7 @@ func compactToolContext(messages []model.Message) []model.Message {
 		}
 		keep++
 		if keep > 2 {
-			m.Content = "此前读取的行情载荷已清理。历史价格不是当前报价；草案编译和执行必须重新验证当前订单簿。"
+			m.Content = "Prior market payload was compacted. Historical prices are not current quotes. Draft compilation and execution must validate a fresh order book."
 		}
 	}
 	return copyMessages

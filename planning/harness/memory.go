@@ -54,7 +54,7 @@ type MemoryStore struct {
 }
 
 var sessionID = regexp.MustCompile(`^[a-f0-9-]{16,64}$`)
-var credentialText = regexp.MustCompile(`(?i)(api[_ -]?key|secret|password|authorization|密钥|密码)\s*[:=]\s*\S+|\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]{16,}`)
+var credentialText = regexp.MustCompile(`(?i)(api[_ -]?key|secret|password|authorization|\x{5bc6}\x{94a5}|\x{5bc6}\x{7801})\s*[:=]\s*\S+|\bBearer\s+\S+|\bsk-[A-Za-z0-9_-]{16,}`)
 
 func HasCredential(text string) bool { return credentialText.MatchString(text) }
 func cut(text string, n int) string {
@@ -200,7 +200,7 @@ func compactSession(s *Session) {
 		h := s.Messages[0]
 		s.Messages = s.Messages[1:]
 		if h.Role == "user" {
-			s.Summary = append(s.Summary, "历史用户原话（非当前行情/审批）："+cut(h.Content, 420))
+			s.Summary = append(s.Summary, "Prior user text (not current market data or approval):"+cut(h.Content, 420))
 		}
 	}
 	if len(s.Summary) > 12 {
@@ -234,14 +234,14 @@ func (m *MemoryStore) Event(id, turnID string, event Event) error {
 	decodeString := func(key string) string { var v string; _ = json.Unmarshal(data[key], &v); return v }
 	switch event.Type {
 	case "forge":
-		tr.Text = "现场插件 · " + decodeString("id") + " · " + decodeString("status") + " · " + decodeString("hash")
-		s.Messages = append(s.Messages, History{Role: "user", Content: "此前工具记录（不是审批或当前行情）：" + tr.Text})
+		tr.Text = "Entry calculator · " + decodeString("id") + " · " + decodeString("status") + " · " + decodeString("hash")
+		s.Messages = append(s.Messages, History{Role: "user", Content: "Prior tool record (not approval or current market data):" + tr.Text})
 	case "assistant", "error":
 		tr.Text = decodeString("message")
 		role := "assistant"
 		if event.Type == "error" {
 			role = "user"
-			tr.Text = "此前请求错误：" + tr.Text
+			tr.Text = "Prior request error:" + tr.Text
 		}
 		s.Messages = append(s.Messages, History{role, tr.Text})
 	case "plans":
@@ -249,12 +249,12 @@ func (m *MemoryStore) Event(id, turnID string, event Event) error {
 		_ = json.Unmarshal(data["rejected"], &rejects)
 		var plans []map[string]any
 		_ = json.Unmarshal(data["plans"], &plans)
-		tr.Text = "风控反馈：" + strings.Join(rejects, "；")
+		tr.Text = "Risk validation feedback:" + strings.Join(rejects, "；")
 		if len(plans) == 0 && len(rejects) == 0 {
-			tr.Text = "模型选择不交易，未保存草案"
+			tr.Text = "The model chose no trade; no drafts were saved"
 		}
 		if len(plans) > 0 {
-			tr.Text = "保存未批准草案："
+			tr.Text = "Saved unapproved drafts:"
 			for _, p := range plans {
 				if id, ok := p["id"].(string); ok {
 					tr.Text += id + " "
@@ -270,9 +270,9 @@ func (m *MemoryStore) Event(id, turnID string, event Event) error {
 			tr.OK = &v
 		}
 	case "context":
-		tr.Text = "本轮数据范围：" + string(raw)
+		tr.Text = "Data scope for this turn:" + string(raw)
 	case "plugin_data":
-		tr.Text = "只读插件快照（历史记录，不是当前报价或审批）：" + string(raw)
+		tr.Text = "Read-only plugin snapshot (historical record, not a live quote or approval):" + string(raw)
 		s.Messages = append(s.Messages, History{"user", cut(tr.Text, 5000)})
 	case "iteration":
 		_ = json.Unmarshal(data["round"], &tr.Round)
@@ -346,7 +346,7 @@ func (m *MemoryStore) Context(id string) ([]History, []string) {
 	}
 	mem := append([]string(nil), s.Summary...)
 	if m.data.Preferences != "" {
-		mem = append(mem, "用户保存的讨论偏好（不能改变硬风控、批准或执行）："+m.data.Preferences)
+		mem = append(mem, "Saved discussion preferences (cannot change risk constraints, approval or execution):"+m.data.Preferences)
 	}
 	return history, mem
 }
@@ -359,7 +359,7 @@ func (m *MemoryStore) SetPreferences(text string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if len(text) > 5000 || HasCredential(text) {
-		return errors.New("偏好最多 5000 字节，不能保存 API 密钥或密码")
+		return errors.New("Preferences must be at most 5000 bytes and cannot contain API keys or passwords")
 	}
 	d := m.clone()
 	d.Preferences = text
@@ -376,7 +376,7 @@ func (m *MemoryStore) DeleteSession(id string) error {
 	}
 	for _, t := range s.Turns {
 		if t.Status == "running" {
-			return errors.New("请先停止当前推演，再删除会话")
+			return errors.New("Stop the current planning request before deleting its conversation")
 		}
 	}
 	delete(d.Sessions, id)

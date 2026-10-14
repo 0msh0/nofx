@@ -38,6 +38,8 @@ type planningBrokerCache struct {
 type planningServices struct {
 	brokers     sync.Map
 	dataPlugins sync.Map
+	ai500       sync.Map
+	ai500Read   func(context.Context, string) ([]byte, error)
 	feedSlots   chan struct{}
 	source      *market.Client
 	live        *live.Controller
@@ -82,7 +84,7 @@ func accountKey(e *store.Exchange) string {
 func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Broker, string, error) {
 	ex, e := s.store.Exchange().GetByID(user, id)
 	if e != nil || !ex.Enabled {
-		return nil, "", errors.New("交易账户未启用或不属于当前用户")
+		return nil, "", errors.New("Trading account is disabled or does not belong to the current user")
 	}
 	running, er := s.store.Trader().ListByExchangeID(user, id)
 	if er != nil {
@@ -98,7 +100,7 @@ func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Brok
 			}
 		}
 		if active {
-			return nil, "", errors.New("该账户有自动交易运行中；请先停止自动交易，避免与已批准计划冲突")
+			return nil, "", errors.New("Automatic trading is running on this account. Stop it before using an approved one-time plan.")
 		}
 	}
 	stampBytes, _ := json.Marshal([]any{ex.UpdatedAt, string(ex.APIKey), string(ex.SecretKey), ex.HyperliquidWalletAddr, ex.HyperliquidBuilderApproved, ex.Testnet})
@@ -122,32 +124,32 @@ func (s *Server) planningBroker(ctx context.Context, user, id string) (live.Brok
 	switch ex.ExchangeType {
 	case "binance":
 		if ex.APIKey == "" || ex.SecretKey == "" {
-			return nil, "", errors.New("请先在 NOFX 设置中连接 Binance 合约账户")
+			return nil, "", errors.New("Connect a Binance futures account in NOFX settings first")
 		}
 		return cache(live.NOFXBroker{Trader: binance.NewExecutionTrader(string(ex.APIKey), string(ex.SecretKey), user)}, key)
 	case "hyperliquid":
 		if ex.APIKey == "" || ex.HyperliquidWalletAddr == "" || !ex.HyperliquidBuilderApproved || ex.Testnet {
-			return nil, "", errors.New("请先在 NOFX 中完成 Hyperliquid 主网钱包、Agent 与 Builder 授权")
+			return nil, "", errors.New("Complete Hyperliquid mainnet wallet, Agent and Builder authorization in NOFX first")
 		}
 		t, e := hyperliquid.NewHyperliquidTrader(string(ex.APIKey), ex.HyperliquidWalletAddr, false, true)
 		if e != nil {
-			return nil, "", errors.New("Hyperliquid 授权账户初始化失败")
+			return nil, "", errors.New("Could not initialize the authorized Hyperliquid account")
 		}
 		return cache(live.NOFXBroker{Trader: t}, key)
 	default:
-		return nil, "", errors.New("首版真实规划执行支持 Binance USDT 合约和 Hyperliquid；不会使用交易类型回退")
+		return nil, "", errors.New("Live planning execution supports Binance USDT futures and Hyperliquid; no exchange-type fallback is allowed")
 	}
 }
 func (s *Server) planningAccount(user, id string) (*store.Exchange, error) {
 	ex, e := s.store.Exchange().GetByID(user, id)
 	if e != nil || !ex.Enabled {
-		return nil, errors.New("请选择当前用户已启用的 NOFX 交易账户")
+		return nil, errors.New("Select an enabled NOFX trading account owned by the current user")
 	}
 	if ex.Testnet {
-		return nil, errors.New("此入口只支持真实主网账户")
+		return nil, errors.New("This endpoint supports live mainnet accounts only")
 	}
 	if ex.ExchangeType != "binance" && ex.ExchangeType != "hyperliquid" {
-		return nil, errors.New("当前规划执行支持 Binance 与 Hyperliquid 永续账户")
+		return nil, errors.New("Planning execution supports Binance and Hyperliquid perpetual accounts")
 	}
 	return ex, nil
 }
@@ -171,6 +173,7 @@ func (s *Server) registerPlanning(api, protected *gin.RouterGroup) {
 	protected.GET("/planning/data-plugins", s.handlePlanningDataPlugins)
 	protected.POST("/planning/data-plugins", s.handlePlanningDataPlugins)
 	protected.GET("/planning/plugin-data", s.handlePlanningPluginData)
+	protected.GET("/planning/ai500", s.handlePlanningAI500)
 }
 func (s *Server) handlePlanningMarket(c *gin.Context) {
 	p, e := s.planningService()
@@ -354,12 +357,12 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 	}
 	ai, e := s.store.AIModel().Get(user, in.ModelID)
 	if e != nil || !ai.Enabled || ai.APIKey == "" {
-		planningError(c, errors.New("请选择当前用户已配置并启用的 NOFX AI"))
+		planningError(c, errors.New("Select a configured and enabled NOFX AI model owned by the current user"))
 		return
 	}
 	client := mcp.NewAIClientByProvider(ai.Provider)
 	if client == nil {
-		planningError(c, errors.New("NOFX 中未注册这个 AI 服务"))
+		planningError(c, errors.New("This AI provider is not registered in NOFX"))
 		return
 	}
 	url := ai.CustomAPIURL
@@ -374,7 +377,7 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 		return
 	}
 	if _, loaded := p.turns.LoadOrStore(user, true); loaded {
-		c.JSON(409, gin.H{"error": "上一轮规划还在处理；请等待或停止它"})
+		c.JSON(409, gin.H{"error": "A planning request is still running. Wait for it or stop it first."})
 		return
 	}
 	defer p.turns.Delete(user)
@@ -382,7 +385,7 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 	if in.PlanID != "" {
 		var selected planning.Draft
 		if e = s.store.GormDB().Where("user_id = ? AND id = ? AND exchange_id = ? AND status = ?", user, in.PlanID, ex.ID, "draft").First(&selected).Error; e != nil {
-			planningError(c, errors.New("只可修改本账户未批准草案；已批准计划需先取消审批"))
+			planningError(c, errors.New("Only unapproved drafts on this account can be revised; revoke locked approval first"))
 			return
 		}
 	}
@@ -409,7 +412,7 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 	}
 	c.Header("Content-Type", "text/event-stream")
 	c.Header("X-Accel-Buffering", "no")
-	ctx, cancel := context.WithTimeout(c.Request.Context(), 360*time.Second)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 180*time.Second)
 	defer cancel()
 	messages := append([]harness.History(nil), in.History...)
 	messages = append(messages, harness.History{Role: "user", Content: in.Message})
@@ -430,9 +433,17 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 		}
 		return e
 	}
+	_ = emit(harness.Event{Type: "status", Data: gin.H{"message": "Loading market context and paid data; preparing the planning model"}})
 	e = engine.Run(ctx, in.Input, emit)
-	if e != nil && ctx.Err() == nil {
-		_ = emit(harness.Event{Type: "error", Data: gin.H{"message": e.Error()}})
+	if e != nil && c.Request.Context().Err() == nil {
+		message := e.Error()
+		if ctx.Err() != nil || errors.Is(e, context.DeadlineExceeded) {
+			message = "Planning reached its time limit. No orders were submitted. Review saved drafts and payment status before starting another request."
+		}
+		_ = emit(harness.Event{Type: "error", Data: gin.H{"message": message}})
+	}
+	if c.Request.Context().Err() == nil {
+		_ = emit(harness.Event{Type: "done", Data: gin.H{"ok": e == nil}})
 	}
 	if in.SessionID != "" {
 		raw, _ := json.Marshal(messages[max(0, len(messages)-20):])
@@ -560,7 +571,7 @@ func (s *Server) handlePlanningPreferences(c *gin.Context) {
 			Text string `json:"text"`
 		}
 		if c.ShouldBindJSON(&in) != nil || len(in.Text) > 1600 || harness.HasCredential(in.Text) {
-			planningError(c, errors.New("偏好最多1600字节，不能包含密钥"))
+			planningError(c, errors.New("Preferences must be at most 1600 bytes and cannot contain credentials"))
 			return
 		}
 		if e := s.store.GormDB().Save(&planning.Preferences{UserID: user, Text: in.Text}).Error; e != nil {
@@ -599,7 +610,7 @@ func (s *Server) lockPlanningAccount(user, id string) (func(), error) {
 }
 func (s *Server) handlePlanningReadAccount(c *gin.Context) {
 	if !instrument.ValidSymbol(c.Query("symbol")) {
-		planningError(c, errors.New("标的格式不正确"))
+		planningError(c, errors.New("Invalid symbol format"))
 		return
 	}
 	p, e := s.planningService()
@@ -637,7 +648,7 @@ func (s *Server) planningDataRegistry(user string) (*plugins.Registry, error) {
 	}
 	hash := sha256.Sum256([]byte(user))
 	root := filepath.Join("data", "planning", hex.EncodeToString(hash[:16]))
-	registry, e := plugins.Open(filepath.Join(root, "plugins.json"), append(plugins.Builtins(p.source), (plugins.Hyperdata{HTTP: p.source.HTTP, Base: "https://hyperdata.vergex.exchange"}).Definitions()...)...)
+	registry, e := plugins.Open(filepath.Join(root, "plugins.json"), append(plugins.Builtins(p.source), (plugins.Hyperdata{Fetch: s.planningPaidData(user)}).Definitions()...)...)
 	if e != nil {
 		return nil, e
 	}

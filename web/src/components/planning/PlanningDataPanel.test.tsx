@@ -17,7 +17,7 @@ vi.mock('../../lib/planning', () => ({ planningAPI: api }))
 const manifests = [
   {
     id: 'funding',
-    name: '资金费率',
+    name: 'Funding rate',
     description: 'public funding',
     enabled: true,
   },
@@ -28,9 +28,9 @@ const result: PluginResult = {
   symbol: 'BTCUSDT',
   source: 'fixture',
   observed: new Date().toISOString(),
-  notice: '当前快照',
+  notice: 'Current snapshot',
   metrics: [
-    { key: 'funding_rate', label: '费率', value: '0.0001', unit: 'fraction' },
+    { key: 'funding_rate', label: 'Rate', value: '0.0001', unit: 'fraction' },
   ],
 }
 afterEach(cleanup)
@@ -49,18 +49,23 @@ it('loads read-only plugins only on opening and fetches data only on explicit cl
     <PlanningDataPanel exchangeID="account" symbol="BTCUSDT" venue="binance" />
   )
   expect(api).not.toHaveBeenCalled()
-  fireEvent.click(screen.getByText('数据插件 · 资金费率、持仓量、成本与持仓图'))
-  const details = screen.getByText('数据插件 · 资金费率、持仓量、成本与持仓图')
-    .parentElement! as HTMLDetailsElement
+  fireEvent.click(
+    screen.getByText('Data plugins · Funding, OI and holder analytics')
+  )
+  const details = screen.getByText(
+    'Data plugins · Funding, OI and holder analytics'
+  ).parentElement! as HTMLDetailsElement
   details.open = true
   fireEvent(details, new Event('toggle'))
-  await screen.findByLabelText('资金费率')
+  await screen.findByLabelText('Funding rate')
   expect(api.mock.calls.some(([p]) => p.startsWith('plugin-data'))).toBe(false)
-  fireEvent.click(screen.getByRole('button', { name: '读取并显示' }))
+  fireEvent.click(screen.getByRole('button', { name: 'Read and display' }))
   await screen.findByText('0.01%')
-  fireEvent.click(screen.getByLabelText('资金费率'))
+  fireEvent.click(screen.getByLabelText('Funding rate'))
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: '读取并显示' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Read and display' })
+    ).toBeDisabled()
   )
   expect(api).toHaveBeenCalledWith('data-plugins', {
     id: 'funding',
@@ -84,18 +89,19 @@ it('drops a pending response when the market changes', async () => {
   const view = render(
     <PlanningDataPanel exchangeID="account" symbol="BTCUSDT" venue="binance" />
   )
-  const details = screen.getByText('数据插件 · 资金费率、持仓量、成本与持仓图')
-    .parentElement! as HTMLDetailsElement
+  const details = screen.getByText(
+    'Data plugins · Funding, OI and holder analytics'
+  ).parentElement! as HTMLDetailsElement
   details.open = true
   fireEvent(details, new Event('toggle'))
-  await screen.findByLabelText('资金费率')
-  fireEvent.click(screen.getByRole('button', { name: '读取并显示' }))
+  await screen.findByLabelText('Funding rate')
+  fireEvent.click(screen.getByRole('button', { name: 'Read and display' }))
   view.rerender(
     <PlanningDataPanel exchangeID="account" symbol="ETHUSDT" venue="binance" />
   )
   resolve(result)
   await waitFor(() =>
-    expect(screen.queryByLabelText('当前插件数据')).toBeNull()
+    expect(screen.queryByLabelText('Current plugin data')).toBeNull()
   )
 })
 it('shows complete zero-based heatmap axes and distinguishes missing cells from zero amounts', () => {
@@ -122,17 +128,20 @@ it('shows complete zero-based heatmap axes and distinguishes missing cells from 
   }
   render(<PluginVisualization visual={visual} />)
   expect(screen.getAllByText('0%')).toHaveLength(2)
-  expect(screen.getByText(/历史胜率不是未来胜率/)).toBeInTheDocument()
   expect(
-    screen.getAllByRole('button', { name: /该格未返回数据，不能按零统计/ })
-      .length
+    screen.getByText(/Historical win rate is not a forecast/)
+  ).toBeInTheDocument()
+  expect(
+    screen.getAllByRole('button', {
+      name: /No data returned for this cell; do not treat it as zero/,
+    }).length
   ).toBeGreaterThan(0)
   fireEvent.click(
     screen.getByRole('button', {
-      name: /多仓 · 历史胜率 0–50% · 开仓成本 60–100 USDC · 100 USDC · 2 地址/,
+      name: /Longs · Historical win rate 0–50% · Entry cost 60–100 USDC · 100 USDC · 2 addresses/,
     })
   )
-  expect(screen.getByRole('status')).toHaveTextContent('2 地址')
+  expect(screen.getByRole('status')).toHaveTextContent('2 addresses')
 })
 it('does not present incomplete profit data as a ranking', () => {
   render(
@@ -164,5 +173,7 @@ it('does not present incomplete profit data as a ranking', () => {
     />
   )
   expect(screen.queryByRole('table')).toBeNull()
-  expect(screen.getByText('窗口尚未准备完成，不展示排名。')).toBeInTheDocument()
+  expect(
+    screen.getByText('The window is not ready; rankings are unavailable.')
+  ).toBeInTheDocument()
 })

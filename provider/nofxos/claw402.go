@@ -79,6 +79,11 @@ func mapEndpoint(nofxosPath string) string {
 
 // DoRequest makes a GET request through claw402 with x402 payment.
 func (c *Claw402DataClient) DoRequest(endpoint string) ([]byte, error) {
+	return c.DoRequestContext(context.Background(), endpoint)
+}
+
+// DoRequestContext preserves request cancellation through payment and data reads.
+func (c *Claw402DataClient) DoRequestContext(ctx context.Context, endpoint string) ([]byte, error) {
 	claw402Path := mapEndpoint(endpoint)
 	// Remove only the legacy credential, never the filters following it.
 	parsed, err := url.Parse(claw402Path)
@@ -96,7 +101,7 @@ func (c *Claw402DataClient) DoRequest(endpoint string) ([]byte, error) {
 	fullURL := c.claw402URL + claw402Path
 
 	buildReq := func() (*http.Request, error) {
-		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, fullURL, nil)
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -107,7 +112,7 @@ func (c *Claw402DataClient) DoRequest(endpoint string) ([]byte, error) {
 	signFn := payment.MakeClaw402SignFunc(c.privateKey)
 
 	body, err := payment.DoX402Request(
-		context.Background(),
+		ctx,
 		c.httpClient,
 		buildReq,
 		signFn,

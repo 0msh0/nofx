@@ -25,7 +25,7 @@
       !/^(?:[a-z0-9]{1,16}:)?[A-Z0-9\p{Script=Han}-]{1,40}$/u.test(symbol) ||
       !["binance", "okx", "hyperliquid"].includes(venue.toLowerCase())
     )
-      throw new Error("标的格式不正确");
+      throw new Error("Invalid symbol format");
     return { venue: venue.toLowerCase(), symbol };
   }
   class WorkspaceChart {
@@ -58,14 +58,14 @@
         this.readyResolve = resolve;
       });
       if (!window.TradingView?.widget) {
-        this.loadError = "TradingView 图表组件没有加载，请重启新版终端后重试。";
+        this.loadError = "TradingView did not load. Restart the updated terminal and try again.";
         this.onAvailability(false, this.loadError);
         this.readyResolve();
         this.onError(this.loadError);
         return;
       }
       this.readyTimer = setTimeout(() => {
-        this.loadError = "TradingView 图表加载超时。请重启新版终端，检查行情连接后重试。";
+        this.loadError = "TradingView timed out. Check the market connection and restart the updated terminal.";
         this.onAvailability(false, this.loadError);
         this.readyResolve();
       }, 20000);
@@ -74,7 +74,7 @@
         library_path: "/charting_library/",
         symbol: ticker(venue, symbol),
         interval: this.resolution,
-        locale: "zh",
+        locale: "en",
         timezone: "Etc/UTC",
         theme: "light",
         autosize: true,
@@ -133,7 +133,7 @@
           if (raw && raw.length < 2e6) await this.widget.load(JSON.parse(raw));
           this.restoreAutoScale();
         } catch {
-          this.onError("保存的图表布局无法恢复，可以重新保存当前布局。");
+          this.onError("Could not restore the saved chart layout. Save the current layout again.");
         }
       });
       this.ageTimer = setInterval(() => {
@@ -142,7 +142,7 @@
           this.lastReceived &&
           Date.now() - this.lastReceived > 15000
         )
-          this.onStatus("行情更新已中断 · 数据过期", true);
+          this.onStatus("Market updates interrupted · stale data", true);
       }, 1000);
     }
     context() {
@@ -170,7 +170,7 @@
     }
     async whenReady() {
       await this.ready;
-      if (!this.chart || this.disposed) throw new Error(this.loadError || "图表尚未就绪，请重试。");
+      if (!this.chart || this.disposed) throw new Error(this.loadError || "Chart is not ready yet. Try again.");
     }
     queueComparisonViewport(range) {
       if(this.disposed || this.comparisonPlans?.length<2)return;
@@ -196,7 +196,7 @@
     async json(path) {
       const response = await fetch(path, { credentials: "same-origin" });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "行情获取失败");
+      if (!response.ok) throw new Error(data.error || "Market data request failed");
       return data;
     }
     query(info, resolution, extra = {}) {
@@ -294,7 +294,7 @@
         },
         getBars: async (info, resolution, period, cb, fail) => {
           try {
-            if (!resolutions[resolution]) throw new Error("暂不支持该图表周期");
+            if (!resolutions[resolution]) throw new Error("Unsupported chart timeframe");
             const data = await this.history(info, resolution, Math.floor(period.to),
               Math.min(4800, Math.max(1, period.countBack || 300)));
             const bars = (data.candles || []).map(toBar);
@@ -321,8 +321,8 @@
           } catch (e) {
             fail(e.message);
             const key = this.query(info, resolution);
-            if (!this.barTimes.has(key)) this.onAvailability(false, "无法读取此标的的K线：" + e.message);
-            this.onStatus("行情读取失败", true);
+            if (!this.barTimes.has(key)) this.onAvailability(false, "Could not load candles for this market:" + e.message);
+            this.onStatus("Market data read failed", true);
             this.onError(e.message);
           }
         },
@@ -369,7 +369,7 @@
       };
       source.onerror = () => {
         if (!this.paused && connection.source === source && connection.venue === this.venue && connection.symbol === this.symbol && connection.resolution === this.resolution)
-          this.onStatus("行情连接断开 · 正在重连", true);
+          this.onStatus("Market feed disconnected · reconnecting", true);
       };
     }
     async receive(connection, source, event) {
@@ -377,8 +377,8 @@
         try {
           const message = JSON.parse(event.data);
           if (message.type === "feed_error") {
-            this.onStatus("行情暂不可用 · 正在重试", true);
-            if (!this.barTimes.has(connection.key)) this.onAvailability(false, "无法读取此标的的K线：" + (message.data?.message || "行情连接失败"));
+            this.onStatus("Market feed unavailable · reconnecting", true);
+            if (!this.barTimes.has(connection.key)) this.onAvailability(false, "Could not load candles for this market:" + (message.data?.message || "Market feed connection failed"));
             return;
           }
           if (message.type !== "candles") return;
@@ -391,7 +391,7 @@
             let batch = rows.map(toBar).sort((a,b) => a.time-b.time);
             const first = batch.find(b => b.time > listener.last);
             if (listener.last && first && first.time > listener.last + step) {
-              this.onStatus("正在补齐遗漏 K 线…", true);
+              this.onStatus("Backfilling missing candles…", true);
               const missing = await this.history({ticker:ticker(connection.venue,connection.symbol)},
                 connection.resolution, first.time/1000,
                 Math.min(4800, Math.ceil((first.time-listener.last)/step)));
@@ -406,7 +406,7 @@
               cursor = b.time; return false;
             });
             if (gap) {
-              this.onStatus("K线存在数据缺口 · 请刷新图表重新读取", true);
+              this.onStatus("Candle gap detected · reload the chart", true);
               if (!listener.gap) { listener.gap = true; listener.reset?.(); }
               incomplete = true;
               continue; // Never fabricate OHLC or append across a missing interval.
@@ -425,8 +425,8 @@
           ) {
             const previous = this.barTimes.get(connection.key) || [];
             if (!rows.length) {
-              this.onStatus("此标的暂无可用K线", true);
-              if (!previous.length) this.onAvailability(false, "交易所没有返回此标的的K线，请核对标的名称后重试。");
+              this.onStatus("No candles available for this market", true);
+              if (!previous.length) this.onAvailability(false, "The exchange returned no candles for this market. Check the symbol and try again.");
               return;
             }
             if (previous.length && rows.at(-1).time < previous.at(-1)) return;
@@ -436,17 +436,17 @@
             this.barTimes.set(connection.key, next);
             this.onStatus(
               data.stale
-                ? "行情时间过期"
+                ? "Market data is stale"
                 : data.mode === "demo"
-                  ? "演示行情 · 非真实价格"
-                  : "行情更新中 · 3 秒刷新",
+                  ? "Demo data · not live prices"
+                  : "Market feed active · updates every 3 seconds",
               data.stale,
             );
             if (rows.length) this.onPrice(rows.at(-1), data);
             this.priceData.set(connection.key,data);
           }
         } catch {
-          this.onStatus("行情数据异常", true);
+          this.onStatus("Invalid market data", true);
         }
     }
     pause(value) {
@@ -456,7 +456,7 @@
         c.source = null;
         if (!value) this.connect(c);
       }
-      this.onStatus(value ? "行情已暂停" : "重新连接行情…", value);
+      this.onStatus(value ? "Market feed paused" : "Reconnecting market feed…", value);
     }
     async setContext(venue, symbol, resolution = this.resolution) {
       instrument(ticker(venue, symbol));
@@ -472,12 +472,12 @@
       this.symbol = symbol;
       this.resolution = resolution;
       this.lastReceived = 0;
-      this.onAvailability(false, "正在加载 " + symbol + " 的K线…");
+      this.onAvailability(false, "Loading " + symbol + " candles…");
       this.onContext(this.context());
-      this.onStatus("连接行情…", false);
+      this.onStatus("Connecting market feed…", false);
       await new Promise((resolve, reject) => {
         const timer = setTimeout(
-          () => reject(new Error("标的图表加载超时，请检查行情连接后重试。")),
+          () => reject(new Error("Market chart timed out. Check the connection and try again.")),
           20000,
         );
         this.widget.setSymbol(ticker(venue, symbol), resolution, () => {
@@ -490,7 +490,7 @@
         if (raw && raw.length < 2e6) await this.widget.load(JSON.parse(raw));
         this.restoreAutoScale();
       } catch {
-        this.onError("保存的布局无法恢复。");
+        this.onError("Could not restore the saved layout.");
       }
     }
     async setResolution(r) {
@@ -583,11 +583,11 @@
           if(version===this.plotVersion && this.aiCandidates.length)await this.draw(this.aiCandidates.slice(),"ai");
           return;
         }
-        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["挂单 "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#9b6a14"]) : [[plan.idea.execution?.kind==="twap"?"TWAP 限价":"入场",plan.idea.entry,"#9b6a14"]];
+        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["Limit order "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#9b6a14"]) : [[plan.idea.execution?.kind==="twap"?"TWAP Limit price":"Entry",plan.idea.entry,"#9b6a14"]];
         for (const [label, price, color] of [
           ...entries,
-          ["止损", plan.idea.stop, "#D6433A"],
-          ["止盈", plan.idea.target, "#2E8B57"],
+          ["Stop loss", plan.idea.stop, "#D6433A"],
+          ["Take profit", plan.idea.target, "#2E8B57"],
         ]) {
           const id = await this.chart.createShape(
             { time: start, price: Number(price) },
@@ -595,7 +595,7 @@
               ...common,
               shape: "horizontal_line",
               text:
-                label + (label==="止损"?" −"+Number(plan.risk).toFixed(2):label==="止盈"?" +"+Number(plan.reward).toFixed(2):"") +
+                label + (label==="Stop loss"?" −"+Number(plan.risk).toFixed(2):label==="Take profit"?" +"+Number(plan.reward).toFixed(2):"") +
                 " · " +
                 Number(price).toLocaleString(),
               overrides: {
@@ -642,7 +642,7 @@
         if (version === this.plotVersion && this.aiCandidates.length) await this.draw(this.aiCandidates.slice(),"ai");
       } catch (e) {
         if (version === this.plotVersion) this.planKey = "";
-        this.onError("方案图层绘制失败：" + e.message);
+        this.onError("Could not draw the plan overlay:" + e.message);
       }
     }
     async paintComparisons(plans,selected,times,common,make,version) {
@@ -656,9 +656,9 @@
         levels.push([Number(p.idea.stop),"#D6433A"],[Number(p.idea.target),"#2E8B57"]);
         for(const [price,c]of levels)await make([{time:start,price},{time:end,price}],{...common,shape:"trend_line",text:"",overrides:{linecolor:c,linewidth:active?2:1,linestyle:active?0:2,extendLeft:false,extendRight:false,showLabel:false,showPrice:false,showDistance:false,showAngle:false}});
         const fmt=x=>window.PlanCompare?.format(x) || Number(x).toLocaleString("en-US",{maximumFractionDigits:4});
-        const labels=[[Number(p.idea.target),tag+" · "+(p.idea.side==="long"?"多":"空")+" 目标 "+fmt(p.idea.target),"#2E8B57"],[entry,(orders.length>1 && p.idea.execution?.kind==="ladder"?"均价 ≈ ":"入场 ")+fmt(entry),color],[Number(p.idea.stop),"止损 "+fmt(p.idea.stop),"#D6433A"]];
+        const labels=[[Number(p.idea.target),tag+" · "+(p.idea.side==="long"?"Long":"Short")+" Target "+fmt(p.idea.target),"#2E8B57"],[entry,(orders.length>1 && p.idea.execution?.kind==="ladder"?"Average entry ≈ ":"Entry ")+fmt(entry),color],[Number(p.idea.stop),"Stop loss "+fmt(p.idea.stop),"#D6433A"]];
         for(const [price,text,c]of labels){
-          const label=await this.chart.createShape({time:text.startsWith("止损")?times[Math.min(times.length-1,base+i*lane+Math.floor(lane*0.45))]:start,price},{...common,shape:"text",text,overrides:{color:c,textcolor:c,fontsize:text.startsWith("止损")?12:14,bold:active}});
+          const label=await this.chart.createShape({time:text.startsWith("Stop loss")?times[Math.min(times.length-1,base+i*lane+Math.floor(lane*0.45))]:start,price},{...common,shape:"text",text,overrides:{color:c,textcolor:c,fontsize:text.startsWith("Stop loss")?12:14,bold:active}});
           if(version===this.plotVersion)this.overlays.push(label);else try{this.chart.removeEntity(label);}catch{}
         }
       }
@@ -698,8 +698,8 @@
       }
     }
     annotationKind(d) {
-      if (/支撑|支撐|support|\bS[1-9]\b/i.test(d.label)) return "support";
-      if (/阻力|压力|壓力|resistance|\bR[1-9]\b/i.test(d.label)) return "resistance";
+      if (/support|\bS[1-9]\b/i.test(d.label)) return "support";
+      if (/resistance|\bR[1-9]\b/i.test(d.label)) return "resistance";
       return "other";
     }
     selectAI(drawings) {
@@ -790,11 +790,11 @@
       for (const info of this.chart.getAllShapes()) {
         if (this.overlays.includes(info.id) || this.aiOverlays.includes(info.id)) continue;
         const name = String(info.name).toLowerCase();
-        const kind = /horizontal|horz|水平/.test(name)
+        const kind = /horizontal|horz/.test(name)
           ? "horizontal_line"
-          : /trend|趋势/.test(name)
+          : /trend/.test(name)
             ? "trend_line"
-            : /rectangle|矩形/.test(name)
+            : /rectangle/.test(name)
               ? "rectangle"
               : null;
         if (!kind) continue;
@@ -829,10 +829,10 @@
           try {
             const raw = JSON.stringify(data);
             if (raw.length < 2e6) localStorage.setItem(this.layoutKey(), raw);
-            else throw new Error("图表布局过大");
-            if (show) this.onStatus("图表布局已保存到本机浏览器", false);
+            else throw new Error("Chart layout exceeds the size limit");
+            if (show) this.onStatus("Chart layout saved in this browser", false);
           } catch {
-            this.onError("浏览器存储不可用，图表布局没有保存。");
+            this.onError("Browser storage is unavailable; chart layout was not saved.");
           }
           resolve();
         }),

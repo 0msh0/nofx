@@ -38,7 +38,7 @@ func New(db *gorm.DB, f Factory, m Market) (*Controller, error) {
 	}
 	c := &Controller{DB: db, Factory: f, Market: m, workers: map[string]context.CancelFunc{}}
 	// Restart never silently releases overdue TWAP slices or repeats submissions.
-	if e := db.Model(&Run{}).Where("state IN ?", []string{"starting", "running", "stopping", "position_open"}).Updates(map[string]any{"state": "needs_attention", "error": "服务重启：仅核对已发订单，不自动重发或继续入场", "updated_at": time.Now().UTC()}).Error; e != nil {
+	if e := db.Model(&Run{}).Where("state IN ?", []string{"starting", "running", "stopping", "position_open"}).Updates(map[string]any{"state": "needs_attention", "error": "Service restarted: reconcile submitted orders only; no automatic replay or new entries", "updated_at": time.Now().UTC()}).Error; e != nil {
 		return nil, e
 	}
 	return c, nil
@@ -88,7 +88,7 @@ func (c *Controller) List(user string) ([]View, error) {
 }
 func (c *Controller) Approve(ctx context.Context, user, planID, hash, phrase string) (View, error) {
 	if phrase != "APPROVE LIVE" {
-		return View{}, errors.New("输入 APPROVE LIVE 才能批准真实交易")
+		return View{}, errors.New("Type APPROVE LIVE to approve live trading")
 	}
 	var d planning.Draft
 	if e := c.DB.Where("user_id = ? AND id = ?", user, planID).First(&d).Error; e != nil {
@@ -106,7 +106,7 @@ func (c *Controller) Approve(ctx context.Context, user, planID, hash, phrase str
 		return View{}, e
 	}
 	if broker.Venue() != p.Snapshot.Venue {
-		return View{}, errors.New("计划与当前交易账户的交易所不一致，请重新生成")
+		return View{}, errors.New("Plan venue differs from the trading account. Generate a new plan.")
 	}
 	if account == "" {
 		return View{}, errors.New("account identity unavailable")
@@ -139,7 +139,7 @@ func (c *Controller) Approve(ctx context.Context, user, planID, hash, phrase str
 			return errors.New("only an unchanged draft can be approved")
 		}
 		if er := tx.Create(&Lease{AccountKey: account, RunID: r.ID, UserID: user, ExchangeID: d.ExchangeID}).Error; er != nil {
-			return errors.New("这个账户已有已批准或未结束的计划；请先处理它")
+			return errors.New("This account already has an approved or unresolved plan; resolve it first")
 		}
 		return tx.Create(&r).Error
 	})
@@ -225,7 +225,7 @@ func (c *Controller) Execute(ctx context.Context, user, id, hash string) (View, 
 		return v, e
 	}
 	if key != v.AccountKey || b.Venue() != v.Plan.Snapshot.Venue {
-		return v, errors.New("交易账户身份已改变，请重新生成并批准")
+		return v, errors.New("Trading account identity changed; generate and approve a new plan")
 	}
 	account, e := b.Account(ctx, v.Plan.Snapshot.Symbol)
 	if e != nil {
@@ -237,13 +237,13 @@ func (c *Controller) Execute(ctx context.Context, user, id, hash string) (View, 
 		}
 	}
 	if cmp(account.Position, "0") != 0 || account.OpenOrders != 0 {
-		return v, errors.New("该标的已有持仓或挂单，不能与本次独立计划混用")
+		return v, errors.New("This symbol already has positions or open orders and cannot be mixed with this independent plan")
 	}
 	if cmp(account.Available, v.Plan.Constraints.MaxNotional) < 0 || cmp(account.Equity, v.Plan.Constraints.Equity) < 0 {
-		return v, errors.New("当前真实账户余额低于计划的权益或投入预算，请重新设置预算")
+		return v, errors.New("Live account balance is below the plan equity or notional budget; revise the budget")
 	}
 	if cmp(account.FeeBPS, v.Plan.Constraints.FeeBPS) > 0 {
-		return v, errors.New("实际手续费（含 builder 费用）超过计划假设，请重新生成")
+		return v, errors.New("Actual fees including Builder fees exceed the plan assumption; generate a new plan")
 	}
 	book, e := c.Market.Snapshot(ctx, v.Plan.Snapshot.Venue, v.Plan.Snapshot.Symbol)
 	if e != nil {
@@ -387,14 +387,14 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 	}
 	if v.StartedAt == nil {
 		v.State = "needs_attention"
-		v.Error = "执行没有合法启动记录，不提交任何订单"
+		v.Error = "Execution has no valid start record; no orders will be submitted"
 		_ = c.save(&v)
 		return true
 	}
 	broker, key, e := c.Factory(ctx, user, v.ExchangeID)
 	if e != nil || key != v.AccountKey || broker.Venue() != v.Plan.Snapshot.Venue {
 		v.State = "needs_attention"
-		v.Error = "账户不可用或身份改变；停止后续入场，请检查 NOFX 账户设置"
+		v.Error = "Account unavailable or identity changed. Further entries stopped; check NOFX account settings."
 		_ = c.save(&v)
 		return true
 	}
@@ -412,11 +412,11 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 		}
 		result, er := broker.Lookup(ctx, *o)
 		if er != nil {
-			attention("交易所订单状态尚未确认，不重发订单：" + er.Error())
+			attention("Exchange order state is unconfirmed; no resubmission:" + er.Error())
 			continue
 		}
 		if !validReceipt(*o, result) || cmp(result.Filled, o.Filled) < 0 {
-			attention("交易所回报不一致，停止后续入场")
+			attention("Inconsistent exchange receipt; further entries stopped")
 			continue
 		}
 		*o = result
@@ -435,7 +435,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 		positionValid = false
 	}
 	if !positionValid {
-		attention("真实持仓读取失败，停止新增入场和保护单提交；请立即核对持仓")
+		attention("Live position read failed. New entries and protection submission stopped; reconcile positions immediately.")
 	}
 	entries := len(v.Plan.Orders)
 	if entries == 0 {
@@ -455,7 +455,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 	}
 	positionMatches := positionValid && cmp(account.Position, expected) == 0
 	if positionValid && !positionMatches {
-		attention("真实持仓与本计划成交数量不一致，停止后续入场；请核对外部交易及保护订单")
+		attention("Live position differs from this plan fills. Further entries stopped; check external trades and protective orders.")
 	}
 	for i := 0; i < entries; i++ {
 		entry := v.Orders[i]
@@ -476,14 +476,14 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 				}
 			}
 			if uncertain {
-				attention("保护订单状态异常，停止后续入场；核对真实持仓后人工处理")
+				attention("Protective order state is abnormal. Further entries stopped; reconcile live positions manually.")
 				continue
 			}
 			if cmp(protected, entry.Filled) >= 0 {
 				continue
 			}
 			if len(v.Orders) >= 1024 {
-				attention("部分成交次数超过处理上限，请人工接管保护订单")
+				attention("Partial-fill count exceeds the handling limit; manage protection manually")
 				break
 			}
 			delta := sub(entry.Filled, protected)
@@ -505,7 +505,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 			o := Order{ClientID: client, Role: role, Symbol: entry.Symbol, Side: entry.Side, Price: price, Quantity: delta, Status: "submitting", Filled: "0", ParentID: entry.ClientID}
 			o, er := routedOrder(broker, o)
 			if er != nil {
-				attention("保护订单路由无法确认，停止后续入场")
+				attention("Protective order route is unconfirmed; further entries stopped")
 				break
 			}
 			v.Orders = append(v.Orders, o)
@@ -518,7 +518,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 			}
 			if er != nil {
 				v.Orders[len(v.Orders)-1].Status = "UNKNOWN"
-				attention("保护订单未确认：停止新增入场，请立即在 NOFX 核对持仓和保护单。 " + er.Error())
+				attention("Protection is unconfirmed. New entries stopped; reconcile positions and protective orders in NOFX immediately. " + er.Error())
 				_ = c.save(&v)
 				break
 			}
@@ -541,7 +541,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 			}
 			if o.Status == "NEW" || o.Status == "PARTIALLY_FILLED" {
 				if er := broker.Cancel(ctx, *o); er != nil {
-					attention("撤销挂单未确认，请核对：" + er.Error())
+					attention("Pending order cancellation unconfirmed; reconcile:" + er.Error())
 				}
 			}
 		}
@@ -566,11 +566,11 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 			}
 			book, er := c.Market.Snapshot(ctx, v.Plan.Snapshot.Venue, v.Plan.Snapshot.Symbol)
 			if er != nil {
-				attention("新鲜行情不可用，停止后续入场")
+				attention("Fresh market data unavailable; further entries stopped")
 				break
 			}
 			if er = core.CheckBook(v.Plan, book, time.Now().UTC()); er != nil {
-				attention("行情已不满足锁定计划：" + er.Error())
+				attention("Market no longer satisfies the locked plan:" + er.Error())
 				break
 			}
 			o.Status = "submitting"
@@ -583,7 +583,7 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 			}
 			if er != nil {
 				o.Status = "UNKNOWN"
-				attention("入场订单回报未确认，不重发：" + er.Error())
+				attention("Entry receipt unconfirmed; no resubmission:" + er.Error())
 				break
 			}
 			*o = receipt
@@ -597,11 +597,11 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 	}
 	account, er := broker.Account(ctx, v.Plan.Snapshot.Symbol)
 	if er != nil {
-		attention("真实持仓读取失败，停止新增入场")
+		attention("Live position read failed; further entries stopped")
 	}
 	if _, err := decimal(account.Position); err != nil {
 		er = err
-		attention("交易所持仓字段无效")
+		attention("Invalid venue position field")
 	}
 	pending := false
 	for i := 0; i < entries; i++ {
@@ -615,12 +615,12 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 			o := v.Orders[i]
 			if o.Status == "UNKNOWN" || o.Status == "submitting" || o.Status == "TRIGGERED" {
 				er = errors.New("unresolved protection order")
-				attention("保护订单未完全核对，保留账户锁定；请在交易所确认")
+				attention("Protection is not fully reconciled. Account lock retained; verify at the exchange.")
 				break
 			}
 			if o.Status == "NEW" || o.Status == "PARTIALLY_FILLED" {
 				if er = broker.Cancel(ctx, o); er != nil {
-					attention("剩余保护单撤销未确认")
+					attention("Remaining protective order cancellation is unconfirmed")
 					break
 				}
 			}

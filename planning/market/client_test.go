@@ -62,10 +62,10 @@ func TestVenueAdapters(t *testing.T) {
 func TestHanNativeSymbolMetadataAndEscapedRequests(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "exchangeInfo") {
-			fmt.Fprint(w, `{"symbols":[{"symbol":"牛来USDT","status":"TRADING","contractType":"PERPETUAL","marginAsset":"USDT","quoteAsset":"USDT","baseAsset":"牛来","filters":[{"filterType":"PRICE_FILTER","tickSize":"0.00001"},{"filterType":"LOT_SIZE","stepSize":"1","minQty":"1"},{"filterType":"MIN_NOTIONAL","notional":"5"}]}]}`)
+			fmt.Fprint(w, `{"symbols":[{"symbol":"\u725b\u6765USDT","status":"TRADING","contractType":"PERPETUAL","marginAsset":"USDT","quoteAsset":"USDT","baseAsset":"\u725b\u6765","filters":[{"filterType":"PRICE_FILTER","tickSize":"0.00001"},{"filterType":"LOT_SIZE","stepSize":"1","minQty":"1"},{"filterType":"MIN_NOTIONAL","notional":"5"}]}]}`)
 			return
 		}
-		if r.URL.Query().Get("symbol") != "牛来USDT" || !strings.Contains(r.RequestURI, "%E7%89%9B") {
+		if r.URL.Query().Get("symbol") != "\u725b\u6765USDT" || !strings.Contains(r.RequestURI, "%E7%89%9B") {
 			t.Error("native symbol was changed or not URL-encoded", r.RequestURI)
 		}
 		if strings.Contains(r.URL.Path, "klines") {
@@ -77,14 +77,14 @@ func TestHanNativeSymbolMetadataAndEscapedRequests(t *testing.T) {
 	defer server.Close()
 	c := New()
 	c.BinanceFutures = server.URL
-	s, err := c.Snapshot(context.Background(), "binance", "牛来USDT")
-	if err != nil || s.Symbol != "牛来USDT" || s.BaseAsset != "牛来" {
+	s, err := c.Snapshot(context.Background(), "binance", "\u725b\u6765USDT")
+	if err != nil || s.Symbol != "\u725b\u6765USDT" || s.BaseAsset != "\u725b\u6765" {
 		t.Fatal(s, err)
 	}
-	if _, err = c.Candles(context.Background(), CandleQuery{Venue: "binance", Symbol: "牛来USDT", Interval: "1m", Limit: 1}); err != nil {
+	if _, err = c.Candles(context.Background(), CandleQuery{Venue: "binance", Symbol: "\u725b\u6765USDT", Interval: "1m", Limit: 1}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.Snapshot(context.Background(), "binance", "牛来不存在USDT"); err == nil {
+	if _, err = c.Snapshot(context.Background(), "binance", "\u725b\u6765\u4e0d\u5b58\u5728USDT"); err == nil {
 		t.Fatal("unlisted native symbol accepted")
 	}
 }

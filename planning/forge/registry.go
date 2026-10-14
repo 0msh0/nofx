@@ -76,17 +76,17 @@ func Open(path string) (*Registry, error) {
 		return nil, err
 	}
 	if len(raw) > 5<<20 {
-		return nil, errors.New("现场插件存储超限")
+		return nil, errors.New("Entry plugin storage exceeds limits")
 	}
 	if err = json.Unmarshal(raw, &r.items); err != nil {
-		return nil, errors.New("现场插件存储无效")
+		return nil, errors.New("Invalid entry plugin storage")
 	}
 	if len(r.items) > 64 {
-		return nil, errors.New("现场插件版本超过限制")
+		return nil, errors.New("Entry plugin version limit exceeded")
 	}
 	for hash, a := range r.items {
 		if hash != a.Hash || hash != digest(a.SessionID, a.Definition) || !idPattern.MatchString(a.ID) || (a.Status != "passed" && a.Status != "failed") {
-			return nil, errors.New("现场插件版本校验失败")
+			return nil, errors.New("Entry plugin version verification failed")
 		}
 	}
 	return r, nil
@@ -98,7 +98,7 @@ func (r *Registry) save(items map[string]Artifact) error {
 	}
 	raw, err := json.MarshalIndent(items, "", "  ")
 	if err != nil || len(raw) > 5<<20 {
-		return errors.New("现场插件存储超限")
+		return errors.New("Entry plugin storage exceeds limits")
 	}
 	if err = os.MkdirAll(filepath.Dir(r.path), 0700); err != nil {
 		return err
@@ -138,17 +138,17 @@ func fixtureMarket() map[string]any {
 }
 func (r *Registry) Develop(ctx context.Context, session string, d Definition) (Artifact, error) {
 	if session == "" || len(session) > 80 || !idPattern.MatchString(d.ID) || len(d.Description) == 0 || len(d.Description) > 500 || len(d.Tests) < 2 || len(d.Tests) > 6 {
-		return Artifact{}, errors.New("现场插件需要ID、说明、当前会话及2–6个测试")
+		return Artifact{}, errors.New("Entry plugin requires an ID, description, current session and 2-6 tests")
 	}
 	if len(d.Source) > MaxSource {
-		return Artifact{}, errors.New("插件代码超过16KiB")
+		return Artifact{}, errors.New("Plugin source exceeds 16 KiB")
 	}
 	raw, marshalErr := json.Marshal(d)
 	if marshalErr != nil {
-		return Artifact{}, errors.New("插件包的测试JSON无效")
+		return Artifact{}, errors.New("Invalid plugin test JSON")
 	}
 	if len(raw) > 60000 {
-		return Artifact{}, errors.New("插件包超过限制")
+		return Artifact{}, errors.New("Plugin package exceeds limits")
 	}
 	var detached Definition
 	if err := json.Unmarshal(raw, &detached); err != nil {
@@ -164,37 +164,37 @@ func (r *Registry) Develop(ctx context.Context, session string, d Definition) (A
 	full := len(r.items) >= 64
 	r.mu.Unlock()
 	if full {
-		return Artifact{}, errors.New("现场插件最多保存64个版本")
+		return Artifact{}, errors.New("At most 64 entry plugin versions can be stored")
 	}
 	a := Artifact{Definition: d, SessionID: session, Hash: hash, Status: "failed", Created: time.Now().UTC(), Reports: []Report{}}
 	if err := ValidateSource(d.Source); err != nil {
-		a.Reports = append(a.Reports, Report{Name: "代码边界检查", Error: err.Error()})
+		a.Reports = append(a.Reports, Report{Name: "Source boundary check", Error: err.Error()})
 	} else {
 		successes := 0
 		all := true
 		for _, test := range d.Tests {
 			report := Report{Name: test.Name}
 			if test.Name == "" || len(test.Name) > 80 {
-				report.Error = "测试名称无效"
+				report.Error = "Invalid test name"
 			} else {
 				out, err := Run(ctx, Invocation{Source: d.Source, Market: fixtureMarket(), Args: test.Args})
 				if test.ExpectError {
 					report.Passed = err != nil
 					if err == nil {
-						report.Error = "预期拒绝，但运行成功"
+						report.Error = "Expected rejection, but execution succeeded"
 					}
 				} else if err != nil {
 					report.Error = err.Error()
 				} else {
 					expected, err := decodeOutput(test.Expected)
 					if err != nil {
-						report.Error = "预期输出必须是合法草案JSON"
+						report.Error = "Expected output must be valid idea JSON"
 					} else {
 						actual, _ := json.Marshal(out)
 						want, _ := json.Marshal(expected)
 						report.Passed = string(actual) == string(want)
 						if !report.Passed {
-							report.Error = "实际输出与预期不一致: " + string(actual)
+							report.Error = "Actual output differs from expectation: " + string(actual)
 						} else {
 							successes++
 						}
@@ -213,13 +213,13 @@ func (r *Registry) Develop(ctx context.Context, session string, d Definition) (A
 			a.Status = "passed"
 			a.Enabled = true
 		} else if successes == 0 {
-			a.Reports = append(a.Reports, Report{Name: "至少一个成功输出测试", Error: "不能只测试错误路径"})
+			a.Reports = append(a.Reports, Report{Name: "At least one successful output test", Error: "Tests cannot cover only error paths"})
 		}
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if len(r.items) >= 64 {
-		return a, errors.New("现场插件版本超过限制")
+		return a, errors.New("Entry plugin version limit exceeded")
 	}
 	items := r.copy()
 	items[hash] = a
@@ -249,17 +249,17 @@ func (r *Registry) Get(session, hash string) (Artifact, error) {
 			return a, nil
 		}
 	}
-	return Artifact{}, errors.New("当前会话没有此插件版本")
+	return Artifact{}, errors.New("This session does not own this plugin version")
 }
 func (r *Registry) SetEnabled(session, hash string, enabled bool) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	a, ok := r.items[hash]
 	if !ok || a.SessionID != session {
-		return errors.New("当前会话没有此插件版本")
+		return errors.New("This session does not own this plugin version")
 	}
 	if enabled && a.Status != "passed" {
-		return errors.New("测试未通过的插件不能装载")
+		return errors.New("Plugins with failed tests cannot be mounted")
 	}
 	a.Enabled = enabled
 	items := r.copy()
@@ -272,11 +272,11 @@ func (r *Registry) Run(ctx context.Context, session, hash string, market, args m
 		return Output{}, err
 	}
 	if a.Status != "passed" || !a.Enabled {
-		return Output{}, errors.New("插件尚未通过测试或已停用")
+		return Output{}, errors.New("Plugin has not passed tests or is disabled")
 	}
 	out, err := Run(ctx, Invocation{Source: a.Source, Market: market, Args: args})
 	if err != nil {
-		return out, fmt.Errorf("插件 %s: %w", a.ID, err)
+		return out, fmt.Errorf("Plugin %s: %w", a.ID, err)
 	}
 	return out, nil
 }

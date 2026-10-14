@@ -44,17 +44,17 @@ func (e *Engine) forgeCatalog(session string) []map[string]any {
 }
 func argsObject(raw string) (map[string]any, error) {
 	if len(raw) > 8192 {
-		return nil, errors.New("插件参数超过限制")
+		return nil, errors.New("Plugin arguments exceed limits")
 	}
 	var args map[string]any
 	if json.Unmarshal([]byte(raw), &args) != nil || args == nil {
-		return nil, errors.New("args_json须为JSON对象")
+		return nil, errors.New("args_json must be a JSON object")
 	}
 	return args, nil
 }
 func (e *Engine) invokeForge(ctx context.Context, input Input, call model.ToolCall, emit Emit) (any, error) {
 	if e.Forge == nil || input.SessionID == "" {
-		return nil, errors.New("当前会话没有现场开发环境")
+		return nil, errors.New("No entry development workspace exists for this session")
 	}
 	switch call.Function.Name {
 	case "get_entry_plugins":
@@ -89,7 +89,7 @@ func (e *Engine) invokeForge(ctx context.Context, input Input, call model.ToolCa
 			return nil, err
 		}
 		if HasCredential(args.Source) {
-			return nil, errors.New("插件代码不能包含密钥")
+			return nil, errors.New("Plugin code cannot contain credentials")
 		}
 		d := forge.Definition{ID: args.ID, Description: args.Description, Source: args.Source}
 		for _, t := range args.Tests {

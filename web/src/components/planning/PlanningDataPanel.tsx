@@ -58,10 +58,10 @@ const num = (n: string | number) =>
 const money = (n: string | number) =>
   Number(n).toLocaleString('zh-CN', { maximumFractionDigits: 2 })
 const series = [
-  ['longCost', '多仓成本', '#2E8B57'],
-  ['shortCost', '空仓成本', '#3575a8'],
-  ['longLiq', '多仓估计清算', '#D6433A'],
-  ['shortLiq', '空仓估计清算', '#9b6a14'],
+  ['longCost', 'Long cost', '#2E8B57'],
+  ['shortCost', 'Short cost', '#3575a8'],
+  ['longLiq', 'Long estimated liquidation', '#D6433A'],
+  ['shortLiq', 'Short estimated liquidation', '#9b6a14'],
 ] as const
 
 export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
@@ -74,21 +74,21 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
     return (
       <>
         <p>
-          统计状态：{v.state} · {v.window_start} 至 {v.data_at}
+          Data state：{v.state} · {v.window_start} to {v.data_at}
         </p>
         {v.state !== 'ready' ? (
-          <p>窗口尚未准备完成，不展示排名。</p>
+          <p>The window is not ready; rankings are unavailable.</p>
         ) : (
           <div className="planning-plugin-table">
             <table>
               <thead>
                 <tr>
-                  <th scope="col">排名</th>
-                  <th scope="col">地址</th>
-                  <th scope="col">现金净损益 / USDC</th>
-                  <th scope="col">已实现盈亏</th>
-                  <th scope="col">费用</th>
-                  <th scope="col">资金费</th>
+                  <th scope="col">Rank</th>
+                  <th scope="col">addresses</th>
+                  <th scope="col">Cash net PnL / USDC</th>
+                  <th scope="col">Realized PnL</th>
+                  <th scope="col">Fees</th>
+                  <th scope="col">Funding</th>
                 </tr>
               </thead>
               <tbody>
@@ -114,7 +114,8 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
     const bins = v.bins || [],
       min = bins[0]?.px,
       max = bins[bins.length - 1]?.px
-    if (!bins.length) return <p>当前未返回价格桶，不绘制估算数据。</p>
+    if (!bins.length)
+      return <p>No price bins returned; no estimated data is drawn.</p>
     const peak = Math.max(
       1,
       ...bins.flatMap((b) => series.map(([key]) => b[key]))
@@ -132,11 +133,11 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
         </div>
         <svg
           role="img"
-          aria-label="成本与估计清算金额价格分布"
+          aria-label="Cost basis and estimated liquidation value by price"
           viewBox="0 0 1000 270"
         >
           <text x="10" y="15" fill="#6B6557">
-            金额 / USDC
+            Value / USDC
           </text>
           {[0, 0.5, 1].map((t) => (
             <g key={t}>
@@ -164,7 +165,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                 strokeWidth="1.5"
               >
                 <title>
-                  {label} · 价格 {num(b.px)} · {money(b[key])} USDC
+                  {label} · Price {num(b.px)} · {money(b[key])} USDC
                 </title>
               </line>
             ))
@@ -192,18 +193,18 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                 strokeDasharray="4"
               />
               <text x={x(v.mark)} y="25" fill="#9b6a14" fontSize="12">
-                参考价 {num(v.mark)}
+                Reference price {num(v.mark)}
               </text>
             </g>
           )}
           <text x="930" y="266" textAnchor="end" fill="#6B6557" fontSize="11">
-            价格 / USDC →
+            Price / USDC →
           </text>
         </svg>
       </>
     )
   }
-  if (v.kind !== 'winrate-map') return <p>没有可展示的图表。</p>
+  if (v.kind !== 'winrate-map') return <p>No chart data available.</p>
   if (
     !(
       v.rows > 0 &&
@@ -215,7 +216,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
       v.mark > 0
     )
   )
-    return <p>热图坐标不完整，无法可靠显示。</p>
+    return <p>Incomplete heatmap coordinates; visualization is unavailable.</p>
   const cells = v.cells || [],
     actualPeak = Math.max(
       0,
@@ -243,21 +244,23 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
   return (
     <>
       <p>
-        颜色越亮，当前持仓金额越大；左右图共用金额刻度。历史胜率不是未来胜率。参考价{' '}
+        Brighter cells indicate larger current positions; both sides share one
+        scale. Historical win rate is not a forecast. Reference price{' '}
         {num(v.mark)} USDC。
       </p>
       <div className="planning-plugin-heat-pair">
         {(['long', 'short'] as const).map((side) => (
           <section key={side}>
             <b>
-              {side === 'long' ? '多仓' : '空仓'} ·
-              当前持仓按历史胜率与开仓成本分组
+              {side === 'long' ? 'Longs' : 'Shorts'} · Current positions grouped
+              by historical win rate and entry cost
             </b>
-            <small>↑ 历史已闭合回合胜率 / %</small>
+            <small>↑ Historical closed-round win rate / %</small>
             <svg
               role="img"
               aria-label={
-                (side === 'long' ? '多仓' : '空仓') + '历史胜率持仓热图'
+                (side === 'long' ? 'Longs' : 'Shorts') +
+                'historical win-rate position heatmap'
               }
               viewBox="0 0 620 310"
             >
@@ -276,7 +279,7 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                 Array.from({ length: v.columns }, (_, c) => {
                   const datum = lookup.get(r + ':' + c)?.[side],
                     b = bounds(r, c),
-                    label = `${side === 'long' ? '多仓' : '空仓'} · 历史胜率 ${num(b.lo)}–${num(b.hi)}% · 开仓成本 ${b.cost} USDC · ${datum ? money(datum.notional) + ' USDC · ' + datum.count + ' 地址' : '该格未返回数据，不能按零统计'}`
+                    label = `${side === 'long' ? 'Longs' : 'Shorts'} · Historical win rate ${num(b.lo)}–${num(b.hi)}% · Entry cost ${b.cost} USDC · ${datum ? money(datum.notional) + ' USDC · ' + datum.count + ' addresses' : 'No data returned for this cell; do not treat it as zero'}`
                   return (
                     <rect
                       key={r + ':' + c}
@@ -327,18 +330,20 @@ export function PluginVisualization({ visual: v }: { visual: PluginVisual }) {
                 fill="#6B6557"
                 fontSize="12"
               >
-                开仓成本 / 统计参考价 →
+                Entry cost / reference price →
               </text>
             </svg>
           </section>
         ))}
       </div>
       <p>
-        共同金额刻度：暗色 0 → 最亮 {money(actualPeak)}{' '}
-        USDC。最左、最右列为成本范围外的持仓。100% 表示本快照参考价。
+        Shared amount scale: dark 0 → brightest {money(actualPeak)} USDC. Outer
+        columns contain positions outside the cost range. 100% is the snapshot
+        reference price.
       </p>
       <div ref={hover} className="planning-plugin-hover" role="status">
-        悬停或点击格子，查看历史胜率、成本价格和持仓金额。
+        Hover or select a cell to inspect historical win rate, entry cost and
+        current position value.
       </div>
     </>
   )
@@ -378,7 +383,7 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
       .then((rows) => {
         if (alive) setItems(rows)
       })
-      .catch((e) => alive && setError(formatRequestError(e, 'zh')))
+      .catch((e) => alive && setError(formatRequestError(e, 'en')))
     return () => {
       alive = false
     }
@@ -395,7 +400,7 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
       })
       if (version === serial.current) setItems(rows)
     } catch (e) {
-      if (version === serial.current) setError(formatRequestError(e, 'zh'))
+      if (version === serial.current) setError(formatRequestError(e, 'en'))
     } finally {
       if (version === serial.current) setBusy(false)
     }
@@ -414,10 +419,10 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
       })
       const r = await planningAPI<PluginResult>('plugin-data?' + q)
       if (r.symbol !== symbol || r.venue !== venue)
-        throw new Error('组件数据与当前标的不一致')
+        throw new Error('Component data does not match the selected market')
       if (version === serial.current) setResult(r)
     } catch (e) {
-      if (version === serial.current) setError(formatRequestError(e, 'zh'))
+      if (version === serial.current) setError(formatRequestError(e, 'en'))
     } finally {
       if (version === serial.current) setBusy(false)
     }
@@ -427,25 +432,27 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
       className="planning-tools planning-data-panel"
       onToggle={(e) => setOpened(e.currentTarget.open)}
     >
-      <summary>数据插件 · 资金费率、持仓量、成本与持仓图</summary>
+      <summary>Data plugins · Funding, OI and holder analytics</summary>
       {opened && (
         <>
           <p>
-            启用后，规划助手才能调用该数据源。这里只读当前标的，不会下单；Hyperdata
-            组件仅适用于 Hyperliquid 同名市场。
+            Enable a source to make it available to the planning assistant.
+            These reads cannot place orders. Claw402 holder analytics only cover
+            matching Hyperliquid markets. Paid reads use your NOFX fee wallet
+            and are cached for five minutes.
           </p>
           <label>
-            统计窗口
+            Time window
             <select
-              aria-label="插件统计窗口"
+              aria-label="Plugin time window"
               value={windowDays}
               onChange={(e) => {
                 setWindow(e.target.value)
                 onWindowChange?.(e.target.value)
               }}
             >
-              <option value="7d">近 7 日</option>
-              <option value="30d">近 30 日</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
             </select>
           </label>
           <div className="planning-plugin-switches">
@@ -471,19 +478,19 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
                   }
                   onClick={() => read(item)}
                 >
-                  读取并显示
+                  Read and display
                 </button>
               </div>
             ))}
           </div>
-          {busy && <p role="status">正在读取组件…</p>}
+          {busy && <p role="status">Loading component…</p>}
           {error && (
             <p role="alert" className="stop-text">
               {error}
             </p>
           )}
           {result && (
-            <section aria-label="当前插件数据">
+            <section aria-label="Current plugin data">
               <div className="planning-plugin-metrics">
                 {result.metrics.map((m) => (
                   <div key={m.key}>
@@ -499,12 +506,12 @@ export const PlanningDataPanel = memo(function PlanningDataPanel({
               {result.visual && <PluginVisualization visual={result.visual} />}
               <p>{result.notice}</p>
               <small>
-                来源 {result.source} · 接收时间{' '}
+                Source {result.source} · Received at{' '}
                 {new Date(result.observed).toLocaleString()}{' '}
                 {result.visual &&
-                  ' · 统计截止 ' +
+                  ' · Data as of ' +
                     result.visual.data_at +
-                    ' · 覆盖 ' +
+                    ' · Coverage ' +
                     result.visual.coverage}
               </small>
             </section>

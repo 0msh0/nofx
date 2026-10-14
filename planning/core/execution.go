@@ -45,7 +45,7 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 		levels = []Level{{i.Entry, "1"}}
 	case "ladder":
 		if len(x.Levels) < 2 || len(x.Levels) > 8 || x.Slices != 0 || x.IntervalSeconds != 0 {
-			return Plan{}, errors.New("分批限价需要 2–8 档价格和数量权重，不能附带时间参数")
+			return Plan{}, errors.New("A price ladder requires 2-8 prices and quantity weights, without time parameters")
 		}
 		levels = x.Levels
 		sum := new(big.Rat)
@@ -61,11 +61,11 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 			sum = add(sum, must(l.Weight))
 		}
 		if sum.Cmp(big.NewRat(1, 1)) != 0 {
-			return Plan{}, errors.New("分批数量权重之和必须为 1")
+			return Plan{}, errors.New("Ladder quantity weights must sum to 1")
 		}
 	case "twap":
 		if len(x.Levels) != 0 || x.Slices < 2 || x.Slices > 24 || x.IntervalSeconds < 5 || x.IntervalSeconds > 300 || (x.Slices-1)*x.IntervalSeconds > 3600 {
-			return Plan{}, errors.New("TWAP 需要 2–24 笔，间隔 5–300 秒，总时长不超过 1 小时")
+			return Plan{}, errors.New("TWAP requires 2-24 slices, 5-300 seconds apart, lasting at most one hour")
 		}
 		// Rational equal weights avoid approximation in base quantity allocation.
 		for n := 0; n < x.Slices; n++ {
@@ -87,7 +87,7 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 		leg := base
 		leg.Entry = l.Price
 		if _, err := Compile(s, c, leg, now); err != nil {
-			return Plan{}, fmt.Errorf("第 %d 笔订单：%w", n+1, err)
+			return Plan{}, fmt.Errorf("Order %d: %w", n+1, err)
 		}
 		w := must(l.Weight)
 		if x.Kind == "twap" {
@@ -110,7 +110,7 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 	for n, l := range levels {
 		q := floorStep(mul(total, weights[n]), must(s.Step))
 		if q.Cmp(must(s.MinQty)) < 0 || mul(q, must(l.Price)).Cmp(must(s.MinNotional)) < 0 {
-			return Plan{}, fmt.Errorf("第 %d 笔拆分后低于交易所最小数量或金额；减少分批数或调整预算", n+1)
+			return Plan{}, fmt.Errorf("Child order %d is below venue minimum quantity or notional; reduce slice count or adjust the budget", n+1)
 		}
 		loss := add(abs(sub(must(l.Price), must(i.Stop))), mul(add(must(l.Price), must(i.Stop)), cost))
 		gain := sub(abs(sub(must(i.Target), must(l.Price))), mul(add(must(l.Price), must(i.Target)), cost))

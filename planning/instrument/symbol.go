@@ -8,7 +8,7 @@ import (
 )
 
 // ValidSymbol permits uppercase ASCII tickers and native Han-character asset
-// codes (e.g. 牛来USDT). Venue metadata still determines whether it is listed.
+// codes with non-ASCII base assets. Venue metadata still determines whether it is listed.
 // Whitespace, controls, URL/command separators and lookalike alphabets are not
 // identifiers. Length is bounded in both runes and UTF-8 bytes.
 func ValidSymbol(s string) bool {

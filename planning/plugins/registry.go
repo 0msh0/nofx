@@ -100,11 +100,11 @@ func Open(path string, definitions ...Definition) (*Registry, error) {
 }
 func Builtins(source Source) []Definition {
 	defs := []Definition{}
-	for _, m := range []Manifest{{ID: "funding", Name: "资金费率", Version: "1.0.0", Description: "公开资金费率与标记价格；结算口径因交易所而异，不自动计入本次交易风险估算。", Capability: "public.read", Enabled: true}, {ID: "open_interest", Name: "持仓量 OI", Version: "1.0.0", Description: "当前合约未平仓数量，保留交易所原生单位；单个快照不能证明增仓方向。", Capability: "public.read", Enabled: true}} {
+	for _, m := range []Manifest{{ID: "funding", Name: "Funding rate", Version: "1.0.0", Description: "Public funding and mark prices. Settlement conventions vary by venue; not automatically included in this trade risk estimate.", Capability: "public.read", Enabled: true}, {ID: "open_interest", Name: "Open interest", Version: "1.0.0", Description: "Current open interest in venue-native units. One snapshot does not establish a directional increase.", Capability: "public.read", Enabled: true}} {
 		id := m.ID
 		defs = append(defs, Definition{Manifest: m, Read: func(ctx context.Context, q Request) (Result, error) {
 			if source == nil {
-				return Result{}, errors.New("此行情源不提供该插件")
+				return Result{}, errors.New("This market source does not provide the requested plugin")
 			}
 			return source.PluginData(ctx, id, q)
 		}})
@@ -177,7 +177,7 @@ func (r *Registry) Read(ctx context.Context, id string, q Request) (Result, erro
 	if !ok || !on {
 		return Result{}, errors.New("plugin unavailable or disabled")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 	out, err := d.Read(ctx, q)
 	if err != nil {
@@ -186,7 +186,7 @@ func (r *Registry) Read(ctx context.Context, id string, q Request) (Result, erro
 	if err = ctx.Err(); err != nil {
 		return Result{}, err
 	}
-	if out.Venue != q.Venue || out.Symbol != q.Symbol || len(out.Metrics) == 0 || len(out.Metrics) > 8 || out.Source == "" || len(out.Source) > 300 || len(out.Notice) > 1200 || (out.Mode != "public" && out.Mode != "demo") {
+	if out.Venue != q.Venue || out.Symbol != q.Symbol || len(out.Metrics) == 0 || len(out.Metrics) > 8 || out.Source == "" || len(out.Source) > 300 || len(out.Notice) > 1200 || (out.Mode != "public" && out.Mode != "demo" && out.Mode != "paid") {
 		return Result{}, errors.New("invalid canonical plugin result")
 	}
 	now := time.Now()

@@ -48,12 +48,12 @@ func (a *NOFXAdapter) Chat(ctx context.Context, messages []Message, tools []Tool
 		}
 		var rejected *payment.PaymentVerificationRejectedError
 		if errors.As(e, &rejected) {
-			return Message{}, errors.New("本次付费验证被拒绝，不会自动重试；请检查报价、模型费用钱包及客户端版本。此前请求仍可能已扣款。")
+			return Message{}, errors.New("Payment verification was rejected; no automatic retry. Check the quote, fee wallet and client version. The prior request may still have been charged.")
 		}
 		if ctx.Err() != nil {
 			return Message{}, ctx.Err()
 		}
-		return Message{}, errors.New("NOFX AI 请求失败；请检查模型账户余额或连接，确认付款状态后再操作")
+		return Message{}, errors.New("NOFX AI request failed. Check provider balance and connectivity, then reconcile payment status before another request.")
 	}
 	if result == nil || len(result.Content) > 24000 || len(result.ToolCalls) > 5 || len(result.ReasoningContent) > 256<<10 {
 		return Message{}, errors.New("invalid NOFX AI response")

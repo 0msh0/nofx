@@ -151,7 +151,7 @@ func (b *HyperliquidTrader) SubmitOrder(ctx context.Context, o execution.Order) 
 	}
 	receipt, e := b.submitNativeOrder(ctx, ex, hl.CreateOrderRequest{Coin: coin, IsBuy: buy, Price: price, Size: qty, ReduceOnly: reduce, ClientOrderID: &client, OrderType: typ})
 	if e != nil {
-		return o, errors.New("Hyperliquid 提交回报未确认，请按 cloid 核对，不重发")
+		return o, errors.New("Hyperliquid submission is unconfirmed. Reconcile by cloid; do not resubmit.")
 	}
 	if receipt.Error != nil {
 		return o, fmt.Errorf("Hyperliquid rejected locked %s order", o.Role)
@@ -178,7 +178,7 @@ func (b *HyperliquidTrader) LookupOrder(ctx context.Context, o execution.Order) 
 	}
 	r, e := ex.Info().QueryOrderByCloid(ctx, b.walletAddr, "0x"+o.ClientID)
 	if e != nil || r == nil || r.Status != hl.OrderQueryStatusSuccess {
-		return o, errors.New("Hyperliquid 订单尚未确认；unknownOid 不能当成已成交")
+		return o, errors.New("Hyperliquid order is unconfirmed; unknownOid does not mean filled")
 	}
 	native := r.Order.Order
 	if native.Oid <= 0 || native.Coin != coin || native.Cloid == nil || *native.Cloid != "0x"+o.ClientID {

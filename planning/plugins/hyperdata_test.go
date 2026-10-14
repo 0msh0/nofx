@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -24,7 +25,7 @@ func TestHyperdataTypedViewsAndFailureStates(t *testing.T) {
 		json.NewEncoder(w).Encode(map[string]any{"data": response, "meta": map[string]any{"coverage": "partial", "asOfTime": time.Now().UTC().Format(time.RFC3339)}})
 	}))
 	defer server.Close()
-	h := Hyperdata{Base: server.URL, HTTP: server.Client()}
+	h := fixtureHyperdata(server)
 	q := Request{Venue: "hyperliquid", Symbol: "xyz:GOOGL"}
 	registry, err := Open("", h.Definitions()...)
 	if err != nil {
@@ -94,7 +95,7 @@ func TestHyperdataTypedViewsAndFailureStates(t *testing.T) {
 	if _, err = h.Read(context.Background(), "hyperdata_cost", Request{Venue: "binance", Symbol: "GOOGLUSDT"}); err == nil {
 		t.Fatal("cross-venue substitution")
 	}
-	if _, err = (Hyperdata{Base: server.URL, Offline: true}).Read(context.Background(), "hyperdata_cost", q); err == nil {
+	if _, err = (Hyperdata{Offline: true}).Read(context.Background(), "hyperdata_cost", q); err == nil {
 		t.Fatal("demo mixed real data")
 	}
 }
@@ -102,15 +103,36 @@ func TestHyperdataUpstreamUnavailable(t *testing.T) {
 	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Retry-After", "2")
 		w.WriteHeader(503)
-		w.Write([]byte(`{"error":{"code":"data_unavailable","message":"正在生成持仓分布","details":{"reason":"map_building"}}}`))
+		w.Write([]byte(`{"error":{"code":"data_unavailable","message":"Position distribution is being prepared","details":{"reason":"map_building"}}}`))
 	}))
 	defer s.Close()
-	_, err := (Hyperdata{Base: s.URL, HTTP: s.Client()}).Read(context.Background(), "hyperdata_winrate", Request{Venue: "hyperliquid", Symbol: "BTC"})
+	_, err := (fixtureHyperdata(s)).Read(context.Background(), "hyperdata_winrate", Request{Venue: "hyperliquid", Symbol: "BTC"})
 	var upstream *UpstreamError
-	if !errors.As(err, &upstream) || upstream.Reason != "map_building" || upstream.RetryAfter != 2 {
+	if !errors.As(err, &upstream) || upstream.Reason != "map_building" || upstream.RetryAfter != 0 {
 		t.Fatal("upstream retry contract lost", err)
 	}
 	if err == nil || !strings.Contains(err.Error(), "data_unavailable") {
 		t.Fatal("upstream failure lost")
+	}
+}
+
+func fixtureHyperdata(s *httptest.Server) Hyperdata {
+	return Hyperdata{Fetch: func(ctx context.Context, id string, q Request) ([]byte, error) {
+		// The fixture transport exercises decoding only; production uses Claw402.
+		req, err := http.NewRequestWithContext(ctx, "GET", s.URL+"/hip3_perp/"+q.Symbol+"/?chain=mainnet", nil)
+		if err != nil {
+			return nil, err
+		}
+		r, err := s.Client().Do(req)
+		if err != nil {
+			return nil, err
+		}
+		defer r.Body.Close()
+		return io.ReadAll(r.Body)
+	}}
+}
+func TestPaidProviderRequiredNoPublicFallback(t *testing.T) {
+	if _, err := (Hyperdata{}).Read(context.Background(), "hyperdata_cost", Request{Venue: "hyperliquid", Symbol: "BTC"}); err == nil {
+		t.Fatal("missing paid provider accepted")
 	}
 }

@@ -49,7 +49,7 @@ func init() {
 func workerMain() (code int) {
 	defer func() {
 		if recover() != nil {
-			fmt.Fprint(os.Stdout, `{"error":"插件执行异常"}`)
+			fmt.Fprint(os.Stdout, `{"error":"Plugin execution failed"}`)
 			code = 1
 		}
 	}()
@@ -84,7 +84,7 @@ type cappedBuffer struct {
 
 func (b *cappedBuffer) Write(p []byte) (int, error) {
 	if b.b.Len()+len(p) > b.max {
-		return 0, errors.New("插件输出超过限制")
+		return 0, errors.New("Plugin output exceeds limits")
 	}
 	return b.b.Write(p)
 }
@@ -94,7 +94,7 @@ func Run(ctx context.Context, in Invocation) (Output, error) {
 	}
 	raw, err := json.Marshal(in)
 	if err != nil || len(raw) > 65536 {
-		return Output{}, errors.New("插件输入超过限制")
+		return Output{}, errors.New("Plugin input exceeds limits")
 	}
 	executable, err := os.Executable()
 	if err != nil {
@@ -111,13 +111,13 @@ func Run(ctx context.Context, in Invocation) (Output, error) {
 	command.Stderr = stderr
 	if err = command.Run(); err != nil {
 		if ctx.Err() != nil {
-			return Output{}, errors.New("插件执行已取消或超时")
+			return Output{}, errors.New("Plugin execution cancelled or timed out")
 		}
-		return Output{}, errors.New("插件工作进程失败或输出超限")
+		return Output{}, errors.New("Plugin worker failed or exceeded output limits")
 	}
 	var reply workerReply
 	if json.Unmarshal(stdout.b.Bytes(), &reply) != nil {
-		return Output{}, errors.New("插件工作进程响应无效")
+		return Output{}, errors.New("Invalid plugin worker response")
 	}
 	if reply.Error != "" {
 		return Output{}, errors.New(reply.Error)
@@ -129,27 +129,27 @@ func decodeOutput(raw []byte) (Output, error) {
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.DisallowUnknownFields()
 	if err := d.Decode(&out); err != nil {
-		return out, errors.New("插件只能输出 {ideas:[...]}; 字段或类型无效")
+		return out, errors.New("Plugin must return {ideas:[...]}; invalid fields or types")
 	}
 	if d.Decode(new(any)) != io.EOF {
-		return out, errors.New("插件输出含多余数据")
+		return out, errors.New("Plugin output contains trailing data")
 	}
 	if out.Ideas == nil || len(out.Ideas) > 5 {
-		return out, errors.New("插件应输出0–5个入场草案")
+		return out, errors.New("Plugin must return 0-5 entry ideas")
 	}
 	for _, idea := range out.Ideas {
 		if idea.Execution != nil {
 			switch idea.Execution.Kind {
 			case "limit", "ladder", "twap":
 			default:
-				return out, errors.New("插件输出了未实现的执行类型")
+				return out, errors.New("Plugin returned an unsupported execution type")
 			}
 		}
 		if len(idea.Name) > 120 || len(idea.Rationale) > 1200 {
-			return out, errors.New("插件草案文本过长")
+			return out, errors.New("Plugin idea text is too long")
 		}
 		if idea.Execution != nil && len(idea.Execution.Levels) > 8 {
-			return out, errors.New("插件分档超过8个")
+			return out, errors.New("Plugin has more than 8 levels")
 		}
 	}
 	return out, nil
@@ -161,11 +161,11 @@ func decodeOutput(raw []byte) (Output, error) {
 // are bounded host functions. An isolated process alone is not a memory sandbox.
 func ValidateSource(source string) error {
 	if len(source) == 0 || len(source) > MaxSource {
-		return errors.New("插件代码须为1–16384字节")
+		return errors.New("Plugin source must contain 1-16384 bytes")
 	}
 	file, err := syntax.Parse("entry.star", source, 0)
 	if err != nil {
-		return fmt.Errorf("插件语法: %w", err)
+		return fmt.Errorf("Plugin syntax: %w", err)
 	}
 	nodes := 0
 	var invalid error
@@ -176,33 +176,33 @@ func ValidateSource(source string) error {
 		}
 		nodes++
 		if nodes > 1000 {
-			invalid = errors.New("插件代码结构过大")
+			invalid = errors.New("Plugin source structure exceeds limits")
 			return false
 		}
 		switch n := n.(type) {
 		case *syntax.LoadStmt, *syntax.DotExpr, *syntax.Comprehension, *syntax.LambdaExpr:
-			invalid = errors.New("插件不允许导入、属性方法、推导式或lambda")
+			invalid = errors.New("Imports, attribute methods, comprehensions and lambdas are forbidden")
 		case *syntax.BinaryExpr:
 			if strings.Contains(" + * ** << >> % | & ^ ", " "+n.Op.String()+" ") {
-				invalid = errors.New("请使用有界 add/mul；不允许序列拼接、重复或位运算")
+				invalid = errors.New("Use bounded add/mul; sequence concatenation, repetition and bitwise operations are forbidden")
 			}
 		case *syntax.AssignStmt:
 			if n.Op != syntax.EQ {
-				invalid = errors.New("插件不允许增量赋值；请使用有界 add/mul")
+				invalid = errors.New("Augmented assignment is forbidden; use bounded add/mul")
 			}
 		case *syntax.Literal:
 			if len(n.Raw) > 2048 {
-				invalid = errors.New("插件字面量过大")
+				invalid = errors.New("Plugin literal exceeds limits")
 			}
 			if n.Token == syntax.INT {
 				v, ok := new(big.Int).SetString(strings.ReplaceAll(n.Raw, "_", ""), 0)
 				if !ok || v.BitLen() > 40 {
-					invalid = errors.New("插件整数字面量超过限制")
+					invalid = errors.New("Plugin integer literal exceeds limits")
 				}
 			}
 		case *syntax.Ident:
 			if _, builtin := starlark.Universe[n.Name]; builtin && !allowed[n.Name] {
-				invalid = errors.New("插件不允许内置函数: " + n.Name)
+				invalid = errors.New("Plugin builtin is forbidden: " + n.Name)
 			}
 		}
 		return invalid == nil
@@ -221,20 +221,20 @@ func number(v starlark.Value) (float64, error) {
 		var err error
 		x, err = strconv.ParseFloat(string(v), 64)
 		if err != nil {
-			return 0, errors.New("需要数字")
+			return 0, errors.New("Number required")
 		}
 	default:
-		return 0, errors.New("需要数字")
+		return 0, errors.New("Number required")
 	}
 	if math.IsNaN(x) || math.IsInf(x, 0) || math.Abs(x) > 1e12 {
-		return 0, errors.New("数字超过插件计算范围")
+		return 0, errors.New("Number exceeds plugin calculation bounds")
 	}
 	return x, nil
 }
 func builtin(name string, fn func(starlark.Tuple) (starlark.Value, error)) *starlark.Builtin {
 	return starlark.NewBuiltin(name, func(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kw []starlark.Tuple) (starlark.Value, error) {
 		if len(kw) > 0 {
-			return nil, errors.New("不支持关键字参数")
+			return nil, errors.New("Keyword arguments are unsupported")
 		}
 		return fn(args)
 	})
@@ -243,11 +243,11 @@ func safeBuiltins() starlark.StringDict {
 	values := starlark.StringDict{"len": starlark.Universe["len"]}
 	values["fail"] = builtin("fail", func(a starlark.Tuple) (starlark.Value, error) {
 		if len(a) != 1 {
-			return nil, errors.New("fail需要说明")
+			return nil, errors.New("fail requires an explanation")
 		}
 		s, ok := starlark.AsString(a[0])
 		if !ok || len(s) > 500 {
-			return nil, errors.New("fail说明无效")
+			return nil, errors.New("Invalid fail explanation")
 		}
 		return nil, errors.New(s)
 	})
@@ -255,7 +255,7 @@ func safeBuiltins() starlark.StringDict {
 		op := name
 		values[op] = builtin(op, func(a starlark.Tuple) (starlark.Value, error) {
 			if len(a) != 2 {
-				return nil, errors.New("需要两个数字")
+				return nil, errors.New("Two numbers required")
 			}
 			x, err := number(a[0])
 			if err != nil {
@@ -284,7 +284,7 @@ func safeBuiltins() starlark.StringDict {
 		op := name
 		values[op] = builtin(op, func(a starlark.Tuple) (starlark.Value, error) {
 			if len(a) != 1 {
-				return nil, errors.New("需要一个参数")
+				return nil, errors.New("One argument required")
 			}
 			if op == "str" {
 				if s, ok := a[0].(starlark.String); ok {
@@ -306,11 +306,11 @@ func safeBuiltins() starlark.StringDict {
 	}
 	values["range"] = builtin("range", func(a starlark.Tuple) (starlark.Value, error) {
 		if len(a) != 1 {
-			return nil, errors.New("range只接受一个参数")
+			return nil, errors.New("range accepts one argument only")
 		}
 		n, err := number(a[0])
 		if err != nil || n != math.Trunc(n) || n < 0 || n > 64 {
-			return nil, errors.New("range须为0–64")
+			return nil, errors.New("range must be between 0 and 64")
 		}
 		out := []starlark.Value{}
 		for i := 0; i < int(n); i++ {
@@ -320,11 +320,11 @@ func safeBuiltins() starlark.StringDict {
 	})
 	values["append"] = builtin("append", func(a starlark.Tuple) (starlark.Value, error) {
 		if len(a) != 2 {
-			return nil, errors.New("append需要列表和元素")
+			return nil, errors.New("append requires a list and an element")
 		}
 		l, ok := a[0].(*starlark.List)
 		if !ok || l.Len() >= 128 {
-			return nil, errors.New("列表最多128项")
+			return nil, errors.New("List may contain at most 128 items")
 		}
 		if err := l.Append(a[1]); err != nil {
 			return nil, err
@@ -341,11 +341,11 @@ func safeBuiltins() starlark.StringDict {
 		}
 		tick, ok := starlark.AsString(a[1])
 		if !ok {
-			return nil, errors.New("tick应为小数字符串")
+			return nil, errors.New("tick must be a decimal string")
 		}
 		step, ok := new(big.Rat).SetString(tick)
 		if !ok || step.Sign() <= 0 {
-			return nil, errors.New("无效tick")
+			return nil, errors.New("Invalid tick")
 		}
 		v, _ := new(big.Rat).SetString(strconv.FormatFloat(x, 'f', -1, 64))
 		ratio := new(big.Rat).Quo(v, step)
@@ -356,18 +356,18 @@ func safeBuiltins() starlark.StringDict {
 	})
 	values["allocate_weights"] = builtin("allocate_weights", func(a starlark.Tuple) (starlark.Value, error) {
 		if len(a) != 1 {
-			return nil, errors.New("allocate_weights需要列表")
+			return nil, errors.New("allocate_weights requires a list")
 		}
 		l, ok := a[0].(*starlark.List)
 		if !ok || l.Len() < 2 || l.Len() > 8 {
-			return nil, errors.New("权重需要2–8项")
+			return nil, errors.New("Weights require 2-8 items")
 		}
 		weights := []float64{}
 		sum := 0.
 		for i := 0; i < l.Len(); i++ {
 			v, err := number(l.Index(i))
 			if err != nil || v <= 0 {
-				return nil, errors.New("权重须为正")
+				return nil, errors.New("Weights must be positive")
 			}
 			weights = append(weights, v)
 			sum += v
@@ -380,7 +380,7 @@ func safeBuiltins() starlark.StringDict {
 				units = left
 			}
 			if units <= 0 {
-				return nil, errors.New("权重过小")
+				return nil, errors.New("Weight is too small")
 			}
 			left -= units
 			out = append(out, starlark.String(strconv.FormatFloat(float64(units)/1000000, 'f', 6, 64)))
@@ -392,7 +392,7 @@ func safeBuiltins() starlark.StringDict {
 func toStar(v any, depth int, nodes *int) (starlark.Value, error) {
 	*nodes++
 	if *nodes > 1024 || depth > 12 {
-		return nil, errors.New("插件输入结构过大")
+		return nil, errors.New("Plugin input structure exceeds limits")
 	}
 	switch v := v.(type) {
 	case nil:
@@ -401,7 +401,7 @@ func toStar(v any, depth int, nodes *int) (starlark.Value, error) {
 		return starlark.Bool(v), nil
 	case string:
 		if len(v) > 2048 {
-			return nil, errors.New("插件输入文本过长")
+			return nil, errors.New("Plugin input text is too long")
 		}
 		return starlark.String(v), nil
 	case float64:
@@ -411,7 +411,7 @@ func toStar(v any, depth int, nodes *int) (starlark.Value, error) {
 		return starlark.Float(v), nil
 	case map[string]any:
 		if len(v) > 64 {
-			return nil, errors.New("插件输入字典过大")
+			return nil, errors.New("Plugin input dictionary exceeds limits")
 		}
 		d := starlark.NewDict(len(v))
 		for k, x := range v {
@@ -426,7 +426,7 @@ func toStar(v any, depth int, nodes *int) (starlark.Value, error) {
 		return d, nil
 	case []any:
 		if len(v) > 128 {
-			return nil, errors.New("插件输入列表过大")
+			return nil, errors.New("Plugin input list exceeds limits")
 		}
 		a := []starlark.Value{}
 		for _, x := range v {
@@ -438,12 +438,12 @@ func toStar(v any, depth int, nodes *int) (starlark.Value, error) {
 		}
 		return starlark.NewList(a), nil
 	}
-	return nil, errors.New("插件输入不是JSON数据")
+	return nil, errors.New("Plugin input is not JSON data")
 }
 func toJSON(v starlark.Value, depth int, nodes *int) (any, error) {
 	*nodes++
 	if *nodes > 2048 || depth > 12 {
-		return nil, errors.New("插件输出过大或含循环引用")
+		return nil, errors.New("Plugin output exceeds limits or has cyclic references")
 	}
 	switch v := v.(type) {
 	case starlark.NoneType:
@@ -452,14 +452,14 @@ func toJSON(v starlark.Value, depth int, nodes *int) (any, error) {
 		return bool(v), nil
 	case starlark.String:
 		if len(v) > 2048 {
-			return nil, errors.New("插件输出文本过长")
+			return nil, errors.New("Plugin output text is too long")
 		}
 		return string(v), nil
 	case starlark.Int, starlark.Float:
 		return number(v)
 	case *starlark.List:
 		if v.Len() > 128 {
-			return nil, errors.New("插件输出列表过大")
+			return nil, errors.New("Plugin output list exceeds limits")
 		}
 		a := []any{}
 		for i := 0; i < v.Len(); i++ {
@@ -472,13 +472,13 @@ func toJSON(v starlark.Value, depth int, nodes *int) (any, error) {
 		return a, nil
 	case *starlark.Dict:
 		if v.Len() > 64 {
-			return nil, errors.New("插件输出字典过大")
+			return nil, errors.New("Plugin output dictionary exceeds limits")
 		}
 		d := map[string]any{}
 		for _, pair := range v.Items() {
 			k, ok := starlark.AsString(pair[0])
 			if !ok || len(k) > 100 {
-				return nil, errors.New("插件字典键无效")
+				return nil, errors.New("Invalid plugin dictionary key")
 			}
 			x, err := toJSON(pair[1], depth+1, nodes)
 			if err != nil {
@@ -488,7 +488,7 @@ func toJSON(v starlark.Value, depth int, nodes *int) (any, error) {
 		}
 		return d, nil
 	}
-	return nil, errors.New("插件输出包含非JSON值")
+	return nil, errors.New("Plugin output includes non-JSON values")
 }
 func evaluate(in Invocation) (json.RawMessage, error) {
 	if err := ValidateSource(in.Source); err != nil {
@@ -513,7 +513,7 @@ func evaluate(in Invocation) (json.RawMessage, error) {
 	}
 	fn, ok := globals["plan"]
 	if !ok {
-		return nil, errors.New("插件需要 def plan(market, args)")
+		return nil, errors.New("Plugin requires def plan(market, args)")
 	}
 	result, err := starlark.Call(thread, fn, starlark.Tuple{m, a}, nil)
 	if err != nil {
@@ -526,7 +526,7 @@ func evaluate(in Invocation) (json.RawMessage, error) {
 	}
 	raw, err := json.Marshal(data)
 	if err != nil || len(raw) > maxOutput {
-		return nil, errors.New("插件输出超过限制")
+		return nil, errors.New("Plugin output exceeds limits")
 	}
 	if _, err = decodeOutput(raw); err != nil {
 		return nil, err

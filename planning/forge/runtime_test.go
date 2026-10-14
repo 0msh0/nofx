@@ -20,7 +20,7 @@ func sample(t *testing.T) string {
 }
 func sampleOutput(t *testing.T) json.RawMessage {
 	t.Helper()
-	return json.RawMessage(`{"ideas":[{"name":"几何权重分批","side":"long","entry":"100000","stop":"99000","target":"104000","rationale":"条件式回调分批，数量权重1:2:4；不保证成交或收益","execution":{"kind":"ladder","levels":[{"price":"100000","weight":"0.142857"},{"price":"99900","weight":"0.285714"},{"price":"99800","weight":"0.571429"}]}}]}`)
+	return json.RawMessage(`{"ideas":[{"name":"Geometric weighted ladder","side":"long","entry":"100000","stop":"99000","target":"104000","rationale":"Conditional pullback ladder with quantity weights 1:2:4; no fill or profit guarantee","execution":{"kind":"ladder","levels":[{"price":"100000","weight":"0.142857"},{"price":"99900","weight":"0.285714"},{"price":"99800","weight":"0.571429"}]}}]}`)
 }
 func definition(t *testing.T) Definition {
 	return Definition{ID: "geometric_pyramid", Description: "finite allocation", Source: sample(t), Tests: []TestCase{{Name: "geometric weights", Args: map[string]any{"gap_bps": float64(10)}, Expected: sampleOutput(t)}, {Name: "invalid gap", Args: map[string]any{"gap_bps": float64(0)}, ExpectError: true}}}

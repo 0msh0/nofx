@@ -66,10 +66,10 @@ func (b *FuturesTrader) AccountSnapshot(ctx context.Context, symbol string) (exe
 	out.Position = "0"
 	account, e := b.client.NewGetAccountService().Do(ctx)
 	if e != nil {
-		return out, errors.New("Binance 账户读取失败")
+		return out, errors.New("Could not read the Binance account")
 	}
 	if !account.CanTrade || account.MultiAssetsMargin {
-		return out, errors.New("账户不可交易或为未支持的多资产保证金模式")
+		return out, errors.New("Account cannot trade or uses unsupported multi-asset margin")
 	}
 	out.Equity = execution.Decimal(account.TotalMarginBalance)
 	out.Available = execution.Decimal(account.AvailableBalance)
@@ -86,16 +86,16 @@ func (b *FuturesTrader) AccountSnapshot(ctx context.Context, symbol string) (exe
 	out.Position = execution.Decimal(qty.FloatString(12))
 	orders, e := b.client.NewListOpenOrdersService().Symbol(symbol).Do(ctx)
 	if e != nil {
-		return out, errors.New("Binance 未成交订单读取失败")
+		return out, errors.New("Could not read Binance open orders")
 	}
 	algos, e := b.client.NewListOpenAlgoOrdersService().Symbol(symbol).Do(ctx)
 	if e != nil {
-		return out, errors.New("Binance 保护订单读取失败")
+		return out, errors.New("Could not read Binance protective orders")
 	}
 	out.OpenOrders = len(orders) + len(algos)
 	fee, e := b.client.NewCommissionRateService().Symbol(symbol).Do(ctx)
 	if e != nil {
-		return out, errors.New("Binance 实际手续费读取失败")
+		return out, errors.New("Could not read Binance actual fees")
 	}
 	maker, e := ratString(fee.MakerCommissionRate)
 	if e != nil {
@@ -176,7 +176,7 @@ func (b *FuturesTrader) SubmitOrder(ctx context.Context, o execution.Order) (exe
 		}
 		r, e := service.Do(ctx)
 		if e != nil {
-			return o, errors.New("Binance 入场回报未确认，请按 client ID 核对")
+			return o, errors.New("Binance entry submission is unconfirmed; reconcile by client ID")
 		}
 		if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) || r.Side != side || r.Type != futures.OrderTypeLimit || r.TimeInForce != tif || r.PositionSide != positionSide || (o.ReduceOnly && !mode.DualSidePosition && !r.ReduceOnly) {
 			return o, errors.New("invalid Binance order receipt")
@@ -199,7 +199,7 @@ func (b *FuturesTrader) SubmitOrder(ctx context.Context, o execution.Order) (exe
 	}
 	r, e := service.Do(ctx)
 	if e != nil {
-		return o, errors.New("Binance 保护订单回报未确认")
+		return o, errors.New("Binance protective order submission is unconfirmed")
 	}
 	if r.AlgoId <= 0 || r.ClientAlgoId != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.Quantity, string(o.Quantity)) || !sameNativeDecimal(r.TriggerPrice, string(o.Price)) || r.Side != side || r.OrderType != typ || (!mode.DualSidePosition && !r.ReduceOnly) {
 		return o, errors.New("invalid Binance protection receipt")
@@ -218,7 +218,7 @@ func (b *FuturesTrader) LookupOrder(ctx context.Context, o execution.Order) (exe
 	if o.Role != "entry" {
 		r, e := b.client.NewGetAlgoOrderService().ClientAlgoID(nativeID).Do(ctx)
 		if e != nil {
-			return o, errors.New("Binance 保护订单查询未确认")
+			return o, errors.New("Binance protective order lookup is unconfirmed")
 		}
 		if r.AlgoId <= 0 || r.ClientAlgoId != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.Quantity, string(o.Quantity)) || !sameNativeDecimal(r.TriggerPrice, string(o.Price)) {
 			return o, errors.New("protection identity mismatch")
@@ -254,7 +254,7 @@ func (b *FuturesTrader) LookupOrder(ctx context.Context, o execution.Order) (exe
 	}
 	r, e := b.client.NewGetOrderService().Symbol(o.Symbol).OrigClientOrderID(nativeID).Do(ctx)
 	if e != nil {
-		return o, errors.New("Binance 订单查询未确认；查不到不代表成交")
+		return o, errors.New("Binance order lookup is unconfirmed; missing does not mean filled")
 	}
 	if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) {
 		return o, errors.New("order identity mismatch")
@@ -274,13 +274,13 @@ func (b *FuturesTrader) CancelExecutionOrder(ctx context.Context, o execution.Or
 	if o.Role == "entry" {
 		r, e := b.client.NewCancelOrderService().Symbol(o.Symbol).OrigClientOrderID(nativeID).Do(ctx)
 		if e != nil || r.ClientOrderID != nativeID {
-			return errors.New("Binance 撤销入场未确认")
+			return errors.New("Binance entry cancellation is unconfirmed")
 		}
 		return nil
 	}
 	r, e := b.client.NewCancelAlgoOrderService().ClientAlgoID(nativeID).Do(ctx)
 	if e != nil || r.ClientAlgoId != nativeID {
-		return errors.New("Binance 撤销保护单未确认")
+		return errors.New("Binance protective order cancellation is unconfirmed")
 	}
 	return nil
 }

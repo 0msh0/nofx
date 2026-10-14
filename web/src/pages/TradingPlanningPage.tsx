@@ -21,31 +21,32 @@ import {
 } from '../lib/planning'
 import { formatRequestError } from '../lib/requestErrors'
 import { PlanningDataPanel } from '../components/planning/PlanningDataPanel'
+import { PlanningAI500 } from '../components/planning/PlanningAI500'
 import './TradingPlanningPage.css'
 const format = (n: string | number) =>
   Number(n).toLocaleString('en-US', { maximumFractionDigits: 8 })
 const states: Record<string, string> = {
-  draft: '待批准',
-  approved: '已批准',
-  running: '执行中',
-  position_open: '已入场 · 保护中',
-  stopping: '停止后续入场',
-  needs_attention: '需要核对',
-  completed: '已结束',
-  cancelled: '已取消',
-  expired: '已过期',
+  draft: 'Awaiting approval',
+  approved: 'Approved',
+  running: 'Running',
+  position_open: 'Position open · protected',
+  stopping: 'Stop further entries',
+  needs_attention: 'Needs reconciliation',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  expired: 'Expired',
 }
 const orderStates: Record<string, string> = {
-  scheduled: '待释放',
-  submitting: '正在提交',
-  UNKNOWN: '回报未确认',
-  NEW: '挂单中',
-  PARTIALLY_FILLED: '部分成交',
-  FILLED: '已成交',
-  CANCELED: '已取消',
-  REJECTED: '已拒绝',
-  EXPIRED: '已到期',
-  TRIGGERED: '已触发 · 核对成交',
+  scheduled: 'Scheduled',
+  submitting: 'Submitting',
+  UNKNOWN: 'Unconfirmed receipt',
+  NEW: 'Open',
+  PARTIALLY_FILLED: 'Partially filled',
+  FILLED: 'Filled',
+  CANCELED: 'Cancelled',
+  REJECTED: 'Rejected',
+  EXPIRED: 'Expired',
+  TRIGGERED: 'Triggered · verify fills',
 }
 interface ChatMessage {
   role: 'user' | 'assistant' | 'error'
@@ -80,12 +81,13 @@ export function TradingPlanningPage() {
     [confirmation, setConfirmation] = useState(''),
     [builder, setBuilder] = useState(false),
     [builderIdea, setBuilderIdea] = useState<Idea>({
-      name: '自定义计划',
+      name: 'Custom plan',
       side: 'long',
       entry: '',
       stop: '',
       target: '',
-      rationale: '用户填写条件价格，数学引擎验证；未批准或执行。',
+      rationale:
+        'User-defined conditional prices, subject to mathematical validation; neither approved nor executed.',
       execution: { kind: 'limit' },
     }),
     [levels, setLevels] = useState('')
@@ -210,7 +212,8 @@ export function TradingPlanningPage() {
           onContext: (c: ChartContext) => !cancelled && setInterval(c.interval),
           onError: (e: string) => !cancelled && setError(e),
           onAvailability: (available: boolean) => {
-            if (!cancelled && !available) setStatus('图表正在加载或暂不可用')
+            if (!cancelled && !available)
+              setStatus('Chart is loading or temporarily unavailable')
           },
         })
         chart.current
@@ -268,16 +271,22 @@ export function TradingPlanningPage() {
   async function send(text = instruction) {
     if (busy || !text.trim()) return
     if (!modelID || !exchangeID) {
-      setError('请先在 NOFX 设置中连接交易账户并启用 AI。')
+      setError(
+        'Connect a trading account and enable an AI model in NOFX settings first.'
+      )
       return
     }
     const context = chart.current?.context()
     if (!context || context.venue !== venue || context.symbol !== symbol) {
-      setError('图表切换尚未完成，请稍后再试。')
+      setError(
+        'The chart is still switching markets. Try again once it is ready.'
+      )
       return
     }
     if (current && current.state !== 'draft') {
-      setError('已锁定计划不能被 AI 修改。请选择新想法，或先取消该计划的审批。')
+      setError(
+        'AI cannot modify a locked plan. Start a new idea or revoke its approval first.'
+      )
       return
     }
     const historyMessages = messages
@@ -318,12 +327,24 @@ export function TradingPlanningPage() {
             ])
           if (event.type === 'error') setError(String(event.data.message))
           if (event.type === 'status') setStatus(String(event.data.message))
+          if (event.type === 'iteration')
+            setStatus(
+              `Planning round ${event.data.round} of ${event.data.max_rounds}`
+            )
+          if (event.type === 'outcome' && Number(event.data.drafts) === 0)
+            setStatus(
+              'Planning completed without a validated draft. Review the explanation.'
+            )
           if (event.type === 'tool_start')
-            setTrace((t) => [...t, '读取／计算 · ' + String(event.data.name)])
+            setTrace((t) => [
+              ...t,
+              'Reading / calculating · ' + String(event.data.name),
+            ])
           if (event.type === 'tool_result')
             setTrace((t) => [
               ...t,
-              (event.data.ok ? '完成 · ' : '失败 · ') + String(event.data.name),
+              (event.data.ok ? 'Completed · ' : 'Failed · ') +
+                String(event.data.name),
             ])
           if (event.type === 'plans') {
             const plans = event.data.plans as Plan[]
@@ -346,7 +367,9 @@ export function TradingPlanningPage() {
         setError(e instanceof Error ? e.message : String(e))
     } finally {
       setBusy(false)
-      setStatus(controller.signal.aborted ? '已停止本轮规划' : '')
+      setStatus(
+        controller.signal.aborted ? 'Planning stopped' : 'Planning finished'
+      )
       await reload().catch(() => {})
       await refreshHistory().catch(() => {})
     }
@@ -434,19 +457,19 @@ export function TradingPlanningPage() {
     <div className="planning-page">
       <div className="planning-heading">
         <div>
-          <h1>交易规划</h1>
-          <p>看行情，比较方案，由你决定每一次交易。</p>
+          <h1>Trade Planning</h1>
+          <p>Explore the market. Compare plans. Decide every trade.</p>
         </div>
-        <Link to={ROUTES.settings}>管理交易账户与 AI →</Link>
+        <Link to={ROUTES.settings}>Manage accounts and AI →</Link>
       </div>
       <div className="planning-toolbar">
         <select
-          aria-label="交易账户"
+          aria-label="Trading account"
           value={exchangeID}
           onChange={(e) => changeAccount(e.target.value)}
           disabled={busy}
         >
-          {accounts.length === 0 && <option>暂无已连接账户</option>}
+          {accounts.length === 0 && <option>No connected accounts</option>}
           {accounts.map((a) => (
             <option key={a.id} value={a.id}>
               {a.name} · {a.exchange_type}
@@ -466,40 +489,51 @@ export function TradingPlanningPage() {
           }}
         >
           <input
-            aria-label="标的"
+            aria-label="Symbol"
             value={symbolInput}
             onChange={(e) => setSymbolInput(e.target.value)}
             disabled={busy}
           />
-          <button disabled={busy}>打开标的</button>
+          <button disabled={busy}>Open market</button>
         </form>
-        <span className="planning-live">真实交易 · 批准后执行</span>
+        <span className="planning-live">Live trading · approval required</span>
       </div>
       {error && (
         <div className="planning-error" role="alert">
-          {formatRequestError(error, 'zh')}
-          <button onClick={() => setError('')} aria-label="关闭提示">
+          {formatRequestError(error, 'en')}
+          <button onClick={() => setError('')} aria-label="Dismiss">
             ×
           </button>
         </div>
       )}
       {!exchangeID && (
         <div className="planning-empty">
-          先在 NOFX 设置中连接 Binance 合约账户，或完成 Hyperliquid 钱包的 Agent
-          和 Builder 授权。这里不要求另一套钱包或 AI 密钥。
+          Connect a Binance futures account in NOFX settings, or complete
+          Hyperliquid Agent and Builder authorization. Your existing NOFX wallet
+          and AI configuration are reused.
         </div>
       )}
+      <PlanningAI500
+        venue={venue}
+        disabled={busy}
+        onSelect={(next) => {
+          setSymbol(next)
+          setSymbolInput(next)
+          setSelected('')
+          setCompare([])
+        }}
+      />
       <div className="planning-workspace">
         <section className="planning-chart-pane">
           <div className="planning-market">
             <div>
               <b>{symbol}</b>
               <strong>{price === '—' ? price : format(price)}</strong>
-              <small>{interval} · 实时公开行情</small>
+              <small>{interval} · Live public market data</small>
             </div>
             <div>
               <button onClick={() => chart.current?.focusPlan()}>
-                聚焦方案
+                Focus plan
               </button>
               <button
                 disabled={
@@ -516,17 +550,17 @@ export function TradingPlanningPage() {
                   )
                 }}
               >
-                在图上比较
+                Compare on chart
               </button>
             </div>
           </div>
           <div className="planning-chart" id="chart-container" />
           <div className="planning-legend">
-            入场 <i className="entry" /> 止损 <i className="stop" /> 止盈{' '}
-            <i className="target" />
+            Entry <i className="entry" /> Stop loss <i className="stop" /> Take
+            profit <i className="target" />
             {compare.length > 1 && (
               <button onClick={() => setCompare([])}>
-                退出比较 · 点击方案只看一份
+                Exit comparison · select one plan to focus
               </button>
             )}
           </div>
@@ -534,26 +568,26 @@ export function TradingPlanningPage() {
             <div className="planning-selected">
               <b>
                 {current.plan.idea.name} ·{' '}
-                {current.plan.idea.side === 'long' ? '做多' : '做空'}
+                {current.plan.idea.side === 'long' ? 'Long' : 'Short'}
               </b>
               <div className="planning-price-row">
                 <span>
-                  入场 <strong>{format(current.plan.idea.entry)}</strong>
+                  Entry <strong>{format(current.plan.idea.entry)}</strong>
                 </span>
                 <span>
-                  止损{' '}
+                  Stop loss{' '}
                   <strong className="stop-text">
                     {format(current.plan.idea.stop)}
                   </strong>
                 </span>
                 <span>
-                  目标{' '}
+                  Target{' '}
                   <strong className="target-text">
                     {format(current.plan.idea.target)}
                   </strong>
                 </span>
                 <span>
-                  计划亏损{' '}
+                  Planned loss{' '}
                   <strong>
                     {format(current.plan.risk)}{' '}
                     {current.plan.snapshot.quote_asset}
@@ -562,16 +596,16 @@ export function TradingPlanningPage() {
               </div>
               <details>
                 <summary>
-                  {current.plan.orders.length || 1} 笔子订单 ·
-                  查看价格、数量和释放时间
+                  {current.plan.orders.length || 1} child orders · Inspect
+                  prices, quantities and release times
                 </summary>
                 <table>
                   <thead>
                     <tr>
-                      <th>子单</th>
-                      <th>限价</th>
-                      <th>数量</th>
-                      <th>释放时间</th>
+                      <th>Child order</th>
+                      <th>Limit price</th>
+                      <th>Quantity</th>
+                      <th>Release time</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -585,8 +619,8 @@ export function TradingPlanningPage() {
                         </td>
                         <td>
                           {o.offset_seconds === 0
-                            ? '启动时'
-                            : o.offset_seconds + ' 秒后'}
+                            ? 'At start'
+                            : o.offset_seconds + ' seconds later'}
                         </td>
                       </tr>
                     ))}
@@ -598,17 +632,17 @@ export function TradingPlanningPage() {
           )}
           <div className="planning-candidates">
             <div className="planning-section-title">
-              <b>候选方案 {records.length}</b>
+              <b>Candidate plans {records.length}</b>
               <button
                 className="planning-primary"
                 disabled={busy}
                 onClick={() =>
                   send(
-                    '读取当前行情和 K 线，提出单笔、分批和 TWAP 等多个符合风险约束的一次性交易草案，说明条件假设。'
+                    'Read current market data and candles. Propose multiple one-time plans including single-limit, weighted ladder and finite TWAP entries within the risk constraints. Explain conditional assumptions.'
                   )
                 }
               >
-                生成方案
+                Generate plans
               </button>
             </div>
             <div className="planning-card-list">
@@ -630,27 +664,27 @@ export function TradingPlanningPage() {
                       ? String.fromCharCode(65 + compare.indexOf(r.plan.id)) +
                         ' · '
                       : ''}
-                    {r.plan.idea.side === 'long' ? '↗ 做多' : '↘ 做空'} ·{' '}
+                    {r.plan.idea.side === 'long' ? '↗ Long' : '↘ Short'} ·{' '}
                     {r.plan.idea.execution.kind === 'ladder'
-                      ? '分批挂单'
+                      ? 'Price ladder'
                       : r.plan.idea.execution.kind === 'twap'
                         ? 'TWAP'
-                        : '单笔限价'}
+                        : 'Single limit'}
                   </span>
                   <strong>{r.plan.idea.name}</strong>
-                  <span>入场 {format(r.plan.idea.entry)}</span>
+                  <span>Entry {format(r.plan.idea.entry)}</span>
                   <div>
                     <span>
-                      计划亏损 <b>{format(r.plan.risk)}</b>
+                      Planned loss <b>{format(r.plan.risk)}</b>
                     </span>
                     <span>
-                      净盈亏比{' '}
+                      Net reward/risk{' '}
                       <b>{Number(r.plan.reward_risk).toFixed(2)} : 1</b>
                     </span>
                   </div>
                   <small>
                     {expired(r.plan, clock) && r.state === 'draft'
-                      ? '已过期 · 重新规划'
+                      ? 'Expired · replan'
                       : states[r.state] || r.state}
                   </small>
                 </button>
@@ -658,7 +692,8 @@ export function TradingPlanningPage() {
             </div>
             {records.length === 0 && (
               <p>
-                描述你的想法，或点击生成方案。未找到可行方案时，可以不交易。
+                Describe your idea or generate plans. If none is feasible, no
+                trade is a valid decision.
               </p>
             )}
           </div>
@@ -669,18 +704,18 @@ export function TradingPlanningPage() {
             onWindowChange={setPluginWindow}
           />
           <details className="planning-tools">
-            <summary>风险预算、分批订单与高级工具</summary>
+            <summary>Risk budget, entry orders and advanced tools</summary>
             <div className="planning-limit-grid">
               {(Object.keys(limits) as (keyof Constraints)[]).map((key) => (
                 <label key={key}>
                   {
                     {
-                      equity: '账户权益预算',
-                      max_risk: '最大计划亏损',
-                      max_notional: '最大投入（1x）',
-                      min_reward_risk: '最低净盈亏比',
-                      fee_bps: '手续费假设 / bps',
-                      slippage_bps: '滑点假设 / bps',
+                      equity: 'Equity budget',
+                      max_risk: 'Maximum planned loss',
+                      max_notional: 'Maximum notional (1x)',
+                      min_reward_risk: 'Minimum net reward/risk',
+                      fee_bps: 'Fee assumption / bps',
+                      slippage_bps: 'Slippage assumption / bps',
                     }[key]
                   }
                   <input
@@ -695,14 +730,15 @@ export function TradingPlanningPage() {
               ))}
             </div>
             <p>
-              预算不得高于真实账户余额。Hyperliquid 费用必须包含 Builder
-              费。止损跳空、保护单故障和滑点可能使实际亏损超过估计。
+              Budgets cannot exceed the live account balance. Hyperliquid costs
+              must include Builder fees. Gaps, failed protection and slippage
+              may cause losses beyond the estimate.
             </p>
             <button disabled={busy} onClick={() => setBuilder(true)}>
-              自定义单笔／分批／TWAP
+              Custom limit / ladder / TWAP
             </button>
             <label>
-              讨论偏好
+              Discussion preferences
               <textarea
                 value={preferences}
                 onChange={(e) => setPreferences(e.target.value)}
@@ -718,13 +754,15 @@ export function TradingPlanningPage() {
                     body: JSON.stringify({ text: preferences }),
                   })
                   await handleJSONResponse(r)
-                  setStatus('讨论偏好已保存，不改变硬风险设置')
+                  setStatus(
+                    'Preferences saved; hard risk constraints are unchanged'
+                  )
                 } catch (e) {
                   setError(String(e))
                 }
               }}
             >
-              保存偏好
+              Save preferences
             </button>
             <button
               onClick={async () => {
@@ -739,12 +777,12 @@ export function TradingPlanningPage() {
                 }
               }}
             >
-              查看现场开发插件
+              Inspect entry calculators
             </button>
             {tools.length > 0 && <pre>{JSON.stringify(tools, null, 2)}</pre>}
           </details>
           <details className="planning-tools">
-            <summary>执行记录 {data.runs.length}</summary>
+            <summary>Execution history {data.runs.length}</summary>
             {data.runs
               .filter((r) => r.exchange_id === exchangeID)
               .map((r) => (
@@ -756,17 +794,17 @@ export function TradingPlanningPage() {
                   <table>
                     <thead>
                       <tr>
-                        <th>类型</th>
-                        <th>真实订单 ID</th>
-                        <th>状态</th>
-                        <th>成交量</th>
+                        <th>Type</th>
+                        <th>Native order ID</th>
+                        <th>State</th>
+                        <th>Filled quantity</th>
                       </tr>
                     </thead>
                     <tbody>
                       {r.orders.map((o) => (
                         <tr key={o.client_id}>
                           <td>{o.role}</td>
-                          <td>{o.order_id || '尚未确认'}</td>
+                          <td>{o.order_id || 'Unconfirmed'}</td>
                           <td>{orderStates[o.status] || o.status}</td>
                           <td>{format(o.filled)}</td>
                         </tr>
@@ -777,10 +815,10 @@ export function TradingPlanningPage() {
                     disabled={busy}
                     onClick={() => runAction('reconcile', r)}
                   >
-                    核对交易所状态
+                    Reconcile exchange state
                   </button>
                   <button disabled={busy} onClick={() => runAction('stop', r)}>
-                    停止后续入场／撤销未成交
+                    Stop entries / cancel unfilled orders
                   </button>
                 </div>
               ))}
@@ -788,27 +826,39 @@ export function TradingPlanningPage() {
         </section>
         <aside className="planning-assistant">
           <div className="planning-assistant-title">
-            <b>NOFX 规划助手</b>
+            <b>NOFX Planning Assistant</b>
             <button onClick={newSession} disabled={busy}>
-              新想法
+              New idea
             </button>
           </div>
           <select
-            aria-label="NOFX AI 模型"
+            aria-label="NOFX AI model"
             value={modelID}
             onChange={(e) => setModelID(e.target.value)}
             disabled={busy}
           >
-            {models.length === 0 && <option>先在 NOFX 设置中启用 AI</option>}
+            {models.length === 0 && (
+              <option>Enable AI in NOFX settings first</option>
+            )}
             {models.map((m) => (
               <option value={m.id} key={m.id}>
                 {m.name} · {m.customModelName || m.provider}
               </option>
             ))}
           </select>
+          {busy && (
+            <div className="planning-progress" role="status" aria-live="polite">
+              <span className="planning-spinner" />
+              {status || 'Preparing plans…'}
+              <button onClick={() => abort.current?.abort()}>Stop</button>
+            </div>
+          )}
           <div className="planning-messages" ref={chatBox}>
             {messages.length === 0 && (
-              <p>先看行情，再一起规划。方案会画在图上，AI 不能批准或下单。</p>
+              <p>
+                Start with the market, then build a plan. Plans appear on the
+                chart. AI cannot approve or place trades.
+              </p>
             )}
             {messages.map((m, i) => (
               <div key={i} className={'planning-message ' + m.role}>
@@ -817,12 +867,14 @@ export function TradingPlanningPage() {
             ))}
           </div>
           <details className="planning-process">
-            <summary>过程 {trace.length ? `· ${trace.length}` : ''}</summary>
+            <summary>
+              Activity {trace.length ? `· ${trace.length}` : ''}
+            </summary>
             {trace.map((t, i) => (
               <p key={i}>{t}</p>
             ))}
           </details>
-          {busy && <p role="status">{status || '正在读取行情与推演…'}</p>}
+
           <form
             className="planning-composer"
             onSubmit={(e) => {
@@ -831,10 +883,10 @@ export function TradingPlanningPage() {
             }}
           >
             <textarea
-              aria-label="交易想法"
+              aria-label="Trade idea"
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
-              placeholder="例如：比较回调做多的单笔、金字塔和 TWAP 入场…"
+              placeholder="Compare single-limit, pyramidal ladder and TWAP entries for a pullback long…"
               maxLength={8000}
               disabled={busy}
             />
@@ -844,19 +896,19 @@ export function TradingPlanningPage() {
                 disabled={busy}
                 onClick={() =>
                   send(
-                    '根据当前 K 线在图上标出可能的支撑和阻力，说明条件假设，暂不生成交易方案。'
+                    'Mark potential support and resistance on the current chart. Explain assumptions without generating trade plans yet.'
                   )
                 }
               >
-                标支撑压力
+                Mark support / resistance
               </button>
               {busy ? (
                 <button type="button" onClick={() => abort.current?.abort()}>
-                  停止思考
+                  Stop planning
                 </button>
               ) : (
                 <button type="submit" disabled={!instruction.trim()}>
-                  发送
+                  Send
                 </button>
               )}
             </div>
@@ -866,8 +918,8 @@ export function TradingPlanningPage() {
               <>
                 <b>{current.plan.idea.name}</b>
                 <p>
-                  {states[run?.state || current.state] || current.state} ·
-                  真实交易 ·{' '}
+                  {states[run?.state || current.state] || current.state} · Live
+                  trading ·{' '}
                   {accounts.find((a) => a.id === data.accounts[selected])?.name}
                 </p>
                 {run?.error && <p className="stop-text">{run.error}</p>}
@@ -885,8 +937,8 @@ export function TradingPlanningPage() {
                     }}
                   >
                     {expired(current.plan, clock)
-                      ? '已过期，请重新生成'
-                      : '审阅并批准真实交易'}
+                      ? 'Expired; generate a new plan'
+                      : 'Review and approve live trade'}
                   </button>
                 ) : run?.state === 'approved' ? (
                   <>
@@ -894,13 +946,13 @@ export function TradingPlanningPage() {
                       disabled={busy}
                       onClick={() => runAction('execute', run)}
                     >
-                      执行这份已批准计划
+                      Execute this approved plan
                     </button>
                     <button
                       disabled={busy}
                       onClick={() => runAction('stop', run)}
                     >
-                      取消审批
+                      Revoke approval
                     </button>
                   </>
                 ) : (
@@ -909,21 +961,22 @@ export function TradingPlanningPage() {
                       disabled={busy}
                       onClick={() => runAction('stop', run)}
                     >
-                      停止剩余入场
+                      Stop remaining entries
                     </button>
                   )
                 )}
                 <small>
-                  AI
-                  修改不构成审批。未知回报不重发，保护订单异常需要立即核对真实持仓。
+                  AI Revisions are not approval. Unknown orders are not
+                  resubmitted. Check live positions immediately if protection
+                  fails.
                 </small>
               </>
             ) : (
-              <p>点击一份方案，在图上审阅后再批准。</p>
+              <p>Select a plan and review it on the chart before approval.</p>
             )}
           </div>
           <details className="planning-history">
-            <summary>历史规划会话 {history.length}</summary>
+            <summary>Planning conversations {history.length}</summary>
             {history.map((h) => (
               <button
                 key={h.id}
@@ -953,32 +1006,36 @@ export function TradingPlanningPage() {
             aria-labelledby="planning-approval-title"
             className="planning-modal"
           >
-            <h2 id="planning-approval-title">批准真实交易</h2>
+            <h2 id="planning-approval-title">Approve live trade</h2>
             <p>
               {account?.name} · {review.snapshot.venue} ·{' '}
               {review.snapshot.symbol} ·{' '}
-              {review.idea.side === 'long' ? '做多' : '做空'}
+              {review.idea.side === 'long' ? 'Long' : 'Short'}
             </p>
             <div className="planning-price-row">
-              <span>入场 {format(review.idea.entry)}</span>
-              <span>止损 {format(review.idea.stop)}</span>
-              <span>目标 {format(review.idea.target)}</span>
+              <span>Entry {format(review.idea.entry)}</span>
+              <span>Stop loss {format(review.idea.stop)}</span>
+              <span>Target {format(review.idea.target)}</span>
             </div>
             <p>
-              总数量 {format(review.quantity)} · 计划亏损 {format(review.risk)}{' '}
-              {review.snapshot.quote_asset} · {review.orders.length || 1}{' '}
-              笔子订单 · 1x 杠杆
+              Total quantity {format(review.quantity)} · Planned loss{' '}
+              {format(review.risk)} {review.snapshot.quote_asset} ·{' '}
+              {review.orders.length || 1} child orders · 1x leverage
             </p>
             <p>
-              只执行锁定的固定限价计划。分批立即释放，TWAP
-              按表中时间释放。部分成交后提交对应数量的减仓止损／止盈；保护单异常停止后续入场，需要人工核对。停止入场不会平掉已成交仓位。实际亏损可能超过估计。
+              Only the locked, fixed-limit basket will be submitted. Ladder
+              entries are released immediately; TWAP slices follow the schedule.
+              Partial fills receive matching reduce-only protection. Protection
+              failures stop further entries and require manual review. Stopping
+              entries does not close filled positions. Actual loss can exceed
+              the estimate.
             </p>
             <table>
               <thead>
                 <tr>
-                  <th>限价</th>
-                  <th>数量</th>
-                  <th>释放时间</th>
+                  <th>Limit price</th>
+                  <th>Quantity</th>
+                  <th>Release time</th>
                 </tr>
               </thead>
               <tbody>
@@ -986,16 +1043,16 @@ export function TradingPlanningPage() {
                   <tr key={o.index}>
                     <td>{format(o.price)}</td>
                     <td>{format(o.quantity)}</td>
-                    <td>{o.offset_seconds} 秒</td>
+                    <td>{o.offset_seconds} seconds</td>
                   </tr>
                 ))}
               </tbody>
             </table>
             <code>{review.hash}</code>
             <label>
-              输入 APPROVE LIVE
+              Type APPROVE LIVE
               <input
-                aria-label="真实交易确认文字"
+                aria-label="Live trade confirmation text"
                 value={confirmation}
                 onChange={(e) => setConfirmation(e.target.value)}
                 autoComplete="off"
@@ -1003,7 +1060,7 @@ export function TradingPlanningPage() {
             </label>
             <div>
               <button disabled={busy} onClick={() => setReview(null)}>
-                返回审阅
+                Back to review
               </button>
               <button
                 className="planning-primary"
@@ -1014,7 +1071,7 @@ export function TradingPlanningPage() {
                 }
                 onClick={approveAndExecute}
               >
-                批准并执行真实交易
+                Approve and execute live trade
               </button>
             </div>
           </section>
@@ -1023,9 +1080,9 @@ export function TradingPlanningPage() {
       {builder && (
         <div className="planning-modal-backdrop">
           <section role="dialog" aria-modal="true" className="planning-modal">
-            <h2>自定义订单草案</h2>
+            <h2>Custom order draft</h2>
             <select
-              aria-label="自定义入场方式"
+              aria-label="Custom entry method"
               value={builderIdea.execution.kind}
               onChange={(e) =>
                 setBuilderIdea({
@@ -1039,12 +1096,12 @@ export function TradingPlanningPage() {
                 })
               }
             >
-              <option value="limit">单笔限价</option>
-              <option value="ladder">分批挂单</option>
-              <option value="twap">TWAP 固定限价</option>
+              <option value="limit">Single limit</option>
+              <option value="ladder">Price ladder</option>
+              <option value="twap">TWAP fixed limit</option>
             </select>
             <select
-              aria-label="自定义方向"
+              aria-label="Custom direction"
               value={builderIdea.side}
               onChange={(e) =>
                 setBuilderIdea({
@@ -1053,17 +1110,17 @@ export function TradingPlanningPage() {
                 })
               }
             >
-              <option value="long">做多</option>
-              <option value="short">做空</option>
+              <option value="long">Long</option>
+              <option value="short">Short</option>
             </select>
             {(['name', 'entry', 'stop', 'target'] as const).map((k) => (
               <label key={k}>
                 {
                   {
-                    name: '名称',
-                    entry: '入场／TWAP限价',
-                    stop: '统一止损',
-                    target: '统一止盈',
+                    name: 'Name',
+                    entry: 'Entry / TWAP limit',
+                    stop: 'Shared stop loss',
+                    target: 'Shared take profit',
                   }[k]
                 }
                 <input
@@ -1076,7 +1133,8 @@ export function TradingPlanningPage() {
             ))}
             {builderIdea.execution.kind === 'ladder' && (
               <label>
-                每行填写价格与数量权重；权重合计 1
+                Enter one price and quantity weight per line; weights must sum
+                to 1
                 <textarea
                   placeholder={'82000 0.3\n81500 0.3\n81000 0.4'}
                   value={levels}
@@ -1087,7 +1145,7 @@ export function TradingPlanningPage() {
             {builderIdea.execution.kind === 'twap' && (
               <>
                 <label>
-                  片数
+                  Slices
                   <input
                     value={builderIdea.execution.slices}
                     onChange={(e) =>
@@ -1102,7 +1160,7 @@ export function TradingPlanningPage() {
                   />
                 </label>
                 <label>
-                  间隔秒数
+                  Interval / seconds
                   <input
                     value={builderIdea.execution.interval_seconds}
                     onChange={(e) =>
@@ -1118,12 +1176,12 @@ export function TradingPlanningPage() {
                 </label>
               </>
             )}
-            <p>这里只生成未批准草案；不会发送订单。</p>
+            <p>This creates an unapproved draft only. No orders are sent.</p>
             <button disabled={busy} onClick={() => setBuilder(false)}>
-              取消
+              Cancel
             </button>
             <button disabled={busy} onClick={saveBuilder}>
-              计算草案
+              Validate draft
             </button>
           </section>
         </div>

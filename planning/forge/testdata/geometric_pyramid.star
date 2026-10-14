@@ -9,4 +9,4 @@ def plan(market, args):
     for i in range(3):
         entry = price(mul(mid, 1 - mul(i, gap)), tick)
         append(levels, {"price": entry, "weight": weights[i]})
-    return {"ideas": [{"name": "几何权重分批", "side": "long", "entry": price(mid, tick), "stop": price(mul(mid, 0.99), tick), "target": price(mul(mid, 1.04), tick), "rationale": "条件式回调分批，数量权重1:2:4；不保证成交或收益", "execution": {"kind": "ladder", "levels": levels}}]}
+    return {"ideas": [{"name": "Geometric weighted ladder", "side": "long", "entry": price(mid, tick), "stop": price(mul(mid, 0.99), tick), "target": price(mul(mid, 1.04), tick), "rationale": "Conditional pullback ladder with quantity weights 1:2:4; no fill or profit guarantee", "execution": {"kind": "ladder", "levels": levels}}]}

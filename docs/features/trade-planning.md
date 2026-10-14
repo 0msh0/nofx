@@ -167,3 +167,35 @@ belong to the configured builder, and Binance rebate eligibility belongs to the
 registered Link/Broker account. Neither account ownership nor successful rebate
 settlement has been verified here. No real order or fee receipt was produced by
 the tests.
+
+
+## Paid data, language and request completion
+
+Planning UI, chart labels, prompts and module errors are English. Unicode venue
+symbol compatibility is retained using escaped test fixtures, not translated
+asset identifiers. Existing user-authored history is not rewritten.
+
+The holder analytics decoder has no public-origin HTTP fallback. Its transport
+is supplied by NOFX's per-user Claw402 wallet resolver and existing Vergex x402
+client. Cost/liquidation uses `/api/v1/vergex/cost-liquidation-heatmap`; holder
+win rate uses `/api/v1/vergex/holder-winrate-map`. Paid results and failures are
+cached for five minutes per user, component and market, with no automatic
+application-level retry. Funding and open interest remain native public reads.
+The Claw402 public catalog checked during this change does not publish a profit
+leaderboard endpoint. That component explicitly reports unavailable rather than
+calling Hyperdata directly or inventing a paid route.
+
+Binance charts expose the complete returned AI500 board with search and quick
+selection through `/api/planning/ai500`, using the existing Claw402 data client
+and `/api/v1/nofx/ai500/list`. Successful and ambiguous results are isolated by
+user and retained for five minutes. UI refreshes within that window do not issue
+another paid upstream request. AI500 membership does not guarantee a Binance
+instrument is still listed; opening a symbol still validates venue metadata.
+
+A planning turn has a 180-second wall-clock limit and each model round is capped
+at 75 seconds. Progress remains visible with a Stop action. Context data is
+bounded and repeated identical tool reads are cached; persistent read loops
+finish with an explanation. Streams emit a terminal event on success or failure,
+including model/turn timeouts. Unexpected EOF without a terminal outcome is a
+visible error, never an automatic paid retry. No live paid call, payment transfer
+or real trade was performed by the automated fixture tests.

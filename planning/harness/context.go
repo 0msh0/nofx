@@ -88,12 +88,12 @@ func (e *Engine) chartContext(ctx context.Context, input *Input, emit Emit) (map
 	data := map[string]any{"active_interval": input.Interval, "visible_range_requested": map[string]int64{"from": requestedFrom, "to": input.VisibleTo}, "primary": series(rows, primary), "received": time.Now().UTC()}
 	data["effective_data_range"] = map[string]int64{"from": from, "to": to}
 	if futureOnly {
-		data["viewport_note"] = "图表位于未来留白，已读取当前周期最近240根实际K线。"
+		data["viewport_note"] = "The chart viewport is in future whitespace. Loaded the latest 240 actual candles for this timeframe."
 	}
 	if fetchErr != nil {
 		data["primary_error"] = fetchErr.Error()
 	}
-	if err := emit(Event{"tool_result", map[string]any{"name": "get_candles", "id": "context", "ok": fetchErr == nil, "count": len(rows), "interval": input.Interval, "scope": map[bool]string{true: "最近240根（图表留白）", false: "可见区间"}[futureOnly], "from": primary.From, "to": primary.To, "truncated": primary.Truncated}}); err != nil {
+	if err := emit(Event{"tool_result", map[string]any{"name": "get_candles", "id": "context", "ok": fetchErr == nil, "count": len(rows), "interval": input.Interval, "scope": map[bool]string{true: "Latest 240 candles (future whitespace)", false: "Visible range"}[futureOnly], "from": primary.From, "to": primary.To, "truncated": primary.Truncated}}); err != nil {
 		return nil, err
 	}
 	// A historical viewport never substitutes for the latest active-interval data.
@@ -121,7 +121,7 @@ func (e *Engine) chartContext(ctx context.Context, input *Input, emit Emit) (map
 			macro = append(macro, series(bars, w))
 			input.Analysis.Windows = append(input.Analysis.Windows, w)
 		}
-		if emitErr := emit(Event{"tool_result", map[string]any{"name": "get_candles", "id": id, "ok": err == nil, "count": len(bars), "interval": interval, "scope": "较大/对照周期", "from": w.From, "to": w.To}}); emitErr != nil {
+		if emitErr := emit(Event{"tool_result", map[string]any{"name": "get_candles", "id": id, "ok": err == nil, "count": len(bars), "interval": interval, "scope": "Higher / comparison timeframe", "from": w.From, "to": w.To}}); emitErr != nil {
 			return nil, emitErr
 		}
 	}
@@ -164,5 +164,5 @@ func series(rows []market.Candle, w core.DataWindow) any {
 			sample = append(sample, rows[n*(len(rows)-1)/239])
 		}
 	}
-	return map[string]any{"window": w, "candles": sample, "sample_is_noncontiguous": w.Sampled, "range_high": high.FloatString(12), "range_low": low.FloatString(12), "first_close": rows[0].Close, "last_close": rows[len(rows)-1].Close, "notice": "市场上下文，不是历史策略测试；抽样序列不能当作连续K线计算指标"}
+	return map[string]any{"window": w, "candles": sample, "sample_is_noncontiguous": w.Sampled, "range_high": high.FloatString(12), "range_low": low.FloatString(12), "first_close": rows[0].Close, "last_close": rows[len(rows)-1].Close, "notice": "Market context, not a historical strategy test. Sampled rows are not contiguous indicator input."}
 }

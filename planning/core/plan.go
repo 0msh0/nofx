@@ -101,12 +101,12 @@ func (s Snapshot) Validate(now time.Time) error {
 		return errors.New("stale market snapshot")
 	}
 	if !s.SourceTime.IsZero() && now.Sub(s.SourceTime) > 15*time.Second {
-		return errors.New("交易所订单簿超过 15 秒，不能用于规划或成交")
+		return errors.New("Venue order book is over 15 seconds old; cannot plan or execute with stale data")
 	}
 	// A small forward clock difference is distinct from stale data. The local
 	// machine measured ~7s behind exchange clocks; still bound the tolerance.
 	if !s.SourceTime.IsZero() && s.SourceTime.After(now.Add(10*time.Second)) {
-		return errors.New("交易所时间领先本机超过 10 秒，请校准系统时钟；不能用于规划或成交")
+		return errors.New("Venue time is over 10 seconds ahead of the local clock. Synchronize the clock before planning or execution.")
 	}
 	return nil
 }
@@ -204,7 +204,7 @@ func Compile(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, error) {
 	loss := add(abs(sub(e, st)), mul(add(e, st), cost))
 	gain := sub(abs(sub(tp, e)), mul(add(e, tp), cost))
 	if gain.Sign() <= 0 || div(gain, loss).Cmp(must(c.MinRewardRisk)) < 0 {
-		return p, fmt.Errorf("净盈亏比 %s 低于要求 %s（已扣手续费与滑点；每单位风险 %s、净收益 %s）", number(div(gain, loss)), c.MinRewardRisk, number(loss), number(gain))
+		return p, fmt.Errorf("Net reward/risk %s is below minimum %s after fees and slippage; per-unit risk %s, net reward %s", number(div(gain, loss)), c.MinRewardRisk, number(loss), number(gain))
 	}
 	// Cap to 10% of top-level visible size: conservative instantaneous liquidity
 	// constraint; this is not a guarantee of future execution or stop loss.
@@ -214,7 +214,7 @@ func Compile(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, error) {
 	}
 	q := floorStep(min(min(div(must(c.MaxRisk), loss), div(must(c.MaxNotional), mul(e, add(big.NewRat(1, 1), cost)))), div(liquidity, big.NewRat(10, 1))), must(s.Step))
 	if q.Cmp(must(s.MinQty)) < 0 || mul(q, e).Cmp(must(s.MinNotional)) < 0 {
-		return p, fmt.Errorf("当前风险/投入/流动性约束仅允许数量 %s（金额 %s），低于交易所最小数量 %s 或最小金额 %s；当前买卖侧顶层量 %s，仅按其 10%% 限制容量。调整止盈不能解除流动性或最小订单限制", number(q), number(mul(q, e)), s.MinQty, s.MinNotional, number(liquidity))
+		return p, fmt.Errorf("Risk, notional and liquidity constraints allow quantity %s (notional %s), below venue minimum quantity %s or notional %s. Top-of-book side size is %s; participation is capped at 10%%. Changing the target cannot remove liquidity or minimum-order limits.", number(q), number(mul(q, e)), s.MinQty, s.MinNotional, number(liquidity))
 	}
 	p = Plan{Snapshot: s, Constraints: c, Idea: i, Quantity: number(q), Risk: number(mul(q, loss)), Reward: number(mul(q, gain)), RewardRisk: number(div(gain, loss)), Created: now, Expires: now.Add(60 * time.Second)}
 	for _, d := range []Decimal{p.Quantity, p.Risk, p.Reward, p.RewardRisk} {

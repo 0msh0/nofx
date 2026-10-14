@@ -13,14 +13,14 @@ import (
 )
 
 func (c *Client) PluginData(ctx context.Context, id string, q plugins.Request) (plugins.Result, error) {
-	out := plugins.Result{Venue: q.Venue, Symbol: q.Symbol, Observed: time.Now().UTC(), Mode: "public", Notice: "只读数据快照；不是方向预测或成交依据。资金费率不计入当前风险估计，持仓量快照不代表持仓变化。"}
+	out := plugins.Result{Venue: q.Venue, Symbol: q.Symbol, Observed: time.Now().UTC(), Mode: "public", Notice: "Read-only snapshot, not a direction forecast or fill evidence. Funding is excluded from the current risk estimate. One OI snapshot does not measure OI change."}
 	if id != "funding" && id != "open_interest" {
 		return out, errors.New("unknown public data plugin")
 	}
 	switch q.Venue {
 	case "binance":
 		if !strings.HasSuffix(q.Symbol, "USDT") {
-			return out, errors.New("插件仅支持 Binance USDT 合约")
+			return out, errors.New("This plugin supports Binance USDT futures only")
 		}
 		if id == "funding" {
 			var r struct {
@@ -37,7 +37,7 @@ func (c *Client) PluginData(ctx context.Context, id string, q plugins.Request) (
 				return out, errors.New("invalid funding instrument or timestamp")
 			}
 			out.SourceTime = time.UnixMilli(r.Time).UTC()
-			out.Metrics = []plugins.Metric{{Key: "funding_rate", Label: "最新资金费率", Value: r.Funding, Unit: "fraction"}, {Key: "mark_price", Label: "标记价格", Value: r.Mark, Unit: "USDT"}}
+			out.Metrics = []plugins.Metric{{Key: "funding_rate", Label: "Latest funding rate", Value: r.Funding, Unit: "fraction"}, {Key: "mark_price", Label: "Mark price", Value: r.Mark, Unit: "USDT"}}
 		} else {
 			var r struct {
 				Symbol string `json:"symbol"`
@@ -52,11 +52,11 @@ func (c *Client) PluginData(ctx context.Context, id string, q plugins.Request) (
 				return out, errors.New("invalid OI instrument or timestamp")
 			}
 			out.SourceTime = time.UnixMilli(r.Time).UTC()
-			out.Metrics = []plugins.Metric{{Key: "open_interest", Label: "未平仓数量", Value: r.OI, Unit: strings.TrimSuffix(q.Symbol, "USDT")}}
+			out.Metrics = []plugins.Metric{{Key: "open_interest", Label: "Open interest", Value: r.OI, Unit: strings.TrimSuffix(q.Symbol, "USDT")}}
 		}
 	case "okx":
 		if !strings.HasSuffix(q.Symbol, "-USDT-SWAP") {
-			return out, errors.New("插件仅支持 OKX USDT 永续")
+			return out, errors.New("This plugin supports OKX USDT perpetuals only")
 		}
 		path := "/api/v5/public/open-interest?instType=SWAP&instId="
 		if id == "funding" {
@@ -85,9 +85,9 @@ func (c *Client) PluginData(ctx context.Context, id string, q plugins.Request) (
 		}
 		out.SourceTime = time.UnixMilli(ms).UTC()
 		if id == "funding" {
-			out.Metrics = []plugins.Metric{{Key: "funding_rate", Label: "当前资金费率", Value: row.Funding, Unit: "fraction"}}
+			out.Metrics = []plugins.Metric{{Key: "funding_rate", Label: "Current funding rate", Value: row.Funding, Unit: "fraction"}}
 		} else {
-			out.Metrics = []plugins.Metric{{Key: "open_interest", Label: "未平仓合约", Value: row.OI, Unit: "张"}}
+			out.Metrics = []plugins.Metric{{Key: "open_interest", Label: "Open contracts", Value: row.OI, Unit: "contracts"}}
 		}
 	case "hyperliquid":
 		var response []json.RawMessage
@@ -122,11 +122,11 @@ func (c *Client) PluginData(ctx context.Context, id string, q plugins.Request) (
 			return out, errors.New("unknown perpetual instrument")
 		}
 		row := rows[index]
-		out.Notice += " Hyperliquid 本响应没有源时间戳，时间仅为本机接收时间；费率为交易所当前小时口径。"
+		out.Notice += " This Hyperliquid response has no source timestamp; the displayed time is local receipt time. Funding uses the venue hourly rate."
 		if id == "funding" {
-			out.Metrics = []plugins.Metric{{Key: "funding_rate", Label: "当前小时资金费率", Value: row.Funding, Unit: "fraction"}, {Key: "mark_price", Label: "标记价格", Value: row.Mark, Unit: "USDC"}}
+			out.Metrics = []plugins.Metric{{Key: "funding_rate", Label: "Current hourly funding rate", Value: row.Funding, Unit: "fraction"}, {Key: "mark_price", Label: "Mark price", Value: row.Mark, Unit: "USDC"}}
 		} else {
-			out.Metrics = []plugins.Metric{{Key: "open_interest", Label: "未平仓数量", Value: row.OI, Unit: q.Symbol}}
+			out.Metrics = []plugins.Metric{{Key: "open_interest", Label: "Open interest", Value: row.OI, Unit: q.Symbol}}
 		}
 	default:
 		return out, errors.New("unsupported plugin venue")

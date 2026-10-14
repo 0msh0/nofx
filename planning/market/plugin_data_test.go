@@ -43,7 +43,7 @@ func TestPublicPluginNativeUnitsAndTimestamps(t *testing.T) {
 			if err != nil {
 				t.Fatal(q, id, err)
 			}
-			if q.Venue == "okx" && id == "open_interest" && r.Metrics[0].Unit != "张" {
+			if q.Venue == "okx" && id == "open_interest" && r.Metrics[0].Unit != "contracts" {
 				t.Fatal("contracts confused with base")
 			}
 			if q.Venue == "hyperliquid" && !r.SourceTime.IsZero() {

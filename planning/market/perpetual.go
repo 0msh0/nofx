@@ -50,7 +50,7 @@ func (c *Client) binancePerpetual(ctx context.Context, symbol string) (core.Snap
 			continue
 		}
 		if r.Status != "TRADING" || (r.ContractType != "PERPETUAL" && r.ContractType != "TRADIFI_PERPETUAL") || r.MarginAsset != "USDT" || r.QuoteAsset != "USDT" {
-			return s, errors.New("仅支持交易中的 Binance USDT 永续合约")
+			return s, errors.New("Only actively trading Binance USDT perpetual contracts are supported")
 		}
 		found = true
 		s.BaseAsset = r.BaseAsset
@@ -72,7 +72,7 @@ func (c *Client) binancePerpetual(ctx context.Context, symbol string) (core.Snap
 		}
 	}
 	if !found {
-		return s, errors.New("Binance USDT 永续不存在此标的；没有改用现货")
+		return s, errors.New("Symbol is not listed as a Binance USDT perpetual; no spot fallback was used")
 	}
 	var b struct {
 		Bids, Asks [][]string
@@ -120,7 +120,7 @@ func productDecimal(a, b string) (core.Decimal, error) {
 func (c *Client) okxPerpetual(ctx context.Context, symbol string) (core.Snapshot, error) {
 	s := core.Snapshot{Venue: "okx", Symbol: symbol, Kind: "perpetual"}
 	if !strings.HasSuffix(symbol, "-USDT-SWAP") {
-		return s, errors.New("OKX 合约标的需如 BTC-USDT-SWAP，仅支持 USDT 线性永续")
+		return s, errors.New("Use an OKX USDT linear perpetual symbol such as BTC-USDT-SWAP")
 	}
 	var info struct {
 		Code string

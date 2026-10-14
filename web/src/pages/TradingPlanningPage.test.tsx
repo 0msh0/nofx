@@ -16,12 +16,17 @@ const mocks = vi.hoisted(() => ({
 vi.mock('../lib/api', () => ({
   api: {
     getExchangeConfigs: async () => [
-      { id: 'ex', name: '已连接账户', exchange_type: 'binance', enabled: true },
+      {
+        id: 'ex',
+        name: 'Connected account',
+        exchange_type: 'binance',
+        enabled: true,
+      },
     ],
     getModelConfigs: async () => [
       {
         id: 'model',
-        name: '已有 DeepSeek',
+        name: 'Configured DeepSeek',
         provider: 'deepseek',
         enabled: true,
         has_api_key: true,
@@ -69,12 +74,12 @@ const plan = (id: string) => ({
     quote_asset: 'USDT',
   },
   idea: {
-    name: '测试方案 ' + id,
+    name: 'Test plan ' + id,
     side: 'long',
     entry: '80000',
     stop: '79000',
     target: '83000',
-    rationale: '条件假设',
+    rationale: 'Conditional hypothesis',
     execution: { kind: 'limit' },
   },
   orders: [{ index: 1, price: '80000', quantity: '0.01', offset_seconds: 0 }],
@@ -96,6 +101,12 @@ beforeEach(() => {
       }
     if (path.startsWith('account?'))
       return { equity: '1000', available: '1000', fee_bps: '5' }
+    if (path === 'ai500')
+      return {
+        coins: [{ pair: 'ETHUSDT', score: 85 }],
+        source: 'Claw402 fixture',
+        fetched_at: new Date().toISOString(),
+      }
     if (path === 'preferences') return { text: '' }
     if (path === 'conversations') return []
     if (path === 'approve') return { id: 'run', approval_hash: 'locked' }
@@ -113,22 +124,26 @@ function open() {
 describe('NOFX live planning', () => {
   it('reuses configured model and requires exact human approval before execution', async () => {
     open()
-    const card = await screen.findByRole('button', { name: /测试方案 one/ })
+    const card = await screen.findByRole('button', { name: /Test plan one/ })
     fireEvent.click(card)
     await waitFor(() =>
-      expect(screen.getByLabelText('NOFX AI 模型')).toHaveValue('model')
+      expect(screen.getByLabelText('NOFX AI model')).toHaveValue('model')
     )
-    fireEvent.click(screen.getByRole('button', { name: '审阅并批准真实交易' }))
-    const execute = screen.getByRole('button', { name: '批准并执行真实交易' })
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Review and approve live trade' })
+    )
+    const execute = screen.getByRole('button', {
+      name: 'Approve and execute live trade',
+    })
     expect(execute).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('真实交易确认文字'), {
+    fireEvent.change(screen.getByLabelText('Live trade confirmation text'), {
       target: { value: 'approve live' },
     })
     expect(execute).toBeDisabled()
     expect(
       mocks.api.mock.calls.some(([p]) => p === 'approve' || p === 'execute')
     ).toBe(false)
-    fireEvent.change(screen.getByLabelText('真实交易确认文字'), {
+    fireEvent.change(screen.getByLabelText('Live trade confirmation text'), {
       target: { value: 'APPROVE LIVE' },
     })
     fireEvent.click(execute)
@@ -146,14 +161,14 @@ describe('NOFX live planning', () => {
   })
   it('selecting a plan exits comparison and displays only that plan on the chart', async () => {
     open()
-    await screen.findByRole('button', { name: /测试方案 one/ })
-    fireEvent.click(screen.getByRole('button', { name: '在图上比较' }))
+    await screen.findByRole('button', { name: /Test plan one/ })
+    fireEvent.click(screen.getByRole('button', { name: 'Compare on chart' }))
     await waitFor(() =>
       expect(
         mocks.plot.mock.calls.some(([, , list]) => list?.length === 2)
       ).toBe(true)
     )
-    fireEvent.click(screen.getByRole('button', { name: /测试方案 two/ }))
+    fireEvent.click(screen.getByRole('button', { name: /Test plan two/ }))
     await waitFor(() => {
       const args = mocks.plot.mock.calls.at(-1)!
       expect(args[0].id).toBe('two')
@@ -162,15 +177,19 @@ describe('NOFX live planning', () => {
   })
   it('custom entry mode does not attach TWAP parameters to a ladder', async () => {
     open()
-    await screen.findByRole('button', { name: /测试方案 one/ })
-    fireEvent.click(screen.getByText('风险预算、分批订单与高级工具'))
+    await screen.findByRole('button', { name: /Test plan one/ })
     fireEvent.click(
-      screen.getByRole('button', { name: '自定义单笔／分批／TWAP' })
+      screen.getByText('Risk budget, entry orders and advanced tools')
     )
-    fireEvent.change(screen.getByLabelText('自定义入场方式'), {
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Custom limit / ladder / TWAP' })
+    )
+    fireEvent.change(screen.getByLabelText('Custom entry method'), {
       target: { value: 'ladder' },
     })
-    expect(screen.queryByLabelText('片数')).toBeNull()
-    expect(screen.getByText(/每行填写价格与数量权重/)).toBeInTheDocument()
+    expect(screen.queryByLabelText('Slices')).toBeNull()
+    expect(
+      screen.getByText(/Enter one price and quantity weight per line/)
+    ).toBeInTheDocument()
   })
 })
