@@ -65,3 +65,10 @@ it('preserves a safe payment diagnostic code', () => {
     )
   ).toContain('Diagnostic: settled_amount_missing')
 })
+
+it('preserves safe diagnostics when formatting an error twice', () => {
+  const raw = 'paid request outcome unknown [diagnostic:gateway_http_502]'
+  expect(formatRequestError(formatRequestError(raw, 'en'), 'en')).toContain(
+    'Diagnostic: gateway_http_502'
+  )
+})

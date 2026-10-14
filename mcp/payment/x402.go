@@ -267,6 +267,11 @@ func (e *PaymentOutcomeUnknownError) ReasonCode() string {
 	}
 	text := strings.ToLower(e.Cause.Error())
 	for _, r := range []struct{ match, code string }{
+		{"paid request returned status 400", "gateway_http_400"},
+		{"paid request returned status 429", "gateway_http_429"},
+		{"paid request returned status 502", "gateway_http_502"},
+		{"paid request returned status 503", "gateway_http_503"},
+		{"usage stream", "settlement_stream_invalid"},
 		{"malformed http response", "http_protocol_error"},
 		{"missing payment receipt", "receipt_missing"},
 		{"missing or invalid settled amount", "settled_amount_missing"},

@@ -136,7 +136,7 @@ func TestJSONReceiptAmountAndHeaderCompatibility(t *testing.T) {
 	}
 }
 func TestUnknownPaymentDiagnosticDoesNotExposeCause(t *testing.T) {
-	for _, v := range []struct{ cause, code string }{{"missing payment receipt https://secret.invalid/key", "receipt_missing"}, {"missing or invalid settled amount", "settled_amount_missing"}, {"receipt RPC chain mismatch or unavailable", "receipt_rpc_unavailable"}, {"arbitrary private credential", "verification_failed"}} {
+	for _, v := range []struct{ cause, code string }{{"missing payment receipt https://secret.invalid/key", "receipt_missing"}, {"missing or invalid settled amount", "settled_amount_missing"}, {"receipt RPC chain mismatch or unavailable", "receipt_rpc_unavailable"}, {"arbitrary private credential", "verification_failed"}, {"claw402 paid request returned status 502; private credential", "gateway_http_502"}, {"usage stream missing settlement report", "settlement_stream_invalid"}} {
 		err := &PaymentOutcomeUnknownError{Cause: errors.New(v.cause)}
 		if err.ReasonCode() != v.code || strings.Contains(err.Error(), "secret") || strings.Contains(err.Error(), "credential") {
 			t.Fatal(err)

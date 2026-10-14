@@ -202,6 +202,12 @@ export function TradingPlanningPage() {
             })
         })
         .catch((e) => !cancelled && setError(e.message))
+    let chartFailure = ''
+    const reportChartFailure = (message: string) => {
+      if (cancelled) return
+      chartFailure = message
+      setError(message)
+    }
     loadPlanningChart()
       .then(() => {
         if (cancelled) return
@@ -212,17 +218,20 @@ export function TradingPlanningPage() {
           onStatus: (text: string) => !cancelled && setStatus(text),
           onPrice: (c: { close: string }) => !cancelled && setPrice(c.close),
           onContext: (c: ChartContext) => !cancelled && setInterval(c.interval),
-          onError: (e: string) => !cancelled && setError(e),
+          onError: reportChartFailure,
           onAvailability: (available: boolean) => {
-            if (!cancelled && !available)
+            if (cancelled) return
+            if (!available)
               setStatus('Chart is loading or temporarily unavailable')
+            else if (chartFailure)
+              setError((message) => (message === chartFailure ? '' : message))
           },
         })
         chart.current
           .setContext(venue, symbol, '60')
-          .catch((e) => !cancelled && setError(e.message))
+          .catch((e) => reportChartFailure(e.message))
       })
-      .catch((e) => setError(e.message))
+      .catch((e) => reportChartFailure(e.message))
     return () => {
       cancelled = true
       chart.current?.dispose()

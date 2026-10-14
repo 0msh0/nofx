@@ -16,6 +16,12 @@ const mocks = vi.hoisted(() => ({
     exchange_type: string
     enabled: boolean
   }[],
+  chartOptions: undefined as
+    | undefined
+    | {
+        onError: (message: string) => void
+        onAvailability: (available: boolean) => void
+      },
   plot: vi.fn().mockResolvedValue(undefined),
   focus: vi.fn().mockResolvedValue(undefined),
 }))
@@ -38,6 +44,9 @@ vi.mock('../lib/planning', async (importOriginal) => ({
   planningAPI: mocks.api,
   loadPlanningChart: async () => {
     window.WorkspaceChart = class {
+      constructor(options: NonNullable<typeof mocks.chartOptions>) {
+        mocks.chartOptions = options
+      }
       context() {
         return {
           venue: 'binance',
@@ -225,4 +234,18 @@ it('shows Binance futures and AI500 even when only a Hyperliquid account is conn
   expect(screen.getByLabelText('Trading account')).toHaveValue('hl')
   expect(screen.getByLabelText('Symbol')).toHaveValue('BTC')
   expect(screen.queryByLabelText('Binance AI500 markets')).toBeNull()
+})
+
+it('clears a chart failure after recovery without clearing unrelated errors', async () => {
+  render(
+    <MemoryRouter>
+      <TradingPlanningPage />
+    </MemoryRouter>
+  )
+  await waitFor(() => expect(mocks.chartOptions).toBeDefined())
+  const { act } = await import('@testing-library/react')
+  act(() => mocks.chartOptions!.onError('Market chart timed out.'))
+  expect(screen.getByText('Market chart timed out.')).toBeInTheDocument()
+  act(() => mocks.chartOptions!.onAvailability(true))
+  expect(screen.queryByText('Market chart timed out.')).not.toBeInTheDocument()
 })

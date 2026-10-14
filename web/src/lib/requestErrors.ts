@@ -31,7 +31,9 @@ export function formatRequestError(
       raw
     )
   if (isPaymentOutcomeUnknown(raw)) {
-    const diagnostic = raw.match(/\[diagnostic:([a-z_]+)\]/i)?.[1]
+    const diagnostic = raw.match(
+      /(?:\[diagnostic:|Diagnostic: )([a-z_0-9]+)/i
+    )?.[1]
     const detail = diagnostic ? ` Diagnostic: ${diagnostic}.` : ''
     if (language === 'zh') {
       return `${protocol ? 'NOFX 与支付网关的连接协议异常，未能读取响应。' : '未能确认付费请求的响应或结算结果。'}支付结果待核对；不会自动重试，请先核对原付款，勿重复付款。`
