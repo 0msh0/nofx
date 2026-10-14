@@ -68,6 +68,7 @@ export function TradingPlanningPage() {
     [exchangeID, setExchangeID] = useState(''),
     [modelID, setModelID] = useState('')
   const [venue, setVenue] = useState('binance')
+  const requestedVenue = useRef('binance')
   const [symbol, setSymbol] = useState('BTCUSDT'),
     [symbolInput, setSymbolInput] = useState('BTCUSDT'),
     [limits, setLimits] = useState<Constraints>(defaultLimits)
@@ -174,12 +175,10 @@ export function TradingPlanningPage() {
         setAccounts(supported)
         setModels(enabled)
         setExchangeID(
-          supported.find((a) => a.exchange_type === 'binance')?.id || ''
+          supported.find((a) => a.exchange_type === requestedVenue.current)
+            ?.id || ''
         )
         setModelID(enabled[0]?.id || '')
-        const native = 'BTCUSDT'
-        setSymbol(native)
-        setSymbolInput(native)
       })
       .catch((e) => setError(String(e.message)))
     reload().catch((e) => setError(e.message))
@@ -287,6 +286,7 @@ export function TradingPlanningPage() {
     if (!id) setLimits(defaultLimits)
     const a = accounts.find((v) => v.id === id)
     const nextVenue = a?.exchange_type || venue
+    requestedVenue.current = nextVenue
     setVenue(nextVenue)
     const native = nextVenue === 'binance' ? 'BTCUSDT' : 'BTC'
     setSymbol(native)
@@ -516,6 +516,7 @@ export function TradingPlanningPage() {
           disabled={busy}
           onChange={(e) => {
             const next = e.target.value
+            requestedVenue.current = next
             setVenue(next)
             setLimits(defaultLimits)
             setExchangeID(

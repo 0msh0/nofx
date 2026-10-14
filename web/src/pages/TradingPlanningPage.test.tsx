@@ -10,6 +10,7 @@ import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest'
 import { TradingPlanningPage } from './TradingPlanningPage'
 const mocks = vi.hoisted(() => ({
   api: vi.fn(),
+  exchangesGate: undefined as Promise<void> | undefined,
   exchanges: [] as {
     id: string
     name: string
@@ -27,7 +28,10 @@ const mocks = vi.hoisted(() => ({
 }))
 vi.mock('../lib/api', () => ({
   api: {
-    getExchangeConfigs: async () => mocks.exchanges,
+    getExchangeConfigs: async () => {
+      await mocks.exchangesGate
+      return mocks.exchanges
+    },
     getModelConfigs: async () => [
       {
         id: 'model',
@@ -93,6 +97,7 @@ const plan = (id: string) => ({
   orders: [{ index: 1, price: '80000', quantity: '0.01', offset_seconds: 0 }],
 })
 beforeEach(() => {
+  mocks.exchangesGate = undefined
   mocks.exchanges = [
     {
       id: 'ex',
@@ -248,4 +253,29 @@ it('clears a chart failure after recovery without clearing unrelated errors', as
   expect(screen.getByText('Market chart timed out.')).toBeInTheDocument()
   act(() => mocks.chartOptions!.onAvailability(true))
   expect(screen.queryByText('Market chart timed out.')).not.toBeInTheDocument()
+})
+
+it('keeps a venue chosen while account configuration is still loading', async () => {
+  let release!: () => void
+  mocks.exchanges = [
+    {
+      id: 'hl',
+      name: 'Hyperliquid wallet',
+      exchange_type: 'hyperliquid',
+      enabled: true,
+    },
+  ]
+  mocks.exchangesGate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  open()
+  fireEvent.change(screen.getByLabelText('Market venue'), {
+    target: { value: 'hyperliquid' },
+  })
+  release()
+  await waitFor(() =>
+    expect(screen.getByLabelText('Trading account')).toHaveValue('hl')
+  )
+  expect(screen.getByLabelText('Symbol')).toHaveValue('BTC')
+  expect(screen.getByLabelText('Market venue')).toHaveValue('hyperliquid')
 })
