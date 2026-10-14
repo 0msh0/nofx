@@ -95,7 +95,7 @@ export function TradingPlanningPage() {
     [interval, setInterval] = useState('1h')
   const [trace, setTrace] = useState<ActivityItem[]>([]),
     [review, setReview] = useState<Plan | null>(null),
-    [leverage, setLeverage] = useState(1),
+    [leverage, setLeverage] = useState(5),
     [extrasOpen, setExtrasOpen] = useState(false),
     [builder, setBuilder] = useState(false),
     [builderIdea, setBuilderIdea] = useState<Idea>({
@@ -572,7 +572,7 @@ export function TradingPlanningPage() {
       <div className="planning-heading">
         <div>
           <h1>Frontier</h1>
-          <p>Your positions, orders and next trade.</p>
+          <p>Explore. Plan. Trade.</p>
         </div>
         <Link to={ROUTES.settings}>Manage accounts and AI →</Link>
       </div>
@@ -641,7 +641,23 @@ export function TradingPlanningPage() {
           />
           <button disabled={busy}>Open market</button>
         </form>
-        <span className="planning-live">Live trading · approval required</span>
+        {venue === 'binance' && (
+          <details className="frontier-market-picker">
+            <summary>Find a market · AI500</summary>
+            <PlanningAI500
+              venue={venue}
+              disabled={busy}
+              onSelect={(next) => {
+                setSymbol(next)
+                setSymbolInput(next)
+                setSelected('')
+                resetTurn()
+                setCompare([])
+              }}
+            />
+          </details>
+        )}
+        <span className="planning-live">Live · approval required</span>
       </div>
       {error &&
         !trace.some(
@@ -660,32 +676,6 @@ export function TradingPlanningPage() {
           a matching NOFX account before approving or executing any plan.
         </div>
       )}
-      <FrontierAccount
-        account={account}
-        accounts={accounts}
-        venue={venue}
-        symbol={symbol}
-        runs={data.runs}
-        busy={busy}
-        onView={viewTrade}
-        onManual={manualEntry}
-        onBusy={setBusy}
-        onRefresh={reload}
-      />
-      <details className="frontier-market-picker">
-        <summary>Find a market · AI500</summary>
-        <PlanningAI500
-          venue={venue}
-          disabled={busy}
-          onSelect={(next) => {
-            setSymbol(next)
-            setSymbolInput(next)
-            setSelected('')
-            resetTurn()
-            setCompare([])
-          }}
-        />
-      </details>
       <div className="planning-workspace">
         <section className="planning-chart-pane">
           <div className="planning-market">
@@ -801,6 +791,28 @@ export function TradingPlanningPage() {
               </details>
             </div>
           )}
+          <div className="frontier-sizing">
+            <label>
+              Leverage{' '}
+              <select
+                aria-label="Planning leverage"
+                value={leverage}
+                disabled={busy}
+                onChange={(e) => setLeverage(Number(e.target.value))}
+              >
+                {[1, 2, 3, 5, 10, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}x
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span>
+              {exchangeID
+                ? 'Auto size · current free margin · 1% equity risk cap · 5% margin reserve'
+                : 'Connect an account for automatic sizing'}
+            </span>
+          </div>
           <div className="planning-candidates">
             <div className="planning-section-title">
               <b>
@@ -829,16 +841,7 @@ export function TradingPlanningPage() {
               selected={selected}
               onSelect={choose}
             />
-            <details
-              className="planning-all-plans"
-              open={
-                !checks.length &&
-                !busy &&
-                records.some(
-                  (r) => r.state === 'draft' && !expired(r.plan, clock)
-                )
-              }
-            >
+            <details className="planning-all-plans">
               <summary>Saved plans · {records.length}</summary>
               <div className="planning-card-list">
                 {records.map((r) => (
@@ -895,6 +898,18 @@ export function TradingPlanningPage() {
               </p>
             )}
           </div>
+          <FrontierAccount
+            account={account}
+            accounts={accounts}
+            venue={venue}
+            symbol={symbol}
+            runs={data.runs}
+            busy={busy}
+            onView={viewTrade}
+            onManual={manualEntry}
+            onBusy={setBusy}
+            onRefresh={reload}
+          />
           <details
             className="planning-tools"
             onToggle={(e) => setExtrasOpen(e.currentTarget.open)}
@@ -909,28 +924,6 @@ export function TradingPlanningPage() {
               />
             )}
           </details>
-          <div className="planning-price-row">
-            <label>
-              Leverage{' '}
-              <select
-                aria-label="Planning leverage"
-                value={leverage}
-                disabled={busy}
-                onChange={(e) => setLeverage(Number(e.target.value))}
-              >
-                {[1, 2, 3, 5, 10, 20].map((value) => (
-                  <option key={value} value={value}>
-                    {value}x
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span>
-              {exchangeID
-                ? 'Auto size · current free margin · 1% equity risk cap · 5% margin reserve'
-                : 'Connect an account for automatic sizing'}
-            </span>
-          </div>
           <details className="planning-tools">
             <summary>Risk budget, entry orders and advanced tools</summary>
             <div className="planning-limit-grid">
@@ -1124,10 +1117,17 @@ export function TradingPlanningPage() {
           >
             <div className="planning-messages">
               {messages.length === 0 && (
-                <p>
-                  Start with the market, then build a plan. Plans appear on the
-                  chart. AI cannot approve or place trades.
-                </p>
+                <div className="frontier-welcome">
+                  <span className="frontier-eyebrow">MARKET TO ACTION</span>
+                  <h2>What’s your next move?</h2>
+                  <p>
+                    Explore an idea. Compare entries on the chart. You decide
+                    when to trade.
+                  </p>
+                  <div className="frontier-welcome-note">
+                    Every order needs your approval.
+                  </div>
+                </div>
               )}
               {messages
                 .filter(
@@ -1157,7 +1157,7 @@ export function TradingPlanningPage() {
               aria-label="Trade idea"
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
-              placeholder="Compare single-limit, pyramidal ladder and TWAP entries for a pullback long…"
+              placeholder="Describe a trade idea…"
               maxLength={8000}
               disabled={busy}
             />
@@ -1171,7 +1171,7 @@ export function TradingPlanningPage() {
                   )
                 }
               >
-                Mark support / resistance
+                Support / resistance
               </button>
               {planningBusy ? (
                 <button type="button" onClick={() => abort.current?.abort()}>

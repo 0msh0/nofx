@@ -330,3 +330,8 @@ therefore cannot hide an existing position. Binance inspection uses the existing
 constructor that does not change account hedge mode. Hyperliquid order reads use
 `frontendOpenOrders` with the exact core/xyz market and retain stop/take-profit
 trigger prices and reduce-only direction. These reads do not submit orders.
+
+Frontier keeps the chart and plan alternatives first, with the account position
+table beneath them. Stored execution records are collapsed while review-needed
+status remains visible. Fresh planning and manual-entry tickets default to 5x;
+this does not rewrite approved plans or change leverage on existing positions.

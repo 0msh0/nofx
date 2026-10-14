@@ -282,7 +282,12 @@ export function FrontierAccount({
     >
       <header>
         <div>
-          <h2>Your account</h2>
+          <h2>
+            Positions{' '}
+            <span className="frontier-count">
+              {snapshot?.accountID === accountID ? positions.length : '—'}
+            </span>
+          </h2>
           <p>
             {account
               ? `${account.name} · ${venue === 'binance' ? 'Binance futures' : 'Hyperliquid'}${account.hyperliquidWalletAddr ? ' · ' + account.hyperliquidWalletAddr.slice(0, 8) + '…' + account.hyperliquidWalletAddr.slice(-4) : ''}`
@@ -348,7 +353,7 @@ export function FrontierAccount({
       {accountID && (
         <>
           <div className="frontier-account-subhead">
-            <strong>Open positions · entire account</strong>
+            <span>All markets · selected account</span>
             <span>
               {snapshot?.accountID === accountID
                 ? `${error ? 'Last received' : 'Received'} ${new Date(snapshot.at).toLocaleTimeString()}`
@@ -520,7 +525,7 @@ export function FrontierAccount({
                 ? 'Approved only — no order submitted'
                 : 'No confirmed entry fill'
         return (
-          <article
+          <details
             className={
               'frontier-trade-summary' +
               (run.state === 'needs_attention' || unconfirmed
@@ -529,6 +534,26 @@ export function FrontierAccount({
             }
             key={run.id}
           >
+            <summary className="frontier-record-toggle">
+              <span>
+                {run.plan.snapshot.symbol} ·{' '}
+                {run.plan.idea.side === 'long' ? 'Long' : 'Short'}{' '}
+                <span className="frontier-record-label">Execution record</span>
+              </span>
+              <span
+                className={
+                  run.state === 'needs_attention' || unconfirmed
+                    ? 'frontier-review-badge'
+                    : ''
+                }
+              >
+                {unconfirmed
+                  ? 'Submission unconfirmed'
+                  : run.state === 'needs_attention'
+                    ? 'Monitor needs review'
+                    : label}
+              </span>
+            </summary>
             <div>
               <strong>
                 {run.plan.snapshot.symbol} ·{' '}
@@ -541,10 +566,9 @@ export function FrontierAccount({
                   : ''}
               </p>
               {run.state === 'needs_attention' && (
-                <p className="stop-text">
-                  Execution monitoring needs attention. Use the account
-                  positions and exchange orders above for current exposure;
-                  recorded orders below may be stale.
+                <p className="frontier-monitor-alert">
+                  Monitor needs review · exchange positions and orders above are
+                  the current source.
                 </p>
               )}
             </div>
@@ -602,15 +626,10 @@ export function FrontierAccount({
                 exchange read.
               </small>
             </details>
-          </article>
+          </details>
         )
       })}
-      {!importantRuns.length && (
-        <small>
-          No active Frontier execution. Generating a plan does not submit an
-          order.
-        </small>
-      )}
+      {!importantRuns.length && <small>No active execution.</small>}
       {confirm && (
         <div className="planning-modal-backdrop">
           <section
