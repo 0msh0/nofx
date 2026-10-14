@@ -337,3 +337,14 @@ Frontier keeps the chart and plan alternatives first, with the account position
 table beneath them. Stored execution records are collapsed while review-needed
 status remains visible. Fresh planning and manual-entry tickets default to 5x;
 this does not rewrite approved plans or change leverage on existing positions.
+
+## Private chart source in CI
+
+The pinned chart library is private. Frontend and image workflows fetch its exact
+Git revision with the Actions secret `CHARTING_LIBRARY_SSH_KEY`, a dedicated
+read-only deploy key scoped to `tinkle-community/charting_library`. The initial
+application checkout does not fetch private submodules, so Go-only checks do
+not need that key. Checkout credentials are not persisted in the workspace.
+The owner's local SSH private key is not reused or uploaded. Forked pull requests
+do not receive repository secrets and cannot run the licensed-asset build
+without a maintainer-authorized environment; there is no public mirror fallback.

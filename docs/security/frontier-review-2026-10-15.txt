@@ -76,3 +76,16 @@ Binance verification limit
   stops, permissions and actual Broker rebates remain unverified. Connecting
   an API key alone does not establish live readiness. No testnet or multi-asset
   margin support is claimed. Real testing requires a separately approved order.
+
+Hosted CI follow-up
+- The first main run failed before testing because the chart repository is
+  private and the default Actions token cannot access another repository.
+- A new read-only deploy key scoped only to the chart repository was created
+  and stored as the NOFX Actions secret CHARTING_LIBRARY_SSH_KEY. It is not an
+  existing user key. Generated local key files were removed after provisioning.
+- Frontend/image workflows fetch only the pinned chart revision in a separate
+  checkout and disable persisted credentials. Go-only jobs need no chart access.
+- GitHub initially still listed historical dependency alerts after the push;
+  lockfile versions were checked against their required fixes (including axios
+  1.20.0, brace-expansion 1.1.21/2.1.7 and js-yaml 4.3.2). Hosted alert refresh
+  is separate from the completed clean npm audit.
