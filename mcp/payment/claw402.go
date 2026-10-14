@@ -1,13 +1,17 @@
 package payment
 
 import (
+	"context"
 	"crypto/ecdsa"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"nofx/internal/permit2"
 	"nofx/mcp"
 	"nofx/mcp/provider"
 	"nofx/store"
@@ -90,20 +94,11 @@ type Claw402Client struct {
 
 func (c *Claw402Client) BaseClient() *mcp.Client { return c.Client }
 
-// LastCallCostUSD reports the actually-settled cost of the most recent call:
-// the gateway's X-Claw402-Settled-Usd header when available (non-streaming),
-// otherwise derived from streamed token usage via the gateway's own formula —
-// on SSE responses the header cannot be delivered because HTTP headers are
-// flushed before usage is known. ok is false when neither source is available;
-// callers should then fall back to the flat catalog price.
+// LastCallCostUSD reports only independently verified settlement amounts.
+// Token estimates and gateway headers alone are not money movement evidence.
 func (c *Claw402Client) LastCallCostUSD() (float64, bool) {
-	if c.Client.LastCallSettledUSD > 0 {
+	if c.Client.LastCallSettlementVerified {
 		return c.Client.LastCallSettledUSD, true
-	}
-	if u := c.Client.LastCallUsage; u != nil && u.PromptTokens+u.CompletionTokens > 0 {
-		if cost, ok := store.ComputeUsageCost(c.Model, u.PromptTokens, u.CompletionTokens); ok {
-			return cost, true
-		}
 	}
 	return 0, false
 }
@@ -181,6 +176,10 @@ func (c *Claw402Client) resolveEndpoint() string {
 
 func (c *Claw402Client) SetAuthHeader(h http.Header) { X402SetAuthHeader(h) }
 
+// Discovery already retries safely. Repeating an entire inference after a
+// signed request or a broken stream would create another spending permission.
+func (c *Claw402Client) IsRetryableError(error) bool { return false }
+
 func (c *Claw402Client) Call(systemPrompt, userPrompt string) (string, error) {
 	if err := c.preflightBalance(); err != nil {
 		return "", err
@@ -233,9 +232,43 @@ func (c *Claw402Client) preflightBalance() error {
 	return nil
 }
 
-// signPayment signs x402 v2 EIP-712 payment on Base chain + USDC.
+// signPayment requires usage settlement for model calls. It never silently
+// downgrades to a full-ceiling exact charge or approves tokens automatically.
 func (c *Claw402Client) signPayment(paymentHeaderB64 string) (string, error) {
-	return SignBasePaymentHeader(c.privateKey, paymentHeaderB64, "Claw402")
+	if c.privateKey == nil {
+		return "", fmt.Errorf("Claw402 fee wallet is not configured")
+	}
+	raw, err := X402DecodeHeader(paymentHeaderB64)
+	if err != nil {
+		return "", err
+	}
+	var required X402v2PaymentRequired
+	if err = json.Unmarshal(raw, &required); err != nil {
+		return "", err
+	}
+	if required.X402Version != 2 {
+		return "", fmt.Errorf("unsupported x402 payment version")
+	}
+	for _, option := range required.Accepts {
+		if option.Scheme != "upto" || option.Network != BaseNetwork {
+			continue
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		allowance, err := permit2.Allowance(ctx, receiptRPC(), c.walletAddress())
+		cancel()
+		if err != nil {
+			return "", fmt.Errorf("cannot check Permit2 fee-wallet allowance; no payment signed: %w", err)
+		}
+		amount, err := permit2.Uint256(option.Amount)
+		if err != nil {
+			return "", err
+		}
+		if allowance.Cmp(amount) < 0 {
+			return "", fmt.Errorf("fee wallet %s needs user-approved Base USDC allowance to Permit2 %s (at least %s micro-USDC); no payment signed", c.walletAddress(), permit2.Address, option.Amount)
+		}
+		return SignX402Payment(c.privateKey, c.walletAddress(), option, required.Resource)
+	}
+	return "", fmt.Errorf("Claw402 model requires native Permit2 upto; refusing fixed-price fallback")
 }
 
 // ── Format overrides for Anthropic endpoints ─────────────────────────────────

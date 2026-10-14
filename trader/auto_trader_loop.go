@@ -158,7 +158,7 @@ func (at *AutoTrader) runCycle() error {
 			if actual, has := r.LastCallCostUSD(); has {
 				chargeErr = at.store.AICharge().RecordWithCost(at.id, chargeModel, at.config.AIModel, actual)
 			} else {
-				chargeErr = at.store.AICharge().Record(at.id, chargeModel, at.config.AIModel)
+				at.logWarnf("AI payment outcome unverified; skipping estimated charge entry. Reconcile the original payment.")
 			}
 		} else {
 			chargeErr = at.store.AICharge().Record(at.id, chargeModel, at.config.AIModel)
