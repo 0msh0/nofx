@@ -226,27 +226,6 @@ export function TradingPlanningPage() {
   }, [reload, refreshHistory])
   useEffect(() => {
     let cancelled = false
-    if (exchangeID)
-      planningAPI<{ equity: string; available: string; fee_bps: string }>(
-        'account?exchange_id=' +
-          encodeURIComponent(exchangeID) +
-          '&symbol=' +
-          encodeURIComponent(symbol)
-      )
-        .then((a) => {
-          if (cancelled) return
-          const equity = Number(a.equity),
-            available = Number(a.available)
-          if (equity > 0 && available > 0)
-            setLimits({
-              ...defaultLimits,
-              equity: a.equity,
-              max_risk: (equity * 0.01).toFixed(6),
-              max_notional: (Math.min(equity, available) * 0.95).toFixed(6),
-              fee_bps: String(Math.max(10, Math.ceil(Number(a.fee_bps)))),
-            })
-        })
-        .catch((e) => !cancelled && setError(e.message))
     let chartFailure = ''
     const reportChartFailure = (message: string) => {
       if (cancelled) return
@@ -960,32 +939,38 @@ export function TradingPlanningPage() {
                   keyof Constraints,
                   'leverage'
                 >[]
-              ).map((key) => (
-                <label key={key}>
-                  {
+              )
+                .filter(
+                  (key) =>
+                    !exchangeID ||
+                    !['equity', 'max_risk', 'max_notional'].includes(key)
+                )
+                .map((key) => (
+                  <label key={key}>
                     {
-                      equity: 'Equity budget',
-                      max_risk: 'Maximum planned loss',
-                      max_notional: 'Maximum notional',
-                      min_reward_risk: 'Minimum net reward/risk',
-                      fee_bps: 'Fee assumption / bps',
-                      slippage_bps: 'Slippage assumption / bps',
-                    }[key]
-                  }
-                  <input
-                    value={limits[key]}
-                    inputMode="decimal"
-                    disabled={
-                      busy ||
-                      (Boolean(exchangeID) &&
-                        ['equity', 'max_risk', 'max_notional'].includes(key))
+                      {
+                        equity: 'Equity budget',
+                        max_risk: 'Maximum planned loss',
+                        max_notional: 'Maximum notional',
+                        min_reward_risk: 'Minimum net reward/risk',
+                        fee_bps: 'Fee assumption / bps',
+                        slippage_bps: 'Slippage assumption / bps',
+                      }[key]
                     }
-                    onChange={(e) =>
-                      setLimits({ ...limits, [key]: e.target.value })
-                    }
-                  />
-                </label>
-              ))}
+                    <input
+                      value={limits[key]}
+                      inputMode="decimal"
+                      disabled={
+                        busy ||
+                        (Boolean(exchangeID) &&
+                          ['equity', 'max_risk', 'max_notional'].includes(key))
+                      }
+                      onChange={(e) =>
+                        setLimits({ ...limits, [key]: e.target.value })
+                      }
+                    />
+                  </label>
+                ))}
             </div>
             <p>
               Live sizing refreshes before planning and review. Leverage is a
