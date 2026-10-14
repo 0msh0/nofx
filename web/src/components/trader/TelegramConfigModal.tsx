@@ -156,7 +156,7 @@ export function TelegramConfigModal({ onClose, language }: TelegramConfigModalPr
   )
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-xs">
       <div
         className="rounded-2xl w-full max-w-lg relative my-8 shadow-2xl"
         style={{ background: '#F7F4EC' }}
@@ -297,7 +297,7 @@ export function TelegramConfigModal({ onClose, language }: TelegramConfigModalPr
                       className="p-3 rounded-xl flex items-center gap-3"
                       style={{ background: '#F1ECE2', border: '1px solid rgba(26,24,19,0.14)' }}
                     >
-                      <div className="w-2 h-2 rounded-full bg-nofx-gold animate-pulse flex-shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-nofx-gold animate-pulse shrink-0" />
                       <div>
                         <div className="text-xs font-mono" style={{ color: '#8A8478' }}>
                           {t('telegram.currentToken', language)}
@@ -372,7 +372,7 @@ export function TelegramConfigModal({ onClose, language }: TelegramConfigModalPr
                       className="p-3 rounded-xl flex items-center gap-3"
                       style={{ background: '#F1ECE2', border: '1px solid rgba(26,24,19,0.14)' }}
                     >
-                      <div className="w-2 h-2 rounded-full bg-nofx-success flex-shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-nofx-success shrink-0" />
                       <div className="min-w-0">
                         <div className="text-xs font-mono" style={{ color: '#8A8478' }}>
                           Bot Token
@@ -410,7 +410,7 @@ export function TelegramConfigModal({ onClose, language }: TelegramConfigModalPr
                       { cmd: t('telegram.cmdStrategy', language), desc: t('telegram.cmdStrategyDesc', language) },
                     ].map((item, i) => (
                       <div key={i} className="flex items-start gap-2 text-xs">
-                        <code className="font-mono px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: '#E8E2D5', color: '#E0483B' }}>
+                        <code className="font-mono px-1.5 py-0.5 rounded-sm shrink-0" style={{ background: '#E8E2D5', color: '#E0483B' }}>
                           {item.cmd}
                         </code>
                         <span style={{ color: '#8A8478' }}>{item.desc}</span>

@@ -136,7 +136,7 @@ export default function FooterSection({ language }: FooterSectionProps) {
                   href={link.href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs border border-[rgba(26,24,19,0.14)] bg-nofx-bg-lighter rounded px-3 py-1.5 transition-all hover:border-[#E0483B] hover:text-[#E0483B] hover:bg-[#E0483B]/10"
+                  className="text-xs border border-[rgba(26,24,19,0.14)] bg-nofx-bg-lighter rounded-sm px-3 py-1.5 transition-all hover:border-[#E0483B] hover:text-[#E0483B] hover:bg-[#E0483B]/10"
                   style={{ color: '#8A8478' }}
                 >
                   {link.name}

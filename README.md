@@ -31,7 +31,7 @@ Traders compose freely: any model, any of nine exchanges, any strategy. Run seve
 curl -fsSL https://raw.githubusercontent.com/NoFxAiOS/nofx/main/install.sh | bash
 ```
 
-The terminal opens at `http://127.0.0.1:3000`.
+The terminal opens at `http://127.0.0.1:3000`. Local Compose publishes the frontend and API on loopback by default (`NOFX_BIND_ADDRESS=127.0.0.1`). Remote deployments must explicitly configure their bind address and authenticated TLS proxy. Changing this setting only takes effect when containers are recreated.
 
 **First run**
 

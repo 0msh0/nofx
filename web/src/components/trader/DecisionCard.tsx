@@ -81,7 +81,7 @@ function ActionCard({ action, language, onSymbolClick }: { action: DecisionActio
         <div className="flex items-center gap-2">
           {action.confidence !== undefined && action.confidence > 0 && (
             <div
-              className="px-2 py-1 rounded text-xs font-semibold"
+              className="px-2 py-1 rounded-sm text-xs font-semibold"
               style={{
                 background: `${getConfidenceColor(action.confidence)}22`,
                 color: getConfidenceColor(action.confidence)
@@ -203,7 +203,7 @@ function ActionCard({ action, language, onSymbolClick }: { action: DecisionActio
       {/* Error Message */}
       {action.error && (
         <div
-          className="mt-3 rounded p-2 text-xs break-words"
+          className="mt-3 rounded-sm p-2 text-xs wrap-break-word"
           style={{
             background: 'rgba(214, 67, 58, 0.1)',
             border: '1px solid rgba(214, 67, 58, 0.3)',
@@ -299,7 +299,7 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
           <div>
             <button
               onClick={() => setShowSystemPrompt(!showSystemPrompt)}
-              className="flex items-center gap-2 text-sm transition-colors w-full justify-between p-2 rounded hover:bg-nofx-gold/10"
+              className="flex items-center gap-2 text-sm transition-colors w-full justify-between p-2 rounded-sm hover:bg-nofx-gold/10"
             >
               <div className="flex items-center gap-2">
                 <span className="text-base">⚙️</span>
@@ -313,7 +313,7 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
                     e.stopPropagation()
                     copyToClipboard(decision.system_prompt, 'System Prompt')
                   }}
-                  className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
+                  className="text-xs px-2.5 py-1 rounded-sm hover:opacity-80 transition-opacity flex items-center gap-1"
                   style={{ background: 'rgba(224, 72, 59, 0.2)', color: '#E0483B', border: '1px solid rgba(224, 72, 59, 0.3)' }}
                   title="Copy to clipboard"
                 >
@@ -324,14 +324,14 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
                     e.stopPropagation()
                     downloadAsFile(decision.system_prompt, `system-prompt-cycle-${decision.cycle_number}.txt`)
                   }}
-                  className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
+                  className="text-xs px-2.5 py-1 rounded-sm hover:opacity-80 transition-opacity flex items-center gap-1"
                   style={{ background: 'rgba(224, 72, 59, 0.2)', color: '#E0483B', border: '1px solid rgba(224, 72, 59, 0.3)' }}
                   title="Download as file"
                 >
                   <span>💾</span>
                 </button>
                 <span
-                  className="text-xs px-2 py-0.5 rounded"
+                  className="text-xs px-2 py-0.5 rounded-sm"
                   style={{ background: 'rgba(224, 72, 59, 0.15)', color: '#E0483B' }}
                 >
                   {showSystemPrompt ? t('collapse', language) : t('expand', language)}
@@ -358,7 +358,7 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
           <div>
             <button
               onClick={() => setShowInputPrompt(!showInputPrompt)}
-              className="flex items-center gap-2 text-sm transition-colors w-full justify-between p-2 rounded hover:bg-nofx-gold/10"
+              className="flex items-center gap-2 text-sm transition-colors w-full justify-between p-2 rounded-sm hover:bg-nofx-gold/10"
             >
               <div className="flex items-center gap-2">
                 <span className="text-base">📥</span>
@@ -372,7 +372,7 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
                     e.stopPropagation()
                     copyToClipboard(decision.input_prompt, 'User Prompt')
                   }}
-                  className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
+                  className="text-xs px-2.5 py-1 rounded-sm hover:opacity-80 transition-opacity flex items-center gap-1"
                   style={{ background: 'rgba(224, 72, 59, 0.2)', color: '#E0483B', border: '1px solid rgba(224, 72, 59, 0.3)' }}
                   title="Copy to clipboard"
                 >
@@ -383,14 +383,14 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
                     e.stopPropagation()
                     downloadAsFile(decision.input_prompt, `user-prompt-cycle-${decision.cycle_number}.txt`)
                   }}
-                  className="text-xs px-2.5 py-1 rounded hover:opacity-80 transition-opacity flex items-center gap-1"
+                  className="text-xs px-2.5 py-1 rounded-sm hover:opacity-80 transition-opacity flex items-center gap-1"
                   style={{ background: 'rgba(224, 72, 59, 0.2)', color: '#E0483B', border: '1px solid rgba(224, 72, 59, 0.3)' }}
                   title="Download as file"
                 >
                   <span>💾</span>
                 </button>
                 <span
-                  className="text-xs px-2 py-0.5 rounded"
+                  className="text-xs px-2 py-0.5 rounded-sm"
                   style={{ background: 'rgba(224, 72, 59, 0.15)', color: '#E0483B' }}
                 >
                   {showInputPrompt ? t('collapse', language) : t('expand', language)}
@@ -417,7 +417,7 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
           <div>
             <button
               onClick={() => setShowCoT(!showCoT)}
-              className="flex items-center gap-2 text-sm transition-colors w-full justify-between p-2 rounded hover:bg-nofx-gold/10"
+              className="flex items-center gap-2 text-sm transition-colors w-full justify-between p-2 rounded-sm hover:bg-nofx-gold/10"
             >
               <div className="flex items-center gap-2">
                 <span className="text-base">🧠</span>
@@ -426,7 +426,7 @@ export function DecisionCard({ decision, language, onSymbolClick }: DecisionCard
                 </span>
               </div>
               <span
-                className="text-xs px-2 py-0.5 rounded"
+                className="text-xs px-2 py-0.5 rounded-sm"
                 style={{ background: 'rgba(224, 72, 59, 0.15)', color: '#E0483B' }}
               >
                 {showCoT ? t('collapse', language) : t('expand', language)}

@@ -22,7 +22,7 @@ export function SiteFooter({ language }: SiteFooterProps) {
             href={OFFICIAL_LINKS.github}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded text-sm font-semibold transition-all hover:scale-105"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-sm font-semibold transition-all hover:scale-105"
             style={{
               background: '#F1ECE2',
               color: '#8A8478',
@@ -48,7 +48,7 @@ export function SiteFooter({ language }: SiteFooterProps) {
             href={OFFICIAL_LINKS.twitter}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded text-sm font-semibold transition-all hover:scale-105"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-sm font-semibold transition-all hover:scale-105"
             style={{
               background: '#F1ECE2',
               color: '#8A8478',
@@ -74,7 +74,7 @@ export function SiteFooter({ language }: SiteFooterProps) {
             href={OFFICIAL_LINKS.telegram}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 px-3 py-2 rounded text-sm font-semibold transition-all hover:scale-105"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-sm text-sm font-semibold transition-all hover:scale-105"
             style={{
               background: '#F1ECE2',
               color: '#8A8478',

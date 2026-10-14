@@ -6,7 +6,7 @@
 # Versions extracted as ARGs for maintainability
 # ═══════════════════════════════════════════════════════════════
 
-ARG GO_VERSION=1.25.11-alpine
+ARG GO_VERSION=1.26.9-alpine
 ARG ALPINE_VERSION=latest
 ARG TA_LIB_VERSION=0.4.0
 
@@ -19,7 +19,7 @@ ARG TA_LIB_VERSION
 RUN apk update && apk add --no-cache \
     wget tar make gcc g++ musl-dev autoconf automake
 
-RUN wget http://prdownloads.sourceforge.net/ta-lib/ta-lib-${TA_LIB_VERSION}-src.tar.gz && \
+RUN wget https://prdownloads.sourceforge.net/ta-lib/ta-lib-${TA_LIB_VERSION}-src.tar.gz && \
     tar -xzf ta-lib-${TA_LIB_VERSION}-src.tar.gz && \
     cd ta-lib && \
     if [ "$(uname -m)" = "aarch64" ]; then \

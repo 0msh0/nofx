@@ -113,7 +113,7 @@ function TradersLoadingSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded gap-3 md:gap-4 animate-pulse"
+          className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded-sm gap-3 md:gap-4 animate-pulse"
           style={{ background: '#F7F4EC', border: '1px solid rgba(26,24,19,0.14)' }}
         >
           <div className="flex items-center gap-3 md:gap-4">
@@ -207,11 +207,11 @@ function TraderRow({
 
   return (
     <div
-      className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded transition-all hover:translate-y-[-1px] gap-3 md:gap-4"
+      className="flex flex-col md:flex-row md:items-center justify-between p-3 md:p-4 rounded-sm transition-all hover:-translate-y-px gap-3 md:gap-4"
       style={{ background: '#F7F4EC', border: '1px solid rgba(26,24,19,0.14)' }}
     >
       <div className="flex items-center gap-3 md:gap-4">
-        <div className="flex-shrink-0">
+        <div className="shrink-0">
           <PunkAvatar
             seed={getTraderAvatar(trader.trader_id, trader.trader_name)}
             size={48}
@@ -250,7 +250,7 @@ function TraderRow({
         {/* Wallet Address for Perp-DEX */}
         {isPerpDex && walletAddr && (
           <div
-            className="flex items-center gap-1 px-2 py-1 rounded"
+            className="flex items-center gap-1 px-2 py-1 rounded-sm"
             style={{
               background: 'rgba(224, 72, 59, 0.08)',
               border: '1px solid rgba(224, 72, 59, 0.2)',
@@ -265,7 +265,7 @@ function TraderRow({
                 e.stopPropagation()
                 onToggleTraderAddress(trader.trader_id)
               }}
-              className="p-0.5 rounded hover:bg-nofx-bg-deeper transition-colors"
+              className="p-0.5 rounded-sm hover:bg-nofx-bg-deeper transition-colors"
               title={isVisible ? (language === 'zh' ? 'Hide' : 'Hide') : (language === 'zh' ? 'Show' : 'Show')}
             >
               {isVisible ? (
@@ -280,7 +280,7 @@ function TraderRow({
                 e.stopPropagation()
                 onCopyAddress(trader.trader_id, walletAddr)
               }}
-              className="p-0.5 rounded hover:bg-nofx-bg-deeper transition-colors"
+              className="p-0.5 rounded-sm hover:bg-nofx-bg-deeper transition-colors"
               title={language === 'zh' ? 'Copy' : 'Copy'}
             >
               {isCopied ? (
@@ -327,7 +327,7 @@ function TraderRow({
                 onNavigate(`/dashboard?trader=${encodeURIComponent(slug)}`)
               }
             }}
-            className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 flex items-center gap-1 whitespace-nowrap"
+            className="px-2 md:px-3 py-1.5 md:py-2 rounded-sm text-xs md:text-sm font-semibold transition-all hover:scale-105 flex items-center gap-1 whitespace-nowrap"
             style={{
               background: 'rgba(224, 72, 59, 0.1)',
               color: '#E0483B',
@@ -340,7 +340,7 @@ function TraderRow({
           <button
             onClick={() => onEditTrader(trader.trader_id)}
             disabled={trader.is_running}
-            className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1"
+            className="px-2 md:px-3 py-1.5 md:py-2 rounded-sm text-xs md:text-sm font-semibold transition-all hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap flex items-center gap-1"
             style={{
               background: trader.is_running
                 ? 'rgba(138, 132, 120, 0.1)'
@@ -359,7 +359,7 @@ function TraderRow({
                 trader.is_running || false
               )
             }
-            className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 whitespace-nowrap"
+            className="px-2 md:px-3 py-1.5 md:py-2 rounded-sm text-xs md:text-sm font-semibold transition-all hover:scale-105 whitespace-nowrap"
             style={
               trader.is_running
                 ? {
@@ -379,7 +379,7 @@ function TraderRow({
 
           <button
             onClick={() => onToggleCompetition(trader.trader_id, trader.show_in_competition ?? true)}
-            className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105 whitespace-nowrap flex items-center gap-1"
+            className="px-2 md:px-3 py-1.5 md:py-2 rounded-sm text-xs md:text-sm font-semibold transition-all hover:scale-105 whitespace-nowrap flex items-center gap-1"
             style={
               trader.show_in_competition !== false
                 ? {
@@ -402,7 +402,7 @@ function TraderRow({
 
           <button
             onClick={() => onDeleteTrader(trader.trader_id)}
-            className="px-2 md:px-3 py-1.5 md:py-2 rounded text-xs md:text-sm font-semibold transition-all hover:scale-105"
+            className="px-2 md:px-3 py-1.5 md:py-2 rounded-sm text-xs md:text-sm font-semibold transition-all hover:scale-105"
             style={{
               background: 'rgba(214, 67, 58, 0.1)',
               color: '#D6433A',

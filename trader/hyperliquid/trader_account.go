@@ -347,7 +347,7 @@ func (t *HyperliquidTrader) getXYZDexBalance() (accountValue float64, unrealized
 	}
 
 	// Determine API URL
-	apiURL := "https://api.hyperliquid.xyz/info"
+	apiURL := t.apiBaseURL() + "/info"
 	// Note: xyz dex may not be available on testnet
 
 	req, err := http.NewRequestWithContext(t.ctx, "POST", apiURL, bytes.NewBuffer(jsonBody))
@@ -439,7 +439,7 @@ func (t *HyperliquidTrader) getXyzMarketPrice(coin string) (float64, error) {
 		return 0, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
-	apiURL := "https://api.hyperliquid.xyz/info"
+	apiURL := t.apiBaseURL() + "/info"
 
 	req, err := http.NewRequestWithContext(t.ctx, "POST", apiURL, bytes.NewBuffer(jsonBody))
 	if err != nil {

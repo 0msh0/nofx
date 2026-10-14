@@ -70,11 +70,15 @@ func (t *HyperliquidTrader) GetPositions() ([]map[string]interface{}, error) {
 		result = append(result, posMap)
 	}
 
+	// The mainnet-only xyz market must be included in a complete account read.
+	if t.isTestnet {
+		return result, nil
+	}
+
 	// Also get xyz dex positions (stocks, forex, commodities)
 	_, _, xyzPositions, err := t.getXYZDexBalance()
 	if err != nil {
-		// xyz dex query failed - log warning but don't fail
-		logger.Infof("⚠️  Failed to get xyz dex positions: %v", err)
+		return nil, fmt.Errorf("account positions incomplete: failed to get xyz dex positions: %w", err)
 	} else {
 		for _, pos := range xyzPositions {
 			posAmt, _ := strconv.ParseFloat(pos.Position.Szi, 64)

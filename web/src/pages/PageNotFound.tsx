@@ -7,7 +7,7 @@ export function PageNotFound() {
             <div className="bg-nofx-bg-lighter border border-nofx-gold/20 p-8 rounded-lg max-w-md w-full relative overflow-hidden group">
 
                 {/* Background Grid inside Card */}
-                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:16px_16px] pointer-events-none"></div>
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-size-[16px_16px] pointer-events-none"></div>
 
                 <div className="relative z-10 flex flex-col items-center gap-6">
                     <div className="relative">
@@ -30,7 +30,7 @@ export function PageNotFound() {
 
                     <a
                         href="/"
-                        className="flex items-center gap-2 px-6 py-3 bg-nofx-gold text-nofx-bg font-bold text-sm uppercase tracking-widest rounded hover:bg-nofx-gold-highlight transition-all shadow-lg group mt-4"
+                        className="flex items-center gap-2 px-6 py-3 bg-nofx-gold text-nofx-bg font-bold text-sm uppercase tracking-widest rounded-sm hover:bg-nofx-gold-highlight transition-all shadow-lg group mt-4"
                     >
                         <Home size={16} />
                         <span>RETURN_BASE</span>

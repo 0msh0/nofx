@@ -69,8 +69,8 @@ export function LoginPage() {
         {/* ───────── LEFT: brand panel (desktop only) ───────── */}
         <section className="hidden lg:flex flex-col justify-between p-12 xl:p-16 relative overflow-hidden">
           {/* Ambient vermilion halo */}
-          <div className="absolute -left-32 top-1/3 w-[28rem] h-[28rem] bg-nofx-gold/[0.06] rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -right-16 bottom-0 w-72 h-72 bg-nofx-accent/[0.04] rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -left-32 top-1/3 w-md h-112 bg-nofx-gold/6 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -right-16 bottom-0 w-72 h-72 bg-nofx-accent/4 rounded-full blur-3xl pointer-events-none" />
 
           {/* Brand mark */}
           <div className="flex items-center gap-3 relative">
@@ -82,7 +82,7 @@ export function LoginPage() {
 
           {/* Headline */}
           <div className="relative max-w-lg">
-            <div className="inline-flex items-center gap-2 mb-7 px-3 py-1 rounded-full border border-nofx-success/25 bg-nofx-success/[0.06]">
+            <div className="inline-flex items-center gap-2 mb-7 px-3 py-1 rounded-full border border-nofx-success/25 bg-nofx-success/6">
               <div className="w-1.5 h-1.5 rounded-full bg-nofx-success animate-pulse" />
               <span className="text-[10.5px] font-mono tracking-[0.18em] text-nofx-success uppercase">
                 Terminal Online
@@ -192,7 +192,7 @@ export function LoginPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-[11px] text-[14px] text-nofx-text placeholder-nofx-text-muted focus:outline-none focus:border-nofx-gold/50 focus:bg-nofx-bg-lighter focus:ring-2 focus:ring-nofx-gold/20 transition-all"
+                  className="w-full bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-[11px] text-[14px] text-nofx-text placeholder-nofx-text-muted focus:outline-hidden focus:border-nofx-gold/50 focus:bg-nofx-bg-lighter focus:ring-2 focus:ring-nofx-gold/20 transition-all"
                   placeholder="you@example.com"
                   required
                   autoFocus
@@ -219,7 +219,7 @@ export function LoginPage() {
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-[11px] pr-11 text-[14px] text-nofx-text placeholder-nofx-text-muted focus:outline-none focus:border-nofx-gold/50 focus:bg-nofx-bg-lighter focus:ring-2 focus:ring-nofx-gold/20 transition-all"
+                    className="w-full bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-[11px] pr-11 text-[14px] text-nofx-text placeholder-nofx-text-muted focus:outline-hidden focus:border-nofx-gold/50 focus:bg-nofx-bg-lighter focus:ring-2 focus:ring-nofx-gold/20 transition-all"
                     placeholder="••••••••"
                     required
                     autoComplete="current-password"
@@ -237,7 +237,7 @@ export function LoginPage() {
 
               {/* Error banner */}
               {error && (
-                <div className="flex items-start gap-2 rounded-lg border border-nofx-danger/25 bg-nofx-danger/[0.08] px-3 py-2.5 text-xs text-nofx-danger">
+                <div className="flex items-start gap-2 rounded-lg border border-nofx-danger/25 bg-nofx-danger/8 px-3 py-2.5 text-xs text-nofx-danger">
                   <span className="text-nofx-danger font-bold mt-px">!</span>
                   <span className="leading-relaxed">{error}</span>
                 </div>

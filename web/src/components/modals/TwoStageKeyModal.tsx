@@ -218,7 +218,7 @@ export function TwoStageKeyModal({
                   value={part1}
                   onChange={(e) => setPart1(e.target.value)}
                   placeholder="0x1234..."
-                  className="w-full bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-3 text-nofx-text font-mono text-sm focus:border-nofx-gold focus:outline-none"
+                  className="w-full bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-3 text-nofx-text font-mono text-sm focus:border-nofx-gold focus:outline-hidden"
                   maxLength={expectedPart1Length + 2} // +2 for optional 0x prefix
                   disabled={processing}
                 />
@@ -268,7 +268,7 @@ export function TwoStageKeyModal({
                   <div className="font-medium">
                     {t('twoStageKey.obfuscationManual', language)}
                   </div>
-                  <div className="text-xs mt-2 p-2 bg-nofx-bg-deeper rounded font-mono break-all border border-[rgba(26,24,19,0.14)]">
+                  <div className="text-xs mt-2 p-2 bg-nofx-bg-deeper rounded-sm font-mono break-all border border-[rgba(26,24,19,0.14)]">
                     {manualObfuscationValue}
                   </div>
                   <div className="text-sm mt-1">
@@ -293,7 +293,7 @@ export function TwoStageKeyModal({
                   value={part2}
                   onChange={(e) => setPart2(e.target.value)}
                   placeholder="...5678"
-                  className="w-full bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-3 text-nofx-text font-mono text-sm focus:border-nofx-gold focus:outline-none"
+                  className="w-full bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-lg px-4 py-3 text-nofx-text font-mono text-sm focus:border-nofx-gold focus:outline-hidden"
                   maxLength={expectedPart2Length + 2}
                 />
               </div>

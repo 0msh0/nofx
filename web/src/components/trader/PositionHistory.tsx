@@ -269,7 +269,7 @@ function PositionRow({ position }: { position: HistoricalPosition }) {
             {(position.symbol || '').replace('USDT', '')}
           </span>
           <span
-            className="px-2 py-0.5 rounded text-xs font-semibold uppercase"
+            className="px-2 py-0.5 rounded-sm text-xs font-semibold uppercase"
             style={{
               background: `${sideColor}22`,
               color: sideColor,
@@ -675,7 +675,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 { value: 'all', label: t('positionHistory.allSymbols', language) },
                 ...uniqueSymbols.map(s => ({ value: s, label: (s || '').replace('USDT', '') }))
               ]}
-              className="rounded px-3 py-1.5 text-sm"
+              className="rounded-sm px-3 py-1.5 text-sm"
               style={{
                 background: '#E8E2D5',
                 border: '1px solid rgba(26,24,19,0.14)',
@@ -688,7 +688,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
             <span className="text-sm" style={{ color: '#8A8478' }}>
               {t('positionHistory.side', language)}:
             </span>
-            <div className="flex rounded overflow-hidden" style={{ border: '1px solid rgba(26,24,19,0.14)' }}>
+            <div className="flex rounded-sm overflow-hidden" style={{ border: '1px solid rgba(26,24,19,0.14)' }}>
               {['all', 'LONG', 'SHORT'].map((side) => (
                 <button
                   key={side}
@@ -722,7 +722,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 { value: 'pnl-desc', label: t('positionHistory.highestPnL', language) },
                 { value: 'pnl-asc', label: t('positionHistory.lowestPnL', language) },
               ]}
-              className="rounded px-3 py-1.5 text-sm"
+              className="rounded-sm px-3 py-1.5 text-sm"
               style={{
                 background: '#E8E2D5',
                 border: '1px solid rgba(26,24,19,0.14)',
@@ -848,7 +848,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                   { value: 50, label: '50' },
                   { value: 100, label: '100' },
                 ]}
-                className="rounded px-2 py-1 text-sm"
+                className="rounded-sm px-2 py-1 text-sm"
                 style={{
                   background: '#E8E2D5',
                   border: '1px solid rgba(26,24,19,0.14)',
@@ -863,7 +863,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 <button
                   onClick={() => setCurrentPage(1)}
                   disabled={currentPage === 1}
-                  className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
+                  className="px-2 py-1 rounded-sm text-xs transition-colors disabled:opacity-30"
                   style={{
                     background: currentPage === 1 ? 'transparent' : '#E8E2D5',
                     color: '#1A1813',
@@ -874,7 +874,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 <button
                   onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                   disabled={currentPage === 1}
-                  className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
+                  className="px-2 py-1 rounded-sm text-xs transition-colors disabled:opacity-30"
                   style={{
                     background: currentPage === 1 ? 'transparent' : '#E8E2D5',
                     color: '#1A1813',
@@ -888,7 +888,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 <button
                   onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
+                  className="px-2 py-1 rounded-sm text-xs transition-colors disabled:opacity-30"
                   style={{
                     background: currentPage === totalPages ? 'transparent' : '#E8E2D5',
                     color: '#1A1813',
@@ -899,7 +899,7 @@ export function PositionHistory({ traderId }: PositionHistoryProps) {
                 <button
                   onClick={() => setCurrentPage(totalPages)}
                   disabled={currentPage === totalPages}
-                  className="px-2 py-1 rounded text-xs transition-colors disabled:opacity-30"
+                  className="px-2 py-1 rounded-sm text-xs transition-colors disabled:opacity-30"
                   style={{
                     background: currentPage === totalPages ? 'transparent' : '#E8E2D5',
                     color: '#1A1813',

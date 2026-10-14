@@ -343,7 +343,7 @@ export function ExchangeConfigModal({
   const dexExchanges = SUPPORTED_EXCHANGE_TEMPLATES.filter(t => t.type === 'dex')
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-sm">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-xs">
       <div
         className="rounded-2xl w-full max-w-2xl relative my-8 shadow-2xl"
         style={{ background: '#F7F4EC', maxHeight: 'calc(100vh - 4rem)' }}
@@ -480,7 +480,7 @@ export function ExchangeConfigModal({
                     {t('exchangeConfig.register', language)}
                   </span>
                   {exchangeRegistrationLinks[currentExchangeType || '']?.hasReferral && (
-                    <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(46, 139, 87, 0.2)', color: '#2E8B57' }}>
+                    <span className="text-xs px-1.5 py-0.5 rounded-sm" style={{ background: 'rgba(46, 139, 87, 0.2)', color: '#2E8B57' }}>
                       {t('exchangeConfig.bonus', language)}
                     </span>
                   )}

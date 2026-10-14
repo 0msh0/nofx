@@ -15,7 +15,7 @@ export default function DeploymentHub() {
     return (
         <section className="py-24 bg-nofx-bg relative overflow-hidden border-t border-[rgba(26,24,19,0.14)]">
             {/* Background Grids */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a181310_1px,transparent_1px),linear-gradient(to_bottom,#1a181310_1px,transparent_1px)] bg-[size:24px_24px]"></div>
+            <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a181310_1px,transparent_1px),linear-gradient(to_bottom,#1a181310_1px,transparent_1px)] bg-size-[24px_24px]"></div>
 
             <div className="max-w-7xl mx-auto px-6 relative z-10">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
@@ -46,7 +46,7 @@ export default function DeploymentHub() {
                                 'Press Start — the AI trades on its own; stop it anytime.',
                             ].map((step, i) => (
                                 <li key={i} className="flex gap-3">
-                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded border border-nofx-gold/30 bg-nofx-gold/10 text-[11px] font-bold text-nofx-gold">
+                                    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border border-nofx-gold/30 bg-nofx-gold/10 text-[11px] font-bold text-nofx-gold">
                                         {i + 1}
                                     </span>
                                     <span>{step}</span>
@@ -59,8 +59,8 @@ export default function DeploymentHub() {
                                 { icon: Command, label: "One-Line Install", desc: "Docker handles every dependency" },
                                 { icon: Shield, label: "Your Keys Stay Home", desc: "Runs on your machine, keys encrypted locally" }
                             ].map((item, i) => (
-                                <div key={i} className="flex gap-4 items-start p-4 rounded bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] hover:border-nofx-gold/30 transition-colors group">
-                                    <div className="p-2 rounded bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] text-nofx-gold group-hover:bg-nofx-gold/10 transition-colors">
+                                <div key={i} className="flex gap-4 items-start p-4 rounded-sm bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] hover:border-nofx-gold/30 transition-colors group">
+                                    <div className="p-2 rounded-sm bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] text-nofx-gold group-hover:bg-nofx-gold/10 transition-colors">
                                         <item.icon className="w-5 h-5" />
                                     </div>
                                     <div>
@@ -115,12 +115,12 @@ export default function DeploymentHub() {
                                                     initial={{ scale: 0.5, opacity: 0 }}
                                                     animate={{ scale: 1, opacity: 1 }}
                                                     exit={{ scale: 0.5, opacity: 0 }}
-                                                    className="flex items-center gap-1 text-nofx-success bg-nofx-success/10 px-2 py-1 rounded text-xs font-bold"
+                                                    className="flex items-center gap-1 text-nofx-success bg-nofx-success/10 px-2 py-1 rounded-sm text-xs font-bold"
                                                 >
                                                     <Check className="w-3 h-3" />
                                                 </motion.div>
                                             ) : (
-                                                <div className="text-nofx-text-muted bg-nofx-bg-deeper p-1.5 rounded hover:text-nofx-text hover:bg-nofx-bg">
+                                                <div className="text-nofx-text-muted bg-nofx-bg-deeper p-1.5 rounded-sm hover:text-nofx-text hover:bg-nofx-bg">
                                                     <Copy className="w-4 h-4" />
                                                 </div>
                                             )}

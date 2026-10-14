@@ -218,7 +218,7 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                 <>
                   <button
                     onClick={() => setShowDropdown(!showDropdown)}
-                    className="flex items-center gap-1.5 px-2.5 py-1 bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded text-[11px] font-bold text-nofx-text-main hover:border-nofx-gold/30 hover:text-nofx-gold transition-all"
+                    className="flex items-center gap-1.5 px-2.5 py-1 bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-sm text-[11px] font-bold text-nofx-text-main hover:border-nofx-gold/30 hover:text-nofx-gold transition-all"
                   >
                     <span>{chartSymbolDisplay}</span>
                     <ChevronDown className={`w-3 h-3 text-nofx-text-muted transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
@@ -226,14 +226,14 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                   {showDropdown && (
                     <div className="absolute top-full right-0 mt-2 w-64 bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] rounded-lg shadow-[0_10px_40px_-10px_rgba(26,24,19,0.2)] z-50 overflow-hidden nofx-glass ring-1 ring-[rgba(26,24,19,0.08)]">
                       <div className="p-2 border-b border-[rgba(26,24,19,0.1)]">
-                        <div className="flex items-center gap-2 px-2 py-1.5 bg-nofx-bg-deeper rounded border border-[rgba(26,24,19,0.14)] focus-within:border-nofx-gold/50 transition-colors">
+                        <div className="flex items-center gap-2 px-2 py-1.5 bg-nofx-bg-deeper rounded-sm border border-[rgba(26,24,19,0.14)] focus-within:border-nofx-gold/50 transition-colors">
                           <Search className="w-3.5 h-3.5 text-nofx-text-muted" />
                           <input
                             type="text"
                             value={searchFilter}
                             onChange={(e) => setSearchFilter(e.target.value)}
                             placeholder="Search symbol..."
-                            className="flex-1 bg-transparent text-[11px] text-nofx-text placeholder-nofx-text-muted focus:outline-none font-mono"
+                            className="flex-1 bg-transparent text-[11px] text-nofx-text placeholder-nofx-text-muted focus:outline-hidden font-mono"
                             autoFocus
                           />
                         </div>
@@ -264,12 +264,12 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                   )}
                 </>
               ) : (
-                <span className="px-2.5 py-1 bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded text-[11px] font-bold text-nofx-text-main font-mono">{chartSymbol}</span>
+                <span className="px-2.5 py-1 bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-sm text-[11px] font-bold text-nofx-text-main font-mono">{chartSymbol}</span>
               )}
             </div>
 
             {/* Interval Selector - Allow scrolling if needed */}
-            <div className="flex items-center bg-nofx-bg-deeper rounded border border-[rgba(26,24,19,0.14)] overflow-x-auto no-scrollbar max-w-[200px] md:max-w-none">
+            <div className="flex items-center bg-nofx-bg-deeper rounded-sm border border-[rgba(26,24,19,0.14)] overflow-x-auto no-scrollbar max-w-[200px] md:max-w-none">
               {INTERVALS.map((int) => (
                 <button
                   key={int.value}
@@ -291,7 +291,7 @@ export function ChartTabs({ traderId, selectedSymbol, updateKey, exchangeId }: C
                 value={symbolInput}
                 onChange={(e) => setSymbolInput(e.target.value)}
                 placeholder="Sym"
-                className="w-16 px-2 py-1 bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-l text-[10px] text-nofx-text placeholder-nofx-text-muted focus:outline-none focus:border-nofx-gold/50 font-mono transition-colors"
+                className="w-16 px-2 py-1 bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-l text-[10px] text-nofx-text placeholder-nofx-text-muted focus:outline-hidden focus:border-nofx-gold/50 font-mono transition-colors"
               />
               <button type="submit" className="px-2 py-1 bg-black/5 border border-[rgba(26,24,19,0.14)] border-l-0 rounded-r text-[10px] text-nofx-text-muted hover:text-nofx-text hover:bg-black/10 transition-all">
                 Go

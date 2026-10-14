@@ -123,7 +123,7 @@ export function RegisterPage() {
         <div className="flex justify-between items-center mb-8">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 text-nofx-text-muted hover:text-nofx-text transition-colors group px-3 py-1.5 rounded border border-transparent hover:border-[rgba(26,24,19,0.14)] bg-nofx-bg-deeper backdrop-blur-sm"
+            className="flex items-center gap-2 text-nofx-text-muted hover:text-nofx-text transition-colors group px-3 py-1.5 rounded-sm border border-transparent hover:border-[rgba(26,24,19,0.14)] bg-nofx-bg-deeper backdrop-blur-xs"
           >
             <div className="w-2 h-2 rounded-full bg-nofx-danger group-hover:animate-pulse"></div>
             <span className="text-xs font-mono uppercase tracking-widest">
@@ -190,7 +190,7 @@ export function RegisterPage() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-none transition-all placeholder-nofx-text-muted text-nofx-text font-mono"
+                  className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded-sm px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-hidden transition-all placeholder-nofx-text-muted text-nofx-text font-mono"
                   placeholder="user@nofx.os"
                   required
                 />
@@ -206,7 +206,7 @@ export function RegisterPage() {
                       type={showPassword ? 'text' : 'password'}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-none transition-all placeholder-nofx-text-muted text-nofx-text font-mono pr-10"
+                      className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded-sm px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-hidden transition-all placeholder-nofx-text-muted text-nofx-text font-mono pr-10"
                       placeholder="••••••••"
                       required
                     />
@@ -229,7 +229,7 @@ export function RegisterPage() {
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-none transition-all placeholder-nofx-text-muted text-nofx-text font-mono pr-10"
+                      className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded-sm px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-hidden transition-all placeholder-nofx-text-muted text-nofx-text font-mono pr-10"
                       placeholder="••••••••"
                       required
                     />
@@ -250,7 +250,7 @@ export function RegisterPage() {
                 </div>
               </div>
 
-              <div className="bg-nofx-bg-deeper p-3 rounded border border-[rgba(26,24,19,0.14)]">
+              <div className="bg-nofx-bg-deeper p-3 rounded-sm border border-[rgba(26,24,19,0.14)]">
                 <div className="text-[10px] uppercase tracking-wider text-nofx-text-muted mb-2 font-bold flex items-center gap-2">
                   <div className="w-1 h-1 rounded-full bg-nofx-text-muted"></div>
                   Password Strength Protocol
@@ -296,7 +296,7 @@ export function RegisterPage() {
                         e.target.value.replace(/[^a-z0-9]/gi, '').toLowerCase()
                       )
                     }
-                    className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-none transition-all placeholder-nofx-text-muted text-nofx-text font-mono tracking-widest"
+                    className="w-full bg-nofx-bg border border-[rgba(26,24,19,0.14)] rounded-sm px-4 py-3 text-sm focus:border-nofx-gold focus:ring-1 focus:ring-nofx-gold/50 outline-hidden transition-all placeholder-nofx-text-muted text-nofx-text font-mono tracking-widest"
                     placeholder="XXXXXX"
                     maxLength={6}
                     required={betaMode}
@@ -308,7 +308,7 @@ export function RegisterPage() {
               )}
 
               {error && (
-                <div className="text-xs bg-nofx-danger/10 border border-nofx-danger/30 text-nofx-danger px-3 py-2 rounded font-mono">
+                <div className="text-xs bg-nofx-danger/10 border border-nofx-danger/30 text-nofx-danger px-3 py-2 rounded-sm font-mono">
                   [REGISTRATION_ERROR]: {error}
                 </div>
               )}
@@ -318,7 +318,7 @@ export function RegisterPage() {
                 disabled={
                   loading || (betaMode && !betaCode.trim()) || !passwordValid
                 }
-                className="w-full bg-nofx-gold text-nofx-bg font-bold py-3 px-4 rounded text-sm tracking-wide uppercase hover:bg-nofx-gold-highlight transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed font-mono flex items-center justify-center gap-2 group mt-4"
+                className="w-full bg-nofx-gold text-nofx-bg font-bold py-3 px-4 rounded-sm text-sm tracking-wide uppercase hover:bg-nofx-gold-highlight transition-all transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed font-mono flex items-center justify-center gap-2 group mt-4"
               >
                 {loading ? (
                   <span className="animate-pulse">INITIALIZING...</span>

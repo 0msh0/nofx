@@ -142,12 +142,12 @@ export function ConfigStatusGrid({
                     {model.provider === 'claw402' && (model.balanceUsdc || model.walletAddress) ? (
                       <div className="mt-1.5 flex flex-wrap items-center gap-2 text-[10px] font-mono">
                         {model.balanceUsdc ? (
-                          <span className="rounded border border-nofx-success/20 bg-nofx-success/10 px-1.5 py-0.5 text-nofx-success">
+                          <span className="rounded-sm border border-nofx-success/20 bg-nofx-success/10 px-1.5 py-0.5 text-nofx-success">
                             {model.balanceUsdc} USDC
                           </span>
                         ) : null}
                         {model.walletAddress ? (
-                          <span className="rounded border border-nofx-gold/20 bg-nofx-gold/10 px-1.5 py-0.5 text-nofx-gold">
+                          <span className="rounded-sm border border-nofx-gold/20 bg-nofx-gold/10 px-1.5 py-0.5 text-nofx-gold">
                             {truncateAddress(model.walletAddress)}
                           </span>
                         ) : null}
@@ -221,7 +221,7 @@ export function ConfigStatusGrid({
                   <div className="min-w-0">
                     <div className="font-mono text-sm text-nofx-text group-hover:text-nofx-gold transition-colors truncate">
                       {exchange.exchange_type?.toUpperCase() || getShortName(exchange.name)}
-                      <span className="text-[10px] text-nofx-text-muted ml-2 border border-[rgba(26,24,19,0.14)] px-1 rounded">
+                      <span className="text-[10px] text-nofx-text-muted ml-2 border border-[rgba(26,24,19,0.14)] px-1 rounded-sm">
                         {exchange.account_name || 'DEFAULT'}
                       </span>
                     </div>
@@ -229,7 +229,7 @@ export function ConfigStatusGrid({
                       {exchange.type?.toUpperCase() || 'CEX'}
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-mono">
-                      <span className={`rounded border px-1.5 py-0.5 ${stateMeta.className}`}>
+                      <span className={`rounded-sm border px-1.5 py-0.5 ${stateMeta.className}`}>
                         {isExchangeAccountStatesLoading && !state
                           ? (language === 'zh' ? 'CHECKING...' : 'CHECKING...')
                           : stateMeta.label}
@@ -253,7 +253,7 @@ export function ConfigStatusGrid({
 
                     return (
                       <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                        <span className="text-[10px] font-mono text-nofx-text-muted bg-nofx-bg-deeper px-1.5 py-0.5 rounded border border-[rgba(26,24,19,0.14)]">
+                        <span className="text-[10px] font-mono text-nofx-text-muted bg-nofx-bg-deeper px-1.5 py-0.5 rounded-sm border border-[rgba(26,24,19,0.14)]">
                           {isVisible ? walletAddr : truncateAddress(walletAddr)}
                         </span>
                         <button

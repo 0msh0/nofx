@@ -86,7 +86,7 @@ export default function TerminalHero() {
             {/* BACKGROUND LAYERS */}
             {/* 1. Grid */}
             <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-multiply pointer-events-none"></div>
-            <div className="absolute inset-x-0 bottom-0 h-[50vh] bg-[linear-gradient(to_right,#1a181310_1px,transparent_1px),linear-gradient(to_bottom,#1a181310_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none md:hidden" style={{ transform: 'perspective(500px) rotateX(60deg) translateY(100px) scale(2)' }}></div>
+            <div className="absolute inset-x-0 bottom-0 h-[50vh] bg-[linear-gradient(to_right,#1a181310_1px,transparent_1px),linear-gradient(to_bottom,#1a181310_1px,transparent_1px)] bg-size-[40px_40px] mask-[radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] pointer-events-none md:hidden" style={{ transform: 'perspective(500px) rotateX(60deg) translateY(100px) scale(2)' }}></div>
             <div className="absolute inset-0 bg-grid-pattern opacity-[0.03] pointer-events-none"></div>
 
             {/* 2. World Map / Data Viz Background (Abstract) */}
@@ -100,7 +100,7 @@ export default function TerminalHero() {
             <div className="absolute bottom-[-10%] right-[-10%] w-[40vw] h-[40vw] bg-nofx-accent/10 rounded-full blur-[120px] pointer-events-none"></div>
 
             {/* Mobile Bottom Fade */}
-            <div className="absolute bottom-0 left-0 w-full h-32 bg-gradient-to-t from-nofx-bg to-transparent z-20 pointer-events-none md:hidden" />
+            <div className="absolute bottom-0 left-0 w-full h-32 bg-linear-to-t from-nofx-bg to-transparent z-20 pointer-events-none md:hidden" />
 
             {/* Mobile Floating HUD */}
             <div className="md:hidden absolute top-24 right-4 z-0 opacity-30 pointer-events-none">
@@ -117,7 +117,7 @@ export default function TerminalHero() {
 
                     {/* Top: System Health */}
                     <div className="space-y-6">
-                        <div className="border border-[rgba(26,24,19,0.14)] rounded p-4 bg-nofx-bg-lighter">
+                        <div className="border border-[rgba(26,24,19,0.14)] rounded-sm p-4 bg-nofx-bg-lighter">
                             <h3 className="text-xs font-mono text-nofx-gold mb-4 flex items-center gap-2">
                                 <Activity className="w-3 h-3" /> SYSTEM_DIAGNOSTICS
                             </h3>
@@ -145,7 +145,7 @@ export default function TerminalHero() {
                             </div>
                         </div>
 
-                        <div className="p-4 border border-[rgba(26,24,19,0.14)] rounded bg-nofx-bg-lighter">
+                        <div className="p-4 border border-[rgba(26,24,19,0.14)] rounded-sm bg-nofx-bg-lighter">
                             <div className="flex items-center gap-3 text-nofx-text-muted mb-2">
                                 <Shield className="w-4 h-4" />
                                 <span className="text-[10px] font-mono tracking-widest">SECURITY PROTOCOLS</span>
@@ -212,7 +212,7 @@ export default function TerminalHero() {
                         <div className="flex flex-wrap gap-4 font-mono">
                             {['US STOCKS', 'COMMODITIES', 'FOREX', 'PRE-IPO'].map((market) => (
                                 <div key={market} className="relative group cursor-default">
-                                    <div className="absolute -inset-0.5 bg-nofx-gold/15 rounded-lg blur opacity-0 group-hover:opacity-100 transition duration-500"></div>
+                                    <div className="absolute -inset-0.5 bg-nofx-gold/15 rounded-lg blur-sm opacity-0 group-hover:opacity-100 transition duration-500"></div>
                                     <div className="relative flex items-center gap-3 px-6 py-3 rounded-lg bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] hover:border-nofx-gold/50 transition-all duration-300">
                                         <div className="w-1.5 h-1.5 rounded-full bg-nofx-success animate-pulse"></div>
                                         <span className="text-lg md:text-xl font-bold text-nofx-text tracking-wider group-hover:text-nofx-gold transition-colors">{market}</span>
@@ -223,7 +223,7 @@ export default function TerminalHero() {
                     </div>
 
                     {/* Command Line Input Simulation */}
-                    <div className="w-full max-w-lg h-12 bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] rounded flex items-center px-4 mb-10 font-mono text-sm shadow-sm group hover:border-nofx-gold/50 transition-colors cursor-text" onClick={() => document.getElementById('market-scanner')?.scrollIntoView({ behavior: 'smooth' })}>
+                    <div className="w-full max-w-lg h-12 bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] rounded-sm flex items-center px-4 mb-10 font-mono text-sm shadow-xs group hover:border-nofx-gold/50 transition-colors cursor-text" onClick={() => document.getElementById('market-scanner')?.scrollIntoView({ behavior: 'smooth' })}>
                         <span className="text-nofx-success mr-2">➜</span>
                         <span className="text-nofx-accent mr-2">~</span>
                         <span className="text-nofx-text-muted">create US stock trader --idea="breakouts"</span>
@@ -244,7 +244,7 @@ export default function TerminalHero() {
                         </button>
                         <button
                             onClick={() => document.getElementById('market-scanner')?.scrollIntoView({ behavior: 'smooth' })}
-                            className="px-8 py-4 font-bold font-mono tracking-wider text-nofx-text border border-[rgba(26,24,19,0.2)] rounded hover:border-nofx-gold/50 hover:text-nofx-gold transition-colors"
+                            className="px-8 py-4 font-bold font-mono tracking-wider text-nofx-text border border-[rgba(26,24,19,0.2)] rounded-sm hover:border-nofx-gold/50 hover:text-nofx-gold transition-colors"
                         >
                             SEE IT WORK
                         </button>
@@ -357,7 +357,7 @@ function CommunityStats() {
                     href={stat.href}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex flex-col items-center justify-center p-3 rounded bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] group hover:border-nofx-gold/30 transition-all cursor-pointer hover:bg-nofx-bg-deeper"
+                    className="flex flex-col items-center justify-center p-3 rounded-sm bg-nofx-bg-lighter border border-[rgba(26,24,19,0.14)] group hover:border-nofx-gold/30 transition-all cursor-pointer hover:bg-nofx-bg-deeper"
                 >
                     <div className="flex items-center gap-2 mb-1">
                         <stat.icon className={`w-4 h-4 ${stat.color}`} />

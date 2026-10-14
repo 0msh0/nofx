@@ -100,7 +100,7 @@ export function TraderLaunchGuestPage() {
             {setupSteps.map((step, index) => {
               const Icon = step.icon
               const cardClass =
-                'group rounded-xl border border-nofx-gold/20 bg-nofx-bg-deeper p-4 text-left transition hover:border-nofx-gold/35 hover:bg-nofx-gold/[0.06]'
+                'group rounded-xl border border-nofx-gold/20 bg-nofx-bg-deeper p-4 text-left transition hover:border-nofx-gold/35 hover:bg-nofx-gold/6'
               const content = (
                 <>
                   <div className="mb-4 flex items-center justify-between">
@@ -176,7 +176,7 @@ export function TraderLaunchGuestPage() {
               href="https://rabby.io/"
               target="_blank"
               rel="noreferrer"
-              className="group rounded-xl border border-nofx-gold/20 bg-nofx-bg-deeper p-4 transition hover:border-nofx-gold/30 hover:bg-nofx-gold/[0.06]"
+              className="group rounded-xl border border-nofx-gold/20 bg-nofx-bg-deeper p-4 transition hover:border-nofx-gold/30 hover:bg-nofx-gold/6"
             >
               <Download className="mb-3 h-4 w-4 text-nofx-gold" />
               <div className="font-semibold text-nofx-text">Install Rabby</div>
@@ -188,7 +188,7 @@ export function TraderLaunchGuestPage() {
               href="https://metamask.io/download/"
               target="_blank"
               rel="noreferrer"
-              className="group rounded-xl border border-nofx-gold/20 bg-nofx-bg-deeper p-4 transition hover:border-nofx-gold/30 hover:bg-nofx-gold/[0.06]"
+              className="group rounded-xl border border-nofx-gold/20 bg-nofx-bg-deeper p-4 transition hover:border-nofx-gold/30 hover:bg-nofx-gold/6"
             >
               <ExternalLink className="mb-3 h-4 w-4 text-nofx-gold" />
               <div className="font-semibold text-nofx-text">MetaMask</div>

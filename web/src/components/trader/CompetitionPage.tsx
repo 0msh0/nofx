@@ -51,17 +51,17 @@ export function CompetitionPage() {
             <div className="animate-pulse bg-nofx-bg-lighter border border-nofx-gold/20 rounded-xl p-8">
               <div className="flex items-center justify-between mb-6">
                 <div className="space-y-3 flex-1">
-                  <div className="h-8 w-64 bg-nofx-bg-deeper rounded"></div>
-                  <div className="h-4 w-48 bg-nofx-bg-deeper rounded"></div>
+                  <div className="h-8 w-64 bg-nofx-bg-deeper rounded-sm"></div>
+                  <div className="h-4 w-48 bg-nofx-bg-deeper rounded-sm"></div>
                 </div>
-                <div className="h-12 w-32 bg-nofx-bg-deeper rounded"></div>
+                <div className="h-12 w-32 bg-nofx-bg-deeper rounded-sm"></div>
               </div>
             </div>
             <div className="bg-nofx-bg-lighter border border-nofx-gold/20 rounded-xl p-6">
-              <div className="h-6 w-40 mb-4 bg-nofx-bg-deeper rounded"></div>
+              <div className="h-6 w-40 mb-4 bg-nofx-bg-deeper rounded-sm"></div>
               <div className="space-y-3">
-                <div className="h-20 w-full bg-nofx-bg-deeper rounded"></div>
-                <div className="h-20 w-full bg-nofx-bg-deeper rounded"></div>
+                <div className="h-20 w-full bg-nofx-bg-deeper rounded-sm"></div>
+                <div className="h-20 w-full bg-nofx-bg-deeper rounded-sm"></div>
               </div>
             </div>
           </div>
@@ -91,7 +91,7 @@ export function CompetitionPage() {
                 >
                   {t('aiCompetition', language)}
                   <span
-                    className="text-xs font-normal px-2 py-1 rounded bg-nofx-gold/10 text-nofx-gold border border-nofx-gold/20"
+                    className="text-xs font-normal px-2 py-1 rounded-sm bg-nofx-gold/10 text-nofx-gold border border-nofx-gold/20"
                   >
                     0 {t('traders', language)}
                   </span>
@@ -147,7 +147,7 @@ export function CompetitionPage() {
               >
                 {t('aiCompetition', language)}
                 <span
-                  className="text-xs font-normal px-2 py-1 rounded bg-nofx-gold/10 text-nofx-gold border border-nofx-gold/20"
+                  className="text-xs font-normal px-2 py-1 rounded-sm bg-nofx-gold/10 text-nofx-gold border border-nofx-gold/20"
                 >
                   {competition.count} {t('traders', language)}
                 </span>
@@ -210,7 +210,7 @@ export function CompetitionPage() {
                 {t('leaderboard', language)}
               </h2>
               <div
-                className="text-xs px-2 py-1 rounded bg-nofx-gold/10 text-nofx-gold border border-nofx-gold/20"
+                className="text-xs px-2 py-1 rounded-sm bg-nofx-gold/10 text-nofx-gold border border-nofx-gold/20"
               >
                 {t('live', language)}
               </div>
@@ -227,7 +227,7 @@ export function CompetitionPage() {
                   <div
                     key={trader.trader_id}
                     onClick={() => handleTraderClick(trader.trader_id)}
-                    className="rounded p-3 transition-all duration-300 hover:translate-y-[-1px] cursor-pointer hover:shadow-lg"
+                    className="rounded-sm p-3 transition-all duration-300 hover:-translate-y-px cursor-pointer hover:shadow-lg"
                     style={{
                       background: isLeader
                         ? 'rgba(224, 72, 59, 0.08)'
@@ -340,7 +340,7 @@ export function CompetitionPage() {
                         {/* Status */}
                         <div>
                           <div
-                            className="px-2 py-1 rounded text-xs font-bold"
+                            className="px-2 py-1 rounded-sm text-xs font-bold"
                             style={
                               trader.is_running
                                 ? {
@@ -395,7 +395,7 @@ export function CompetitionPage() {
                 return (
                   <div
                     key={trader.trader_id}
-                    className="p-4 rounded transition-all duration-300 hover:scale-[1.02]"
+                    className="p-4 rounded-sm transition-all duration-300 hover:scale-[1.02]"
                     style={
                       isWinning
                         ? {

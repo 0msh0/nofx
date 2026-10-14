@@ -1,4 +1,5 @@
 Frontier local security review — 2026-10-14 (Asia/Tokyo)
+Historical snapshot. See frontier-review-2026-10-15.txt for follow-up fixes.
 
 Scope and limits
 - Local open-nofx source, relevant tests, current database, recent 30 Git

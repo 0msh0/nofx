@@ -10,7 +10,7 @@ running strategy and not a historical backtesting requirement.
    `git submodule update --init web/vendor/charting`.
 2. Build/run NOFX using its existing instructions. `npm run build` and `npm run dev`
    copy vendor assets into generated `web/public/charting_library/`.
-3. Log in and open **交易规划** (`/planning`) in the navigation.
+3. Log in and open **Frontier** (`/frontier`; `/planning` remains an alias) in the navigation.
 4. Select an existing enabled Binance USDT perpetual account or Hyperliquid
    mainnet account. Hyperliquid uses NOFX's existing owner wallet, agent and
    builder authorization. Select an existing enabled NOFX AI configuration.
@@ -35,7 +35,7 @@ Preferences cannot lower the submitted hard risk limits.
   perpetuals and `xyz` HIP-3 perpetuals. OKX public market data is implemented,
   but this workspace does not offer OKX live execution yet. There is no adapter
   fallback to another exchange or order type.
-- **1–20x selected leverage** (subject to venue limits), finite GTC limit orders only. `limit` is one entry; `ladder`
+- **1–20x selected leverage, default 5x for new plans** (subject to venue limits), finite GTC limit orders only. `limit` is one entry; `ladder`
   accepts 2–8 weighted prices; `twap` accepts 2–24 fixed-price slices at 5–300
   second intervals, with total release time at most one hour. It does not chase
   prices or execute arbitrary generated code. Late TWAP slices expire rather
@@ -78,7 +78,7 @@ locked intent and monotonic filled quantity. Remaining protective orders must be
 confirmed or canceled before releasing the lease; an unknown order retains it.
 
 After restart, active runs become `needs_attention`; they do not resume new
-entries or replay orders. Open **执行记录 → 核对交易所状态** to resume reconciliation
+entries or replay orders. Open **Previous executions → Reconcile exchange state** to resume reconciliation
 and protection monitoring. Existing exchange-side stop/target orders continue
 independently of the process. An outage/restart can delay protection of new
 fills: verify positions and orders directly at the exchange before proceeding.
@@ -91,10 +91,11 @@ comparison timeframes; it may propose, revise, draw, or run read-only data tools
 Data provenance is captured with the draft. History and preferences are scoped
 by NOFX user; transient provider reasoning is not saved in chat JSON.
 
-Public funding/open-interest sources and Hyperdata cost/profit/win-rate sources
-are available to the harness through the data-plugin registry. Hyperdata is only
-used for its matching Hyperliquid market; it is never substituted for Binance
-or OKX data. Open **数据插件** to enable or disable individual sources for the same user
+Public funding/open-interest sources and paid holder analytics are exposed
+through the data-plugin registry. Holder cost/win-rate sources require Claw402
+and only apply to their matching Hyperliquid market; they are never substituted
+for Binance or OKX data. A profit source without a paid catalog endpoint remains
+unavailable; there is no public-origin fallback. Open **Market data and indicators** to enable or disable individual sources for the same user
 registry used by the AI, and explicitly read the selected market. Funding/OI
 metrics, cost/liquidation distributions, labeled long/short win-rate heatmaps and
 7/30-day profit tables are rendered from bounded typed data. Missing/incomplete
@@ -125,7 +126,8 @@ The feature has been merged locally with upstream dev `294d0641`, including its
 payment authorization, gasless approval, receipt verification and model updates.
 Unknown paid-call outcomes retain their safe upstream classification and are
 shown as requiring payment reconciliation, never as an instruction to resend.
-No remote push, PR, deployment or real transaction is part of local validation.
+Validation does not submit real transactions. The owner separately authorized
+a direct merge to main after successful checks; no PR is created.
 
 ## Builder and Broker routing
 

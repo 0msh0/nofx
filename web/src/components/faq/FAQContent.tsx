@@ -16,7 +16,7 @@ function InlineText({ text }: { text: string }) {
         part.startsWith('`') && part.endsWith('`') ? (
           <code
             key={i}
-            className="rounded bg-nofx-bg-deeper border border-[rgba(26,24,19,0.10)] px-1.5 py-0.5 font-mono text-[0.85em] text-nofx-text break-all"
+            className="rounded-sm bg-nofx-bg-deeper border border-[rgba(26,24,19,0.10)] px-1.5 py-0.5 font-mono text-[0.85em] text-nofx-text break-all"
           >
             {part.slice(1, -1)}
           </code>
@@ -54,7 +54,7 @@ function Block({ block }: { block: FAQBlock }) {
         <ol className="space-y-1.5">
           {block.items.map((item, i) => (
             <li key={i} className="flex gap-3 text-sm leading-6 text-nofx-text-muted">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border border-nofx-gold/30 bg-nofx-gold/10 font-mono text-[11px] font-bold text-nofx-gold">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-sm border border-nofx-gold/30 bg-nofx-gold/10 font-mono text-[11px] font-bold text-nofx-gold">
                 {i + 1}
               </span>
               <span>
@@ -79,7 +79,7 @@ function Block({ block }: { block: FAQBlock }) {
               href={link.href}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-1.5 rounded border border-nofx-gold/25 bg-nofx-bg-deeper px-2.5 py-1 font-mono text-xs font-semibold text-nofx-gold hover:border-nofx-gold/50 hover:bg-nofx-gold/10"
+              className="inline-flex items-center gap-1.5 rounded-sm border border-nofx-gold/25 bg-nofx-bg-deeper px-2.5 py-1 font-mono text-xs font-semibold text-nofx-gold hover:border-nofx-gold/50 hover:bg-nofx-gold/10"
             >
               {link.label}
               <ExternalLink className="h-3 w-3" />

@@ -279,7 +279,7 @@ export default function HeaderBar({
                 <div className="relative" ref={userDropdownRef}>
                   <button
                     onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                    className="flex items-center gap-2 px-3 py-2 rounded transition-colors bg-nofx-bg-lighter border border-nofx-gold/20 hover:bg-[rgba(26,24,19,0.06)]"
+                    className="flex items-center gap-2 px-3 py-2 rounded-sm transition-colors bg-nofx-bg-lighter border border-nofx-gold/20 hover:bg-[rgba(26,24,19,0.06)]"
                   >
                     <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold bg-nofx-gold text-white">
                       {user.email[0].toUpperCase()}
@@ -334,7 +334,7 @@ export default function HeaderBar({
                   <button
                     type="button"
                     onClick={() => navigateInApp(ROUTES.login)}
-                    className="px-3 py-2 text-sm font-medium transition-colors rounded text-nofx-text-muted hover:text-nofx-text"
+                    className="px-3 py-2 text-sm font-medium transition-colors rounded-sm text-nofx-text-muted hover:text-nofx-text"
                   >
                     {t('signIn', language)}
                   </button>
@@ -488,7 +488,7 @@ export default function HeaderBar({
                           </span>
                         )}
                         {tab.requiresAuth && !isLoggedIn && (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded border border-zinc-800 text-zinc-500 font-normal tracking-wide uppercase align-middle relative -top-1">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-sm border border-zinc-800 text-zinc-500 font-normal tracking-wide uppercase align-middle relative -top-1">
                             LOGIN_REQ
                           </span>
                         )}

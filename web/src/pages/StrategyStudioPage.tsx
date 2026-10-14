@@ -611,7 +611,7 @@ function HeatmapChartRow({
         {formatPrice(price)}
       </div>
       <div
-        className={`relative h-6 overflow-visible rounded-sm ${
+        className={`relative h-6 overflow-visible rounded-xs ${
           isCurrent ? 'bg-nofx-gold/10' : 'bg-nofx-bg-lighter'
         }`}
       >
@@ -717,19 +717,19 @@ function CostLiquidationHeatmap({
       <div className="px-5 py-5">
         <div className="mb-4 flex flex-wrap justify-center gap-4 text-sm text-nofx-text-muted">
           <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded bg-nofx-success/70" />
+            <span className="h-3 w-3 rounded-sm bg-nofx-success/70" />
             Long cost
           </span>
           <span className="inline-flex items-center gap-1">
-            <span className="h-3 w-3 rounded bg-nofx-danger/70" />
+            <span className="h-3 w-3 rounded-sm bg-nofx-danger/70" />
             Short cost
           </span>
           <span className="inline-flex items-center gap-1 text-orange-300">
-            <span className="h-3 w-3 rounded bg-orange-400" />
+            <span className="h-3 w-3 rounded-sm bg-orange-400" />
             Long liquidation
           </span>
           <span className="inline-flex items-center gap-1 text-nofx-gold">
-            <span className="h-3 w-3 rounded bg-nofx-gold" />
+            <span className="h-3 w-3 rounded-sm bg-nofx-gold" />
             Short liquidation
           </span>
         </div>
@@ -1386,7 +1386,7 @@ export function StrategyStudioPage() {
 
   return (
     <DeepVoidBackground className="min-h-[calc(100vh-64px)] bg-nofx-bg">
-      <div className="border-b border-[rgba(26,24,19,0.14)] bg-nofx-bg/75 px-5 py-4 backdrop-blur">
+      <div className="border-b border-[rgba(26,24,19,0.14)] bg-nofx-bg/75 px-5 py-4 backdrop-blur-sm">
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-nofx-text">
@@ -1442,7 +1442,7 @@ export function StrategyStudioPage() {
                     {strategy.name}
                   </span>
                   {strategy.is_active ? (
-                    <span className="rounded bg-nofx-success/15 px-1.5 py-0.5 text-[10px] text-nofx-success">
+                    <span className="rounded-sm bg-nofx-success/15 px-1.5 py-0.5 text-[10px] text-nofx-success">
                       {text(language, 'Active', 'Active')}
                     </span>
                   ) : null}
@@ -1472,7 +1472,7 @@ export function StrategyStudioPage() {
                         })
                         setHasChanges(true)
                       }}
-                      className="w-full bg-transparent text-lg font-semibold text-nofx-text outline-none"
+                      className="w-full bg-transparent text-lg font-semibold text-nofx-text outline-hidden"
                     />
                     <input
                       value={selectedStrategy.description || ''}
@@ -1488,7 +1488,7 @@ export function StrategyStudioPage() {
                         'One-line strategy note',
                         'One-line strategy note'
                       )}
-                      className="mt-1 w-full bg-transparent text-sm text-nofx-text-muted outline-none placeholder:text-nofx-text-muted/50"
+                      className="mt-1 w-full bg-transparent text-sm text-nofx-text-muted outline-hidden placeholder:text-nofx-text-muted/50"
                     />
                     {hasChanges ? (
                       <div className="mt-2 text-xs text-nofx-gold">
@@ -2133,7 +2133,7 @@ export function StrategyStudioPage() {
                       'Example: only trade clean trends; skip entries when board signals conflict with candles.',
                       'Example: only trade clean trends; skip entries when board signals conflict with candles.'
                     )}
-                    className="h-28 w-full resize-none rounded-lg border border-[rgba(26,24,19,0.14)] bg-nofx-bg px-3 py-2 text-sm text-nofx-text outline-none placeholder:text-nofx-text-muted/50"
+                    className="h-28 w-full resize-none rounded-lg border border-[rgba(26,24,19,0.14)] bg-nofx-bg px-3 py-2 text-sm text-nofx-text outline-hidden placeholder:text-nofx-text-muted/50"
                   />
                 </div>
               </details>

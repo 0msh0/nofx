@@ -197,7 +197,7 @@ function TradingViewChartComponent({
                 setShowExchangeDropdown(!showExchangeDropdown)
                 setShowSymbolDropdown(false)
               }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm font-medium transition-all"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-sm text-sm font-medium transition-all"
               style={{
                 background: '#F7F4EC',
                 border: '1px solid rgba(26, 24, 19, 0.14)',
@@ -246,7 +246,7 @@ function TradingViewChartComponent({
                 setShowSymbolDropdown(!showSymbolDropdown)
                 setShowExchangeDropdown(false)
               }}
-              className="flex items-center gap-1 px-3 py-1.5 rounded text-sm font-bold transition-all"
+              className="flex items-center gap-1 px-3 py-1.5 rounded-sm text-sm font-bold transition-all"
               style={{
                 background: 'rgba(224, 72, 59, 0.1)',
                 border: '1px solid rgba(224, 72, 59, 0.3)',
@@ -274,7 +274,7 @@ function TradingViewChartComponent({
                       onChange={(e) => setCustomSymbol(e.target.value.toUpperCase())}
                       onKeyDown={(e) => e.key === 'Enter' && handleCustomSymbolSubmit()}
                       placeholder={t('enterSymbol', language)}
-                      className="flex-1 px-3 py-1.5 rounded text-sm"
+                      className="flex-1 px-3 py-1.5 rounded-sm text-sm"
                       style={{
                         background: '#F1ECE2',
                         border: '1px solid rgba(26, 24, 19, 0.14)',
@@ -283,7 +283,7 @@ function TradingViewChartComponent({
                     />
                     <button
                       onClick={handleCustomSymbolSubmit}
-                      className="px-3 py-1.5 rounded text-sm font-medium"
+                      className="px-3 py-1.5 rounded-sm text-sm font-medium"
                       style={{
                         background: '#E0483B',
                         color: '#F1ECE2',
@@ -310,7 +310,7 @@ function TradingViewChartComponent({
                           setSymbol(sym)
                           setShowSymbolDropdown(false)
                         }}
-                        className="px-2 py-1.5 rounded text-xs font-medium transition-all"
+                        className="px-2 py-1.5 rounded-sm text-xs font-medium transition-all"
                         style={{
                           color: symbol === sym ? '#E0483B' : '#1A1813',
                           background:
@@ -330,14 +330,14 @@ function TradingViewChartComponent({
 
           {/* Interval Selector */}
           <div
-            className="flex gap-0.5 p-0.5 rounded"
+            className="flex gap-0.5 p-0.5 rounded-sm"
             style={{ background: '#E8E2D5', border: '1px solid rgba(26, 24, 19, 0.14)' }}
           >
             {INTERVALS.map((int) => (
               <button
                 key={int.id}
                 onClick={() => setTimeInterval(int.id)}
-                className="px-2 py-1 rounded text-xs font-medium transition-all"
+                className="px-2 py-1 rounded-sm text-xs font-medium transition-all"
                 style={{
                   background: timeInterval === int.id ? '#E0483B' : 'transparent',
                   color: timeInterval === int.id ? '#F1ECE2' : '#8A8478',
@@ -351,7 +351,7 @@ function TradingViewChartComponent({
           {/* Fullscreen Toggle */}
           <button
             onClick={() => setIsFullscreen(!isFullscreen)}
-            className="p-1.5 rounded transition-all"
+            className="p-1.5 rounded-sm transition-all"
             style={{
               background: isFullscreen ? '#E0483B' : 'transparent',
               color: isFullscreen ? '#F1ECE2' : '#8A8478',

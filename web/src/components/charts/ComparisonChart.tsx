@@ -262,7 +262,7 @@ export function ComparisonChart({ traders }: ComparisonChartProps) {
 
       return (
         <div
-          className="rounded-xl p-4 shadow-2xl backdrop-blur-sm"
+          className="rounded-xl p-4 shadow-2xl backdrop-blur-xs"
           style={{
             background: 'rgba(247, 244, 236, 0.95)',
             border: '1px solid rgba(224, 72, 59, 0.2)',

@@ -71,7 +71,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </h3>
         )}
         <div className="animate-pulse">
-          <div className="skeleton h-64 w-full rounded"></div>
+          <div className="skeleton h-64 w-full rounded-sm"></div>
         </div>
       </div>
     )
@@ -81,7 +81,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
     return (
       <div className={embedded ? 'p-6' : 'binance-card p-6'}>
         <div
-          className="flex items-center gap-3 p-4 rounded"
+          className="flex items-center gap-3 p-4 rounded-sm"
           style={{
             background: 'rgba(214, 67, 58, 0.1)',
             border: '1px solid rgba(214, 67, 58, 0.2)',
@@ -188,7 +188,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
       const data = payload[0].payload
       return (
         <div
-          className="rounded p-3 shadow-xl"
+          className="rounded-sm p-3 shadow-xl"
           style={{ background: '#F7F4EC', border: '1px solid rgba(26, 24, 19, 0.14)' }}
         >
           <div className="text-xs mb-1" style={{ color: '#8A8478' }}>
@@ -239,7 +239,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
             </span>
             <div className="flex items-center gap-2 flex-wrap">
               <span
-                className="text-sm sm:text-lg font-bold mono px-2 sm:px-3 py-1 rounded flex items-center gap-1"
+                className="text-sm sm:text-lg font-bold mono px-2 sm:px-3 py-1 rounded-sm flex items-center gap-1"
                 style={{
                   color: isProfit ? '#2E8B57' : '#D6433A',
                   background: isProfit
@@ -273,12 +273,12 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
 
         {/* Display Mode Toggle */}
         <div
-          className="flex gap-0.5 sm:gap-1 rounded p-0.5 sm:p-1 self-start sm:self-auto"
+          className="flex gap-0.5 sm:gap-1 rounded-sm p-0.5 sm:p-1 self-start sm:self-auto"
           style={{ background: '#E8E2D5', border: '1px solid rgba(26, 24, 19, 0.14)' }}
         >
           <button
             onClick={() => setDisplayMode('dollar')}
-            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold transition-all flex items-center gap-1"
+            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm text-xs sm:text-sm font-bold transition-all flex items-center gap-1"
             style={
               displayMode === 'dollar'
                 ? {
@@ -292,7 +292,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </button>
           <button
             onClick={() => setDisplayMode('percent')}
-            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded text-xs sm:text-sm font-bold transition-all flex items-center gap-1"
+            className="px-3 sm:px-4 py-1.5 sm:py-2 rounded-sm text-xs sm:text-sm font-bold transition-all flex items-center gap-1"
             style={
               displayMode === 'percent'
                 ? {
@@ -401,7 +401,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
         style={{ borderTop: '1px solid rgba(26, 24, 19, 0.14)' }}
       >
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
+          className="p-2 rounded-sm transition-all hover:bg-opacity-50"
           style={{ background: 'rgba(224, 72, 59, 0.05)' }}
         >
           <div
@@ -418,7 +418,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </div>
         </div>
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
+          className="p-2 rounded-sm transition-all hover:bg-opacity-50"
           style={{ background: 'rgba(224, 72, 59, 0.05)' }}
         >
           <div
@@ -435,7 +435,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </div>
         </div>
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
+          className="p-2 rounded-sm transition-all hover:bg-opacity-50"
           style={{ background: 'rgba(224, 72, 59, 0.05)' }}
         >
           <div
@@ -452,7 +452,7 @@ export function EquityChart({ traderId, embedded = false }: EquityChartProps) {
           </div>
         </div>
         <div
-          className="p-2 rounded transition-all hover:bg-opacity-50"
+          className="p-2 rounded-sm transition-all hover:bg-opacity-50"
           style={{ background: 'rgba(224, 72, 59, 0.05)' }}
         >
           <div

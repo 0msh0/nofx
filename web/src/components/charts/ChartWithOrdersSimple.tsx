@@ -91,7 +91,7 @@ export function ChartWithOrdersSimple({
           </div>
         ) : (
           <>
-            <div className="p-4 rounded" style={{ background: '#F7F4EC', border: '1px solid rgba(26, 24, 19, 0.14)' }}>
+            <div className="p-4 rounded-sm" style={{ background: '#F7F4EC', border: '1px solid rgba(26, 24, 19, 0.14)' }}>
               <div className="text-sm mb-2" style={{ color: '#8A8478' }}>Binance Kline Data</div>
               <div className="text-2xl font-bold" style={{ color: '#2E8B57' }}>
                 {klineCount} klines
@@ -99,7 +99,7 @@ export function ChartWithOrdersSimple({
             </div>
 
             {traderID && (
-              <div className="p-4 rounded" style={{ background: '#F7F4EC', border: '1px solid rgba(26, 24, 19, 0.14)' }}>
+              <div className="p-4 rounded-sm" style={{ background: '#F7F4EC', border: '1px solid rgba(26, 24, 19, 0.14)' }}>
                 <div className="text-sm mb-2" style={{ color: '#8A8478' }}>Historical Order Data</div>
                 <div className="text-2xl font-bold" style={{ color: '#E0483B' }}>
                   {orderCount} orders
@@ -107,7 +107,7 @@ export function ChartWithOrdersSimple({
               </div>
             )}
 
-            <div className="p-4 rounded" style={{ background: '#F7F4EC', border: '1px solid rgba(26, 24, 19, 0.14)' }}>
+            <div className="p-4 rounded-sm" style={{ background: '#F7F4EC', border: '1px solid rgba(26, 24, 19, 0.14)' }}>
               <div className="text-sm mb-2" style={{ color: '#8A8478' }}>Status</div>
               <div className="text-lg" style={{ color: '#1A1813' }}>
                 ✅ Data fetched successfully, chart component in development

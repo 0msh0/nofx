@@ -90,8 +90,8 @@ export default function LiveFeed() {
                                 className="absolute inset-0 flex items-center gap-4"
                             >
                                 <span className="text-nofx-text-muted">[{log.time}]</span>
-                                <span className={`font-bold w-10 ${log.type === 'RISK' ? 'text-nofx-danger bg-nofx-danger/10 px-1 rounded' :
-                                    log.type === 'SIGNAL' ? 'text-nofx-gold bg-nofx-gold/10 px-1 rounded' :
+                                <span className={`font-bold w-10 ${log.type === 'RISK' ? 'text-nofx-danger bg-nofx-danger/10 px-1 rounded-sm' :
+                                    log.type === 'SIGNAL' ? 'text-nofx-gold bg-nofx-gold/10 px-1 rounded-sm' :
                                         log.type === 'EXEC' ? 'text-nofx-success' : 'text-nofx-text-muted'
                                     }`}>{log.type}</span>
                                 <span className={`${log.color}`}>{log.msg}</span>

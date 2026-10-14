@@ -385,7 +385,7 @@ export function SettingsPage() {
                         type={showPassword ? 'text' : 'password'}
                         value={newPassword}
                         onChange={(e) => setNewPassword(e.target.value)}
-                        className="w-full bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-xl px-4 py-3 pr-11 text-sm text-nofx-text placeholder-nofx-text-muted focus:outline-none focus:border-nofx-gold/60 focus:ring-1 focus:ring-nofx-gold/30 transition-all"
+                        className="w-full bg-nofx-bg-deeper border border-[rgba(26,24,19,0.14)] rounded-xl px-4 py-3 pr-11 text-sm text-nofx-text placeholder-nofx-text-muted focus:outline-hidden focus:border-nofx-gold/60 focus:ring-1 focus:ring-nofx-gold/30 transition-all"
                         placeholder="At least 8 characters"
                         required
                       />
@@ -637,7 +637,7 @@ export function SettingsPage() {
 
       {/* AI Model Modal */}
       {showModelModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs px-4">
           <ModelConfigModal
             allModels={supportedModels}
             configuredModels={configuredModels}
@@ -655,7 +655,7 @@ export function SettingsPage() {
 
       {/* Exchange Modal */}
       {showExchangeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs px-4">
           <ExchangeConfigModal
             allExchanges={exchanges}
             editingExchangeId={editingExchange}
@@ -672,7 +672,7 @@ export function SettingsPage() {
 
       {/* Telegram Modal */}
       {showTelegramModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs px-4">
           <TelegramConfigModal
             onClose={() => setShowTelegramModal(false)}
             language={language}

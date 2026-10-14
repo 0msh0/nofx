@@ -937,9 +937,9 @@ export function AdvancedChart({
           {/* Symbol & Interval */}
           <div className="flex items-center gap-2">
             <span className="text-sm font-bold text-nofx-text">{symbol}</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded bg-nofx-bg-deeper text-nofx-text-muted">{interval}</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-nofx-bg-deeper text-nofx-text-muted">{interval}</span>
             <span
-              className="text-[10px] px-1.5 py-0.5 rounded font-medium uppercase"
+              className="text-[10px] px-1.5 py-0.5 rounded-sm font-medium uppercase"
               style={{
                 background: 'rgba(224, 72, 59, 0.1)',
                 color: '#E0483B',
@@ -962,7 +962,7 @@ export function AdvancedChart({
                 })}
               </span>
               <span
-                className="text-xs font-medium px-1.5 py-0.5 rounded tabular-nums"
+                className="text-xs font-medium px-1.5 py-0.5 rounded-sm tabular-nums"
                 style={{
                   background: marketStats.priceChange >= 0 ? 'rgba(46, 139, 87, 0.1)' : 'rgba(214, 67, 58, 0.1)',
                   color: marketStats.priceChange >= 0 ? '#2E8B57' : '#D6433A',
@@ -992,7 +992,7 @@ export function AdvancedChart({
           )}
           <button
             onClick={() => setShowIndicatorPanel(!showIndicatorPanel)}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-all"
+            className="flex items-center gap-1 px-2 py-1 rounded-sm text-[11px] font-medium transition-all"
             style={{
               background: showIndicatorPanel ? 'rgba(224, 72, 59, 0.12)' : 'transparent',
               color: showIndicatorPanel ? '#E0483B' : '#8A8478',
@@ -1004,7 +1004,7 @@ export function AdvancedChart({
 
           <button
             onClick={() => setShowOrderMarkers(!showOrderMarkers)}
-            className="flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium transition-all"
+            className="flex items-center gap-1 px-2 py-1 rounded-sm text-[11px] font-medium transition-all"
             style={{
               background: showOrderMarkers ? 'rgba(46, 139, 87, 0.15)' : 'transparent',
               color: showOrderMarkers ? '#2E8B57' : '#8A8478',
@@ -1019,7 +1019,7 @@ export function AdvancedChart({
       {/* Indicator panel - professional design */}
       {showIndicatorPanel && (
         <div
-          className="absolute top-16 right-4 z-10 rounded-lg shadow-2xl backdrop-blur-sm"
+          className="absolute top-16 right-4 z-10 rounded-lg shadow-2xl backdrop-blur-xs"
           style={{
             background: '#F7F4EC',
             border: '1px solid rgba(224, 72, 59, 0.2)',
@@ -1059,11 +1059,11 @@ export function AdvancedChart({
                     type="checkbox"
                     checked={indicator.enabled}
                     onChange={() => toggleIndicator(indicator.id)}
-                    className="w-4 h-4 rounded border-[rgba(26,24,19,0.3)] text-nofx-gold focus:ring-2 focus:ring-nofx-gold/50"
+                    className="w-4 h-4 rounded-sm border-[rgba(26,24,19,0.3)] text-nofx-gold focus:ring-2 focus:ring-nofx-gold/50"
                   />
                 </div>
                 <div
-                  className="w-8 h-3 rounded-sm border border-[rgba(26,24,19,0.14)]"
+                  className="w-8 h-3 rounded-xs border border-[rgba(26,24,19,0.14)]"
                   style={{ backgroundColor: indicator.color }}
                 ></div>
                 <span className="text-sm text-nofx-text-muted group-hover:text-nofx-text transition-colors flex-1">

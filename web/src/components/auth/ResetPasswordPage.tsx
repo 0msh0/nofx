@@ -69,7 +69,7 @@ export function ResetPasswordPage() {
             </p>
 
             <div
-              className="flex items-center justify-between gap-3 rounded px-3 py-3 font-mono text-xs"
+              className="flex items-center justify-between gap-3 rounded-sm px-3 py-3 font-mono text-xs"
               style={{ background: '#E8E2D5', border: '1px solid rgba(26,24,19,0.14)' }}
             >
               <code

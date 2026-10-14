@@ -1,9 +1,122 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap')
+layer(base);
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap')
+layer(base);
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --color-nofx-gold: #e0483b;
+  --color-nofx-gold-dim: rgba(224, 72, 59, 0.1);
+  --color-nofx-gold-glow: rgba(224, 72, 59, 0.3);
+  --color-nofx-gold-highlight: #c8392b;
+
+  --color-nofx-bg: #f1ece2;
+  --color-nofx-bg-deeper: #e8e2d5;
+  --color-nofx-bg-lighter: #f7f4ec;
+
+  --color-nofx-accent: #e0483b;
+
+  --color-nofx-text: #1a1813;
+  --color-nofx-text-main: #1a1813;
+  --color-nofx-text-muted: #8a8478;
+
+  --color-nofx-success: #2e8b57;
+  --color-nofx-danger: #d6433a;
+
+  --font-sans: IBM Plex Mono, ui-monospace, Menlo, monospace;
+  --font-mono: IBM Plex Mono, Menlo, Monaco, Courier New, monospace;
+
+  --background-image-gradient-radial: radial-gradient(
+    circle at center,
+    var(--tw-gradient-stops)
+  );
+  --background-image-gradient-conic: conic-gradient(
+    from 180deg at 50% 50%,
+    var(--tw-gradient-stops)
+  );
+  --background-image-scanlines: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0H4V2H0V0Z' fill='rgba(0,0,0,0.4)'/%3E%3C/svg%3E");
+  --background-image-grid-pattern:
+    linear-gradient(to right, #1f2937 1px, transparent 1px),
+    linear-gradient(to bottom, #1f2937 1px, transparent 1px);
+
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-scan: scan 8s linear infinite;
+  --animate-scan-fast: scan 2s linear infinite;
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-glitch: glitch 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both
+    infinite;
+  --animate-shimmer: shimmer 2s linear infinite;
+
+  --shadow-neon:
+    0 0 5px var(--color-nofx-gold), 0 0 20px var(--color-nofx-gold-dim);
+  --shadow-neon-blue:
+    0 0 5px var(--color-nofx-accent), 0 0 20px rgba(0, 240, 255, 0.2);
+
+  @keyframes scan {
+    0% {
+      background-position: 0 0;
+    }
+    100% {
+      background-position: 0 100%;
+    }
+  }
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  @keyframes glitch {
+    0% {
+      transform: translate(0);
+    }
+    20% {
+      transform: translate(-2px, 2px);
+    }
+    40% {
+      transform: translate(-2px, -2px);
+    }
+    60% {
+      transform: translate(2px, 2px);
+    }
+    80% {
+      transform: translate(2px, -2px);
+    }
+    100% {
+      transform: translate(0);
+    }
+  }
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+}
+
+/*
+  The default border color has changed to `currentcolor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentcolor);
+  }
+}
 
 /* 强制显示滚动条以确保所有页面布局一致 */
 html {

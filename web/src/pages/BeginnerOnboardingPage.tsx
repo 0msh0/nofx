@@ -109,7 +109,7 @@ export function BeginnerOnboardingPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-[80]">
+    <div className="fixed inset-0 z-80">
       <div className="absolute inset-0 bg-black/58 backdrop-blur-[2px]" />
       <div className="relative flex min-h-screen items-center justify-center px-4 py-10 sm:px-6">
         <button
@@ -171,7 +171,7 @@ export function BeginnerOnboardingPage() {
               <div className="grid lg:grid-cols-[0.82fr_1.18fr]">
                 <section className="flex flex-col justify-center px-8 py-7 sm:px-9 lg:min-h-[430px]">
                   <div className="mx-auto w-full max-w-[248px] text-center">
-                    <div className="mx-auto inline-flex rounded-[28px] border border-[rgba(26,24,19,0.14)] bg-white p-4 shadow-sm">
+                    <div className="mx-auto inline-flex rounded-[28px] border border-[rgba(26,24,19,0.14)] bg-white p-4 shadow-xs">
                       <QRCodeSVG value={data.address} size={164} level="M" />
                     </div>
 

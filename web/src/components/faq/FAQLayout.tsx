@@ -71,7 +71,7 @@ export function FAQLayout() {
 
         {/* content */}
         <div className="flex gap-8">
-          <aside className="hidden w-64 flex-shrink-0 lg:block">
+          <aside className="hidden w-64 shrink-0 lg:block">
             <FAQSidebar
               categories={filteredCategories}
               activeItemId={activeItemId}
