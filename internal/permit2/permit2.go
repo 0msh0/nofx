@@ -1,6 +1,7 @@
 // Package permit2 implements the x402 EVM upto signing envelope.
 // Protocol: x402-foundation/x402 specs/schemes/upto/scheme_upto_evm.md.
-// It never sends transactions or grants token approvals.
+// It never sends transactions. Gas sponsorship signs a bounded USDC permit
+// for the facilitator to submit with settlement; it never grants unlimited allowance.
 package permit2
 
 import (
