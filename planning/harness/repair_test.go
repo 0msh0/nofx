@@ -3,6 +3,7 @@ package harness
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -61,8 +62,8 @@ func TestPartialProposalCanRepairRejectedStructuresWithoutDuplicates(t *testing.
 	if err != nil || len(third["plans"].([]core.Plan)) != 0 || len(store.plans) != 3 || third["no_trade"] != false {
 		t.Fatal("duplicate resaved or accepted drafts lost", err, third)
 	}
-	if _, err = invoke(twap); err == nil {
-		t.Fatal("proposal retry budget ignored")
+	if fourth, err := invoke(twap); err != nil || len(fourth["plans"].([]core.Plan)) != 0 {
+		t.Fatal("a later correction must use the existing turn budget, without resaving duplicates", err)
 	}
 	for _, plan := range store.plans {
 		if plan.Constraints != limits {
@@ -77,5 +78,36 @@ func TestPartialProposalCanRepairRejectedStructuresWithoutDuplicates(t *testing.
 	}
 	if rejectedEvents != 1 {
 		t.Fatal("rejection was not streamed", rejectedEvents)
+	}
+}
+
+type lateRepairModel struct{ calls int }
+
+func (f *lateRepairModel) Chat(_ context.Context, _ []model.Message, tools []model.Tool) (model.Message, error) {
+	f.calls++
+	if len(tools) == 0 {
+		return model.Message{Role: "assistant", Content: "Saved one validated draft. Other proposals failed risk checks."}, nil
+	}
+	target := "1005"
+	if f.calls >= 4 {
+		target = "1040"
+	}
+	args, _ := json.Marshal(map[string]any{"ideas": []core.Idea{{Name: "Corrected idea", Side: "long", Entry: "1000", Stop: "990", Target: core.Decimal(target), Execution: &core.Execution{Kind: "limit"}}}})
+	call := model.ToolCall{ID: fmt.Sprintf("proposal_%d", f.calls), Type: "function"}
+	call.Function.Name = "propose_plans"
+	call.Function.Arguments = string(args)
+	return model.Message{Role: "assistant", ToolCalls: []model.ToolCall{call}}, nil
+}
+func TestProposalCorrectionUsesExistingTurnBudgetBeyondThreeAttempts(t *testing.T) {
+	source := textMarketFixture{}
+	store := &textDraftFixture{}
+	planner := &lateRepairModel{}
+	engine := Engine{Model: planner, Store: store, Market: source, Charts: source, Budget: Budget{MaxRounds: 5, MaxToolCalls: 5}, Limits: core.Constraints{Equity: "10000", MaxRisk: "100", MaxNotional: "1000", MinRewardRisk: "2", FeeBPS: "10", SlippageBPS: "10"}}
+	var last Event
+	if err := engine.Run(context.Background(), Input{Message: "Compare trade plans", Venue: "binance", Symbol: "BTCUSDT", Interval: "1h"}, func(event Event) error { last = event; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if planner.calls != 5 || len(store.plans) != 1 || last.Type != "outcome" {
+		t.Fatalf("correction was cut off or exceeded budget: calls=%d plans=%d last=%+v", planner.calls, len(store.plans), last)
 	}
 }

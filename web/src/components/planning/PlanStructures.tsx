@@ -1,4 +1,5 @@
 import type { Plan } from '../../lib/planning'
+import { validationSummary } from '../../lib/planningPresentation'
 import { structureNames } from './PlanningActivity'
 export interface PlanCheck {
   id: string
@@ -73,7 +74,7 @@ export function PlanStructures({
               </>
             ) : (
               <p>
-                {check?.reason ||
+                {(check?.reason ? validationSummary(check.reason) : '') ||
                   (busy
                     ? 'Reading market context and checking this structure.'
                     : 'No candidate of this type was proposed.')}

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { PlanningEvent } from '../../lib/planning'
+import { validationSummary } from '../../lib/planningPresentation'
 
 export interface ActivityItem {
   id: string
   label: string
   detail: string
+  calculation?: string
   state: 'running' | 'done' | 'failed'
   started: number
   ended?: number
@@ -145,7 +147,10 @@ export function recordActivity(
       label: titles[String(d.name)] || 'Run planning tool',
       state: d.ok ? 'done' : 'failed',
       ended: now,
-      detail: detail || (d.ok ? 'Completed' : 'Could not complete this step'),
+      detail: d.reason
+        ? validationSummary(String(d.reason))
+        : detail || (d.ok ? 'Completed' : 'Could not complete this step'),
+      calculation: d.reason ? String(d.reason) : undefined,
     })
   }
   if (event.type === 'candidate_start' || event.type === 'candidate_result')
@@ -159,8 +164,9 @@ export function recordActivity(
             ? 'failed'
             : 'done',
       ...(event.type === 'candidate_result' ? { ended: now } : {}),
+      calculation: d.reason ? String(d.reason) : undefined,
       detail: d.reason
-        ? String(d.reason)
+        ? validationSummary(String(d.reason))
         : event.type === 'candidate_start'
           ? 'Checking costs, child orders and risk'
           : d.status === 'reused'
@@ -285,7 +291,7 @@ export function PlanningActivity({
             </span>
             <div>
               <b>{row.label}</b>
-              <p>{row.detail}</p>
+              <p title={row.calculation}>{row.detail}</p>
             </div>
             <time>
               {Math.max(

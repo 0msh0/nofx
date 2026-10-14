@@ -237,7 +237,7 @@ allowlisted error classifications and never displays upstream response bodies.
 
 ### Planning progress and entry structures
 
-A turn can make up to three proposal calls and retain at most five unique drafts.
+A turn uses its existing round/tool budget for corrections and retains at most five unique drafts.
 A partially accepted batch no longer prevents correction of rejected candidates
 within that turn. Previously accepted ideas are deduplicated independently of
 names and explanations, and an original selected draft is revised only once.
