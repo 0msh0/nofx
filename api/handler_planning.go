@@ -313,6 +313,7 @@ func (s *Server) handlePlanningCompile(c *gin.Context) {
 		Symbol      string           `json:"symbol"`
 		Idea        core.Idea        `json:"idea"`
 		Constraints core.Constraints `json:"constraints"`
+		AutoSize    bool             `json:"auto_size"`
 	}
 	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 32<<10)
 	if e := c.ShouldBindJSON(&in); e != nil {
@@ -337,6 +338,13 @@ func (s *Server) handlePlanningCompile(c *gin.Context) {
 	if in.Idea.Execution == nil {
 		in.Idea.Execution = &core.Execution{Kind: "limit"}
 	}
+	if in.AutoSize {
+		in.Constraints, e = s.planningAccountLimits(c.Request.Context(), c.GetString("user_id"), ex.ID, in.Symbol, in.Constraints)
+		if e != nil {
+			planningError(c, e)
+			return
+		}
+	}
 	draft, e := core.Compile(snapshot, in.Constraints, in.Idea, time.Now().UTC())
 	if e != nil {
 		planningError(c, e)
@@ -356,6 +364,7 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 		ExchangeID  string           `json:"exchange_id"`
 		ModelID     string           `json:"model_id"`
 		Constraints core.Constraints `json:"constraints"`
+		AutoSize    bool             `json:"auto_size"`
 	}
 	if e := c.ShouldBindJSON(&in); e != nil {
 		planningError(c, errors.New("invalid planning input"))
@@ -371,6 +380,13 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 	if e = in.Validate(); e != nil {
 		planningError(c, e)
 		return
+	}
+	if in.AutoSize {
+		in.Constraints, e = s.planningAccountLimits(c.Request.Context(), user, ex.ID, in.Symbol, in.Constraints)
+		if e != nil {
+			planningError(c, e)
+			return
+		}
 	}
 	if e = in.Constraints.Validate(); e != nil {
 		planningError(c, e)
@@ -479,12 +495,12 @@ func (s *Server) handlePlanningChat(c *gin.Context) {
 }
 func (s *Server) handlePlanningApprove(c *gin.Context) {
 	var in struct {
-		PlanID       string `json:"plan_id"`
-		Hash         string `json:"hash"`
-		Confirmation string `json:"confirmation"`
+		PlanID    string `json:"plan_id"`
+		Hash      string `json:"hash"`
+		Confirmed bool   `json:"confirmed"`
 	}
-	if c.ShouldBindJSON(&in) != nil {
-		planningError(c, errors.New("invalid approval"))
+	if c.ShouldBindJSON(&in) != nil || !in.Confirmed {
+		planningError(c, errors.New("explicit click confirmation is required"))
 		return
 	}
 	p, e := s.planningService()
@@ -503,7 +519,7 @@ func (s *Server) handlePlanningApprove(c *gin.Context) {
 		return
 	}
 	defer unlock()
-	v, e := p.live.Approve(c.Request.Context(), c.GetString("user_id"), in.PlanID, in.Hash, in.Confirmation)
+	v, e := p.live.Approve(c.Request.Context(), c.GetString("user_id"), in.PlanID, in.Hash, "APPROVE LIVE")
 	if e != nil {
 		planningError(c, e)
 		return
@@ -726,4 +742,19 @@ func (s *Server) handlePlanningPluginData(c *gin.Context) {
 		return
 	}
 	c.JSON(200, result)
+}
+
+func (s *Server) planningAccountLimits(ctx context.Context, user, exchangeID, symbol string, constraints core.Constraints) (core.Constraints, error) {
+	if exchangeID == "" {
+		return constraints, errors.New("connect a trading account for automatic sizing")
+	}
+	b, _, e := s.planningBroker(ctx, user, exchangeID)
+	if e != nil {
+		return constraints, e
+	}
+	a, e := b.Account(ctx, symbol)
+	if e != nil {
+		return constraints, e
+	}
+	return live.AccountLimits(a, constraints)
 }

@@ -100,6 +100,12 @@ func (b *HyperliquidTrader) AccountSnapshot(ctx context.Context, symbol string) 
 	return out, nil
 }
 func (b *HyperliquidTrader) PrepareExecution(ctx context.Context, symbol string) error {
+	return b.PrepareExecutionLeverage(ctx, symbol, 1)
+}
+func (b *HyperliquidTrader) PrepareExecutionLeverage(ctx context.Context, symbol string, leverage int) error {
+	if leverage < 1 || leverage > 20 {
+		return errors.New("unsupported planning leverage")
+	}
 	if e := b.CheckTradingAuthorization(); e != nil {
 		return e
 	}
@@ -107,7 +113,7 @@ func (b *HyperliquidTrader) PrepareExecution(ctx context.Context, symbol string)
 	if e != nil {
 		return e
 	}
-	_, e = ex.UpdateLeverage(ctx, 1, coin, true)
+	_, e = ex.UpdateLeverage(ctx, leverage, coin, true)
 	return e
 }
 func (b *HyperliquidTrader) SubmitOrder(ctx context.Context, o execution.Order) (execution.Order, error) {

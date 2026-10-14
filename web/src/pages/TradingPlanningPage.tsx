@@ -90,7 +90,7 @@ export function TradingPlanningPage() {
     [interval, setInterval] = useState('1h')
   const [trace, setTrace] = useState<ActivityItem[]>([]),
     [review, setReview] = useState<Plan | null>(null),
-    [confirmation, setConfirmation] = useState(''),
+    [leverage, setLeverage] = useState(1),
     [builder, setBuilder] = useState(false),
     [builderIdea, setBuilderIdea] = useState<Idea>({
       name: 'Custom plan',
@@ -212,8 +212,8 @@ export function TradingPlanningPage() {
             setLimits({
               ...defaultLimits,
               equity: a.equity,
-              max_risk: Math.min(10, equity * 0.01).toFixed(6),
-              max_notional: Math.min(500, available * 0.5).toFixed(6),
+              max_risk: (equity * 0.01).toFixed(6),
+              max_notional: (Math.min(equity, available) * 0.95).toFixed(6),
               fee_bps: String(Math.max(10, Math.ceil(Number(a.fee_bps)))),
             })
         })
@@ -345,7 +345,8 @@ export function TradingPlanningPage() {
           session_id: session.current,
           turn_id: crypto.randomUUID(),
           history: historyMessages,
-          constraints: limits,
+          constraints: { ...limits, leverage },
+          auto_size: Boolean(exchangeID),
         },
         controller.signal,
         (event) => {
@@ -382,6 +383,7 @@ export function TradingPlanningPage() {
               mergeChecks(event.data.checks as PlanCheck[])
             const plans = event.data.plans as Plan[]
             if (plans?.length) {
+              setLimits(plans[0].constraints)
               setTurnPlanIDs((ids) => [
                 ...new Set([...ids, ...plans.map((plan) => plan.id)]),
               ])
@@ -419,8 +421,31 @@ export function TradingPlanningPage() {
       await refreshHistory().catch(() => {})
     }
   }
+  async function reviewWithAccount(plan: Plan) {
+    setBusy(true)
+    setError('')
+    try {
+      const sized = await planningAPI<Plan>('compile', {
+        exchange_id: exchangeID,
+        venue,
+        symbol,
+        idea: plan.idea,
+        constraints: { ...plan.constraints, leverage },
+        auto_size: true,
+      })
+      await reload()
+      setSelected(sized.id)
+      setCompare([])
+      setLimits(sized.constraints)
+      setReview(sized)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
   async function approveAndExecute() {
-    if (!review || confirmation !== 'APPROVE LIVE' || busy) return
+    if (!review || busy) return
     const locked = review
     setBusy(true)
     setError('')
@@ -428,10 +453,9 @@ export function TradingPlanningPage() {
       const approved = await planningAPI<LiveRun>('approve', {
         plan_id: locked.id,
         hash: locked.hash,
-        confirmation,
+        confirmed: true,
       })
       setReview(null)
-      setConfirmation('')
       await planningAPI('execute', {
         id: approved.id,
         hash: approved.approval_hash,
@@ -478,7 +502,8 @@ export function TradingPlanningPage() {
         venue,
         symbol,
         idea,
-        constraints: limits,
+        constraints: { ...limits, leverage },
+        auto_size: Boolean(exchangeID),
       })
       setBuilder(false)
       await reload()
@@ -806,16 +831,43 @@ export function TradingPlanningPage() {
             venue={venue}
             onWindowChange={setPluginWindow}
           />
+          <div className="planning-price-row">
+            <label>
+              Leverage{' '}
+              <select
+                aria-label="Planning leverage"
+                value={leverage}
+                disabled={busy}
+                onChange={(e) => setLeverage(Number(e.target.value))}
+              >
+                {[1, 2, 3, 5, 10, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}x
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span>
+              {exchangeID
+                ? 'Auto size · current free margin · 1% equity risk cap · 5% margin reserve'
+                : 'Connect an account for automatic sizing'}
+            </span>
+          </div>
           <details className="planning-tools">
             <summary>Risk budget, entry orders and advanced tools</summary>
             <div className="planning-limit-grid">
-              {(Object.keys(limits) as (keyof Constraints)[]).map((key) => (
+              {(
+                Object.keys(defaultLimits) as Exclude<
+                  keyof Constraints,
+                  'leverage'
+                >[]
+              ).map((key) => (
                 <label key={key}>
                   {
                     {
                       equity: 'Equity budget',
                       max_risk: 'Maximum planned loss',
-                      max_notional: 'Maximum notional (1x)',
+                      max_notional: 'Maximum notional',
                       min_reward_risk: 'Minimum net reward/risk',
                       fee_bps: 'Fee assumption / bps',
                       slippage_bps: 'Slippage assumption / bps',
@@ -824,7 +876,11 @@ export function TradingPlanningPage() {
                   <input
                     value={limits[key]}
                     inputMode="decimal"
-                    disabled={busy}
+                    disabled={
+                      busy ||
+                      (Boolean(exchangeID) &&
+                        ['equity', 'max_risk', 'max_notional'].includes(key))
+                    }
                     onChange={(e) =>
                       setLimits({ ...limits, [key]: e.target.value })
                     }
@@ -833,9 +889,10 @@ export function TradingPlanningPage() {
               ))}
             </div>
             <p>
-              Budgets cannot exceed the live account balance. Hyperliquid costs
-              must include Builder fees. Gaps, failed protection and slippage
-              may cause losses beyond the estimate.
+              Live sizing refreshes before planning and review. Leverage is a
+              ceiling; stop risk and liquidity can reduce size. Hyperliquid
+              costs must include Builder fees. Gaps, failed protection and
+              slippage may cause losses beyond the estimate.
             </p>
             <button disabled={busy} onClick={() => setBuilder(true)}>
               Custom limit / ladder / TWAP
@@ -1029,8 +1086,7 @@ export function TradingPlanningPage() {
                       data.accounts[selected] !== exchangeID
                     }
                     onClick={() => {
-                      setReview(current.plan)
-                      setConfirmation('')
+                      void reviewWithAccount(current.plan)
                     }}
                   >
                     {expired(current.plan, clock)
@@ -1118,7 +1174,25 @@ export function TradingPlanningPage() {
             <p>
               Total quantity {format(review.quantity)} · Planned loss{' '}
               {format(review.risk)} {review.snapshot.quote_asset} ·{' '}
-              {review.orders.length || 1} child orders · 1x leverage
+              {review.orders.length || 1} child orders ·{' '}
+              {review.constraints.leverage || 1}x leverage
+            </p>
+            <p>
+              Estimated initial margin{' '}
+              {format(
+                String(
+                  (review.orders.length
+                    ? review.orders.reduce(
+                        (sum, order) =>
+                          sum + Number(order.price) * Number(order.quantity),
+                        0
+                      )
+                    : Number(review.idea.entry) * Number(review.quantity)) /
+                    (review.constraints.leverage || 1)
+                )
+              )}{' '}
+              {review.snapshot.quote_asset} · fees reserved separately. Quantity
+              is locked at this review; balance changes require a new review.
             </p>
             <p>
               Only the locked, fixed-limit basket will be submitted. Ladder
@@ -1147,26 +1221,13 @@ export function TradingPlanningPage() {
               </tbody>
             </table>
             <code>{review.hash}</code>
-            <label>
-              Type APPROVE LIVE
-              <input
-                aria-label="Live trade confirmation text"
-                value={confirmation}
-                onChange={(e) => setConfirmation(e.target.value)}
-                autoComplete="off"
-              />
-            </label>
             <div>
               <button disabled={busy} onClick={() => setReview(null)}>
                 Back to review
               </button>
               <button
                 className="planning-primary"
-                disabled={
-                  busy ||
-                  confirmation !== 'APPROVE LIVE' ||
-                  expired(review, clock)
-                }
+                disabled={busy || expired(review, clock)}
                 onClick={approveAndExecute}
               >
                 Approve and execute live trade

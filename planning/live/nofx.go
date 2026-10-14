@@ -2,6 +2,7 @@ package live
 
 import (
 	"context"
+	"errors"
 	"nofx/trader/execution"
 )
 
@@ -24,3 +25,15 @@ func (b NOFXBroker) RouteClientID(id string) (string, error) {
 }
 
 var _ Broker = NOFXBroker{}
+
+func (b NOFXBroker) PrepareLeverage(ctx context.Context, symbol string, leverage int) error {
+	if t, ok := b.Trader.(interface {
+		PrepareExecutionLeverage(context.Context, string, int) error
+	}); ok {
+		return t.PrepareExecutionLeverage(ctx, symbol, leverage)
+	}
+	if leverage == 1 {
+		return b.Prepare(ctx, symbol)
+	}
+	return errors.New("account does not support the approved leverage")
+}

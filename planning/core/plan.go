@@ -112,6 +112,7 @@ func (s Snapshot) Validate(now time.Time) error {
 }
 
 type Constraints struct {
+	Leverage      int     `json:"leverage,omitempty"`
 	Equity        Decimal `json:"equity"`
 	MaxRisk       Decimal `json:"max_risk"`
 	MaxNotional   Decimal `json:"max_notional"`
@@ -120,14 +121,24 @@ type Constraints struct {
 	SlippageBPS   Decimal `json:"slippage_bps"`
 }
 
+func (c Constraints) EffectiveLeverage() int {
+	if c.Leverage == 0 {
+		return 1
+	}
+	return c.Leverage
+}
+
 func (c Constraints) Validate() error {
 	for _, d := range []Decimal{c.Equity, c.MaxRisk, c.MaxNotional, c.MinRewardRisk, c.FeeBPS, c.SlippageBPS} {
 		if !Positive(d) {
 			return errors.New("all constraints must be positive decimal strings")
 		}
 	}
-	if must(c.MaxRisk).Cmp(must(c.Equity)) > 0 || must(c.MaxNotional).Cmp(must(c.Equity)) > 0 {
-		return errors.New("MVP requires unleveraged notional and risk <= equity")
+	if c.Leverage < 0 || c.Leverage > 20 {
+		return errors.New("planning leverage must be between 1x and 20x")
+	}
+	if must(c.MaxRisk).Cmp(must(c.Equity)) > 0 || must(c.MaxNotional).Cmp(mul(must(c.Equity), big.NewRat(int64(c.EffectiveLeverage()), 1))) > 0 {
+		return errors.New("risk exceeds equity or notional exceeds leveraged equity")
 	}
 	if must(c.FeeBPS).Cmp(big.NewRat(1000, 1)) > 0 || must(c.SlippageBPS).Cmp(big.NewRat(1000, 1)) > 0 {
 		return errors.New("cost assumption exceeds 1000 bps")
@@ -181,6 +192,9 @@ func Compile(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, error) {
 	if i.Side != "long" && i.Side != "short" {
 		return p, errors.New("side must be long or short")
 	}
+	if s.Kind == "spot" && c.EffectiveLeverage() != 1 {
+		return p, errors.New("spot leverage is unsupported")
+	}
 	if s.Kind == "spot" && i.Side == "short" {
 		return p, errors.New("spot short requires inventory/margin; unsupported")
 	}
@@ -202,6 +216,9 @@ func Compile(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, error) {
 	}
 	cost := div(add(must(c.FeeBPS), must(c.SlippageBPS)), big.NewRat(10000, 1))
 	loss := add(abs(sub(e, st)), mul(add(e, st), cost))
+	if c.EffectiveLeverage() > 1 && mul(loss, big.NewRat(int64(c.EffectiveLeverage()), 1)).Cmp(mul(e, big.NewRat(4, 5))) >= 0 {
+		return p, errors.New("stop and costs consume over 80% of initial margin at this leverage; reduce leverage")
+	}
 	gain := sub(abs(sub(tp, e)), mul(add(e, tp), cost))
 	if gain.Sign() <= 0 || div(gain, loss).Cmp(must(c.MinRewardRisk)) < 0 {
 		return p, fmt.Errorf("Net reward/risk %s is below minimum %s after fees and slippage; per-unit risk %s, net reward %s", number(div(gain, loss)), c.MinRewardRisk, number(loss), number(gain))

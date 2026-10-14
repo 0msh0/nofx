@@ -107,6 +107,29 @@ func TestPlanningBinanceLeverageFailureAndCancelledContext(t *testing.T) {
 	}
 }
 
+func TestPlanningBinanceUsesSelectedLeverage(t *testing.T) {
+	var got string
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.ParseForm()
+		if r.URL.Path == "/fapi/v1/leverage" {
+			got = r.Form.Get("leverage")
+			fmt.Fprint(w, `{"leverage":5,"symbol":"BTCUSDT"}`)
+			return
+		}
+		fmt.Fprint(w, `{"dualSidePosition":false}`)
+	}))
+	defer s.Close()
+	b := NewExecutionTrader("test", "test", "")
+	b.client.BaseURL = s.URL
+	b.client.HTTPClient = s.Client()
+	if e := b.PrepareExecutionLeverage(context.Background(), "BTCUSDT", 5); e != nil {
+		t.Fatal(e)
+	}
+	if got != "5" {
+		t.Fatal("wrong leverage", got)
+	}
+}
+
 func TestPlanningBrokerIDStableLosslessAndLegacyLookup(t *testing.T) {
 	b := &FuturesTrader{}
 	raw := "0123456789abcdef0123456789abcdef"

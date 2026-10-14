@@ -41,6 +41,7 @@ export interface Idea {
   }
 }
 export interface Constraints {
+  leverage?: number
   equity: string
   max_risk: string
   max_notional: string

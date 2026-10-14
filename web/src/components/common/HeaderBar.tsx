@@ -130,15 +130,15 @@ export default function HeaderBar({
                     requiresAuth: true,
                   },
                   {
-                    page: 'trader',
-                    path: ROUTES.dashboard,
-                    label: t('dashboardNav', language),
-                    requiresAuth: true,
-                  },
-                  {
                     page: 'planning',
                     path: ROUTES.planning,
                     label: language === 'zh' ? '交易规划' : 'Trade Planning',
+                    requiresAuth: true,
+                  },
+                  {
+                    page: 'trader',
+                    path: ROUTES.dashboard,
+                    label: t('dashboardNav', language),
                     requiresAuth: true,
                   },
                   {
@@ -419,15 +419,15 @@ export default function HeaderBar({
                       requiresAuth: true,
                     },
                     {
-                      page: 'trader',
-                      path: ROUTES.dashboard,
-                      label: t('dashboardNav', language),
-                      requiresAuth: true,
-                    },
-                    {
                       page: 'planning',
                       path: ROUTES.planning,
                       label: language === 'zh' ? '交易规划' : 'Trade Planning',
+                      requiresAuth: true,
+                    },
+                    {
+                      page: 'trader',
+                      path: ROUTES.dashboard,
+                      label: t('dashboardNav', language),
                       requiresAuth: true,
                     },
                     {

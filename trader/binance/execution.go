@@ -112,12 +112,19 @@ func (b *FuturesTrader) AccountSnapshot(ctx context.Context, symbol string) (exe
 	return out, nil
 }
 func (b *FuturesTrader) PrepareExecution(ctx context.Context, symbol string) error {
+	return b.PrepareExecutionLeverage(ctx, symbol, 1)
+}
+func (b *FuturesTrader) PrepareExecutionLeverage(ctx context.Context, symbol string, leverage int) error {
+	if leverage < 1 || leverage > 20 {
+		return errors.New("unsupported planning leverage")
+	}
 	_, e := b.client.NewGetPositionModeService().Do(ctx)
 	if e != nil {
 		return errors.New("cannot verify Binance position mode")
 	}
-	if _, e = b.client.NewChangeLeverageService().Symbol(symbol).Leverage(1).Do(ctx); e != nil {
-		return errors.New("cannot set the approved 1x leverage; order blocked")
+	result, e := b.client.NewChangeLeverageService().Symbol(symbol).Leverage(leverage).Do(ctx)
+	if e != nil || result == nil || result.Leverage != leverage {
+		return errors.New("cannot set the approved leverage; order blocked")
 	}
 	return nil
 }

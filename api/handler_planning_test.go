@@ -42,6 +42,21 @@ func TestPlanningShutdownDoesNotInitializeService(t *testing.T) {
 	}
 }
 
+func TestPlanningApprovalRequiresExplicitClick(t *testing.T) {
+	s := &Server{}
+	router := gin.New()
+	router.POST("/approve", s.handlePlanningApprove)
+	for _, body := range []string{`{}`, `{"confirmed":false}`, `{"confirmation":"APPROVE LIVE"}`} {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/approve", strings.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(w, req)
+		if w.Code != 400 || !strings.Contains(w.Body.String(), "explicit click") {
+			t.Fatal(w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestPlanningPluginSettingsAndDataAreOwnerScoped(t *testing.T) {
 	db, e := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "plugin.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	if e != nil {

@@ -36,6 +36,26 @@ func TestExactRiskAndLimits(t *testing.T) {
 		t.Fatal("bad liquidity")
 	}
 }
+
+func TestLeverageLockedAndStopMarginGuard(t *testing.T) {
+	s, c, i, now := fixture()
+	s.Kind = "perpetual"
+	c.Leverage = 5
+	p, e := Compile(s, c, i, now)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p.Constraints.Leverage = 10
+	if p.Verify(now) == nil {
+		t.Fatal("changed leverage accepted")
+	}
+	c.Leverage = 20
+	i.Stop = "95000"
+	i.Target = "120000"
+	if _, e = Compile(s, c, i, now); e == nil {
+		t.Fatal("stop beyond margin guard allowed")
+	}
+}
 func TestFailClosedPlans(t *testing.T) {
 	cases := []struct {
 		name   string

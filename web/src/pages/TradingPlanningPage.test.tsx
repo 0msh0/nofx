@@ -130,6 +130,8 @@ beforeEach(() => {
       }
     if (path === 'preferences') return { text: '' }
     if (path === 'conversations') return []
+    if (path === 'compile')
+      return { ...plan('resized'), constraints: { leverage: 5 } }
     if (path === 'approve') return { id: 'run', approval_hash: 'locked' }
     return {}
   })
@@ -143,7 +145,7 @@ function open() {
   )
 }
 describe('NOFX live planning', () => {
-  it('reuses configured model and requires exact human approval before execution', async () => {
+  it('refreshes account sizing and executes only after the explicit review click', async () => {
     open()
     const card = await screen.findByRole('button', { name: /Test plan one/ })
     fireEvent.click(card)
@@ -153,20 +155,18 @@ describe('NOFX live planning', () => {
     fireEvent.click(
       screen.getByRole('button', { name: 'Review and approve live trade' })
     )
-    const execute = screen.getByRole('button', {
+    const execute = await screen.findByRole('button', {
       name: 'Approve and execute live trade',
     })
-    expect(execute).toBeDisabled()
-    fireEvent.change(screen.getByLabelText('Live trade confirmation text'), {
-      target: { value: 'approve live' },
-    })
-    expect(execute).toBeDisabled()
+    expect(execute).toBeEnabled()
+    expect(screen.queryByLabelText('Live trade confirmation text')).toBeNull()
+    expect(mocks.api).toHaveBeenCalledWith(
+      'compile',
+      expect.objectContaining({ auto_size: true, exchange_id: 'ex' })
+    )
     expect(
       mocks.api.mock.calls.some(([p]) => p === 'approve' || p === 'execute')
     ).toBe(false)
-    fireEvent.change(screen.getByLabelText('Live trade confirmation text'), {
-      target: { value: 'APPROVE LIVE' },
-    })
     fireEvent.click(execute)
     await waitFor(() =>
       expect(mocks.api).toHaveBeenCalledWith('execute', {
@@ -175,9 +175,9 @@ describe('NOFX live planning', () => {
       })
     )
     expect(mocks.api).toHaveBeenCalledWith('approve', {
-      plan_id: 'one',
-      hash: 'one'.repeat(4),
-      confirmation: 'APPROVE LIVE',
+      plan_id: 'resized',
+      hash: 'resized'.repeat(4),
+      confirmed: true,
     })
   })
   it('selecting a plan exits comparison and displays only that plan on the chart', async () => {

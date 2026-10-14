@@ -20,7 +20,7 @@ running strategy and not a historical backtesting requirement.
    up to three labeled hypotheses. Drawing positions in time are layout aids,
    not historical signals or future execution timestamps.
 6. Review the prices, quantities, schedule, cost assumptions and account. Only
-   typing **APPROVE LIVE** and confirming locks and starts that plan. No paper
+   clicking **Approve and execute live trade** in the review dialog locks and starts that plan; no typed phrase is required. No paper
    execution option exists in this feature.
 
 No new model keys or wallet keys are needed. Model requests use NOFX's registered
@@ -35,7 +35,7 @@ Preferences cannot lower the submitted hard risk limits.
   perpetuals and `xyz` HIP-3 perpetuals. OKX public market data is implemented,
   but this workspace does not offer OKX live execution yet. There is no adapter
   fallback to another exchange or order type.
-- **1x leverage**, finite GTC limit orders only. `limit` is one entry; `ladder`
+- **1–20x selected leverage** (subject to venue limits), finite GTC limit orders only. `limit` is one entry; `ladder`
   accepts 2–8 weighted prices; `twap` accepts 2–24 fixed-price slices at 5–300
   second intervals, with total release time at most one hour. It does not chase
   prices or execute arbitrary generated code. Late TWAP slices expire rather
@@ -57,7 +57,7 @@ Preferences cannot lower the submitted hard risk limits.
   a protection submission can fail. An acknowledgement is never a substitute
   for confirming the native exchange order. External position changes pause new
   entries. Inspect the real exchange immediately when the workspace says
-  **需要核对**.
+  **Needs attention**.
 - A plan expires after five minutes before execution. Once started, order
   monitoring continues to manage the already approved basket. Unfilled limit
   entries expire after a 15-minute window; TWAP's window ends two minutes after
@@ -254,3 +254,21 @@ and release offset in an always-visible band attached to the chart. This band ha
 its own seconds axis: T+0 means execution start after approval, never a historical
 candle timestamp. Ladder previews show distinct price levels placed together.
 These previews are not submitted orders, and neither release nor fill is implied.
+
+### Automatic account sizing
+
+With a connected account, the server reads NOFX equity, free margin and fee rates
+before planning and before the final order review. Monetary budgets are derived,
+not entered: 1% of current equity is the planned stop-risk ceiling, and 95% of
+free margin, after reserving estimated costs, sets the leveraged notional ceiling. Venue minimums,
+liquidity, child rounding and stop risk can reduce size. This is not an instruction
+to use the entire account or a guarantee of the realized maximum loss.
+
+Review shows final quantity, planned loss, leverage and estimated initial margin.
+Refreshing an old draft creates a new hash requiring the explicit review click;
+approved orders are never silently resized. Execution rechecks the actual basket's
+margin plus cost reserve rather than comparing the entire unused budget against
+available balance. The shared NOFX Binance/Hyperliquid adapters set the locked
+leverage before any entry. Failed leverage setup blocks orders. A conservative
+stop-distance guard rejects plans consuming 80% of initial margin at the chosen
+leverage; it is not a venue liquidation-price calculation.

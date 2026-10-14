@@ -44,7 +44,7 @@ func New(db *gorm.DB, f Factory, m Market) (*Controller, error) {
 	return c, nil
 }
 func digest(p core.Plan, user, exchange, account string) string {
-	raw, _ := json.Marshal([]any{p.Hash, user, exchange, account, "LIVE/GTC/1x/fixed-limit/partial-fill-reduce-only-protection/no-strategy"})
+	raw, _ := json.Marshal([]any{p.Hash, user, exchange, account, fmt.Sprintf("LIVE/GTC/%dx/fixed-limit/partial-fill-reduce-only-protection/no-strategy", p.Constraints.EffectiveLeverage())})
 	h := sha256.Sum256(raw)
 	return hex.EncodeToString(h[:])
 }
@@ -239,8 +239,8 @@ func (c *Controller) Execute(ctx context.Context, user, id, hash string) (View, 
 	if cmp(account.Position, "0") != 0 || account.OpenOrders != 0 {
 		return v, errors.New("This symbol already has positions or open orders and cannot be mixed with this independent plan")
 	}
-	if cmp(account.Available, v.Plan.Constraints.MaxNotional) < 0 || cmp(account.Equity, v.Plan.Constraints.Equity) < 0 {
-		return v, errors.New("Live account balance is below the plan equity or notional budget; revise the budget")
+	if e = CheckAccountCapacity(v.Plan, account); e != nil {
+		return v, e
 	}
 	if cmp(account.FeeBPS, v.Plan.Constraints.FeeBPS) > 0 {
 		return v, errors.New("Actual fees including Builder fees exceed the plan assumption; generate a new plan")
@@ -252,7 +252,16 @@ func (c *Controller) Execute(ctx context.Context, user, id, hash string) (View, 
 	if e = core.CheckBook(v.Plan, book, time.Now().UTC()); e != nil {
 		return v, e
 	}
-	if e = b.Prepare(ctx, v.Plan.Snapshot.Symbol); e != nil {
+	if preparer, ok := b.(interface {
+		PrepareLeverage(context.Context, string, int) error
+	}); ok {
+		e = preparer.PrepareLeverage(ctx, v.Plan.Snapshot.Symbol, v.Plan.Constraints.EffectiveLeverage())
+	} else if v.Plan.Constraints.EffectiveLeverage() == 1 {
+		e = b.Prepare(ctx, v.Plan.Snapshot.Symbol)
+	} else {
+		e = errors.New("broker cannot set the locked leverage")
+	}
+	if e != nil {
 		return v, e
 	}
 	now := time.Now().UTC()
