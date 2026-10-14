@@ -1,10 +1,11 @@
 name: One-time planning checks
 on:
+  workflow_dispatch:
   pull_request:
-    paths: ['planning/**', 'api/*planning*', 'trader/**', 'web/**', 'go.*', '.github/workflows/planning.yml']
+    paths: ['planning/**', 'api/*planning*', 'trader/**', 'web/**', 'go.*', '.github/workflows/planning.yml', '.github/actions/charting/**']
   push:
     branches: [main, dev]
-    paths: ['planning/**', 'api/*planning*', 'trader/**', 'web/**', 'go.*']
+    paths: ['planning/**', 'api/*planning*', 'trader/**', 'web/**', 'go.*', '.github/workflows/planning.yml', '.github/actions/charting/**']
 permissions:
   contents: read
 jobs:
