@@ -144,6 +144,9 @@ func TestUnknownModelDoesNotSilentlyChargeForAnotherModel(t *testing.T) {
 	}
 	for model, path := range map[string]string{
 		"gpt-6-astra":       "/api/v1/ai/openai/chat/6",
+		"gpt-6.1-sol":       "/api/v1/ai/openai/chat/6.1-sol",
+		"gpt-6-sol":         "/api/v1/ai/openai/chat/6-sol",
+		"gpt-6-luna":        "/api/v1/ai/openai/chat/6-luna",
 		"gpt6":              "/api/v1/ai/openai/chat/6",
 		"gpt-5.6-sol":       "/api/v1/ai/openai/chat/5.6",
 		"claude-fable-5":    "/api/v1/ai/anthropic/messages/fable",

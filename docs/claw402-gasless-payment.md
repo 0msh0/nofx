@@ -45,6 +45,22 @@ an outdated token-price estimate. Keep enough USDC for the quoted ceiling.
 Existing NOFX installations must upgrade to receive these fixes. A gateway
 deployment alone cannot update third-party binaries or fund empty fee wallets.
 
+### Model compatibility update (2026-10-14)
+
+- Added dedicated mappings for `gpt-6.1-sol`, `gpt-6-sol`, and `gpt-6-luna`.
+  Release the matching Claw402 gateway routes **before** this NOFX selector.
+  No silent model substitution is used if the gateway has not been upgraded.
+- The DeepSeek Flash selection retains `deepseek-v4-flash` as a compatible
+  client ID and displays V4.1 Flash; `deepseek-flash` also resolves correctly.
+- Selector prices include the gateway's markup. They are indicative, not a
+  payment quote: DeepSeek displays peak prices; GPT long-context multipliers
+  and the $0.0012 per-request settlement fee are disclosed separately.
+- Token-only cost estimates include the fee but do not reconstruct actual
+  receipts or DeepSeek peak-boundary billing. The accounting path still
+  records only verified settlement for Claw402.
+- GPT-6 routes currently support text decisions, not tool-calling agent loops.
+  Fable 5.1 and GLM-5.3 are not selectable without verified gateway access/pricing.
+
 Offline tests use generated/unfunded keys and local mock RPCs, including the
 same EIP-712 golden vector as the web client. A real zero-ETH, funded-USDC wallet
 canary still requires its owner's authorization; compare payer and recipient

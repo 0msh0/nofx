@@ -574,6 +574,11 @@ function Claw402ConfigForm({
         </label>
         <div className="text-xs mb-2" style={{ color: '#8A8478' }}>
           {t('modelConfig.allModelsUnified', language)}
+          <p className="mt-1">
+            {language === 'zh'
+              ? '参考价含平台加价，另加每次 $0.0012 结算服务费。DeepSeek 展示峰时价；GPT 超过 272K 输入时全量输入 ×2、输出 ×1.5。以实时授权上限和已验证实扣为准。'
+              : 'Indicative retail rates plus $0.0012 per-request settlement fee. DeepSeek shows peak rates; GPT above 272K input uses full-request input ×2 / output ×1.5. The live quote and verified receipt prevail.'}
+          </p>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
           {CLAW402_MODELS.map((m) => {
