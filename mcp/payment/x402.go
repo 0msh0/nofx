@@ -134,9 +134,10 @@ func isRetryableInitialX402Status(status int) bool {
 
 // X402v2PaymentRequired is the structure of the Payment-Required header (x402 v2).
 type X402v2PaymentRequired struct {
-	X402Version int                `json:"x402Version"`
-	Accepts     []X402AcceptOption `json:"accepts"`
-	Resource    *X402Resource      `json:"resource"`
+	X402Version int                        `json:"x402Version"`
+	Accepts     []X402AcceptOption         `json:"accepts"`
+	Resource    *X402Resource              `json:"resource"`
+	Extensions  map[string]json.RawMessage `json:"extensions,omitempty"`
 }
 
 // X402AcceptOption is a payment option from the x402 v2 header.
@@ -202,9 +203,12 @@ func SignBasePaymentHeader(privateKey *ecdsa.PrivateKey, paymentHeaderB64 string
 	if len(req.Accepts) == 0 {
 		return "", fmt.Errorf("no payment options in x402 response")
 	}
+	if req.X402Version != 2 {
+		return "", fmt.Errorf("unsupported x402 payment version")
+	}
 
 	senderAddr := crypto.PubkeyToAddress(privateKey.PublicKey).Hex()
-	return SignX402Payment(privateKey, senderAddr, req.Accepts[0], req.Resource)
+	return signSponsoredPayment(privateKey, senderAddr, req.Accepts[0], req)
 }
 
 // X402SettledUSDHeader carries the actually-settled cost (USD) of an upto

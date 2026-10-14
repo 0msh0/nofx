@@ -1,17 +1,14 @@
 package payment
 
 import (
-	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
 
-	"nofx/internal/permit2"
 	"nofx/mcp"
 	"nofx/mcp/provider"
 	"nofx/store"
@@ -181,6 +178,8 @@ func (c *Claw402Client) SetAuthHeader(h http.Header) { X402SetAuthHeader(h) }
 func (c *Claw402Client) IsRetryableError(error) bool { return false }
 
 func (c *Claw402Client) Call(systemPrompt, userPrompt string) (string, error) {
+	unlock := lockFeeWallet(c.walletAddress())
+	defer unlock()
 	if err := c.preflightBalance(); err != nil {
 		return "", err
 	}
@@ -188,6 +187,8 @@ func (c *Claw402Client) Call(systemPrompt, userPrompt string) (string, error) {
 }
 
 func (c *Claw402Client) CallWithRequestFull(req *mcp.Request) (*mcp.LLMResponse, error) {
+	unlock := lockFeeWallet(c.walletAddress())
+	defer unlock()
 	if err := c.preflightBalance(); err != nil {
 		return nil, err
 	}
@@ -233,7 +234,8 @@ func (c *Claw402Client) preflightBalance() error {
 }
 
 // signPayment requires usage settlement for model calls. It never silently
-// downgrades to a full-ceiling exact charge or approves tokens automatically.
+// downgrades to a full-ceiling exact charge or sends approval transactions.
+// Insufficient allowance uses a bounded, gas-sponsored off-chain permit.
 func (c *Claw402Client) signPayment(paymentHeaderB64 string) (string, error) {
 	if c.privateKey == nil {
 		return "", fmt.Errorf("Claw402 fee wallet is not configured")
@@ -253,20 +255,7 @@ func (c *Claw402Client) signPayment(paymentHeaderB64 string) (string, error) {
 		if option.Scheme != "upto" || option.Network != BaseNetwork {
 			continue
 		}
-		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
-		allowance, err := permit2.Allowance(ctx, receiptRPC(), c.walletAddress())
-		cancel()
-		if err != nil {
-			return "", fmt.Errorf("cannot check Permit2 fee-wallet allowance; no payment signed: %w", err)
-		}
-		amount, err := permit2.Uint256(option.Amount)
-		if err != nil {
-			return "", err
-		}
-		if allowance.Cmp(amount) < 0 {
-			return "", fmt.Errorf("fee wallet %s needs user-approved Base USDC allowance to Permit2 %s (at least %s micro-USDC); no payment signed", c.walletAddress(), permit2.Address, option.Amount)
-		}
-		return SignX402Payment(c.privateKey, c.walletAddress(), option, required.Resource)
+		return signSponsoredPayment(c.privateKey, c.walletAddress(), option, required)
 	}
 	return "", fmt.Errorf("Claw402 model requires native Permit2 upto; refusing fixed-price fallback")
 }
