@@ -58,6 +58,7 @@ export function FrontierAccount({
   onManual,
   onBusy,
   onRefresh,
+  onCheck,
 }: {
   account?: Exchange
   accounts: Exchange[]
@@ -69,6 +70,7 @@ export function FrontierAccount({
   onManual: (side: 'long' | 'short') => void
   onBusy: (value: boolean) => void
   onRefresh: () => Promise<void>
+  onCheck?: (run: LiveRun) => Promise<void>
 }) {
   const [snapshot, setSnapshot] = useState<{
     accountID: string
@@ -611,6 +613,14 @@ export function FrontierAccount({
               )}
             </div>
             <div>
+              {onCheck &&
+                ['needs_attention', 'position_open', 'stopping'].includes(
+                  run.state
+                ) && (
+                  <button disabled={busy} onClick={() => void onCheck(run)}>
+                    Check trade status
+                  </button>
+                )}
               <button disabled={busy} onClick={() => onView(run)}>
                 View trade on chart
               </button>

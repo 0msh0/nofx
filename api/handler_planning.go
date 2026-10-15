@@ -189,6 +189,7 @@ func (s *Server) registerPlanning(api, protected *gin.RouterGroup) {
 	protected.POST("/planning/execute", s.handlePlanningExecute)
 	protected.POST("/planning/stop", s.handlePlanningStop)
 	protected.POST("/planning/reconcile", s.handlePlanningReconcile)
+	protected.POST("/planning/check-status", s.handlePlanningCheckStatus)
 	protected.GET("/planning/conversations", s.handlePlanningConversations)
 	protected.GET("/planning/preferences", s.handlePlanningPreferences)
 	protected.PUT("/planning/preferences", s.handlePlanningPreferences)
@@ -565,6 +566,28 @@ func (s *Server) handlePlanningStop(c *gin.Context) {
 		return
 	}
 	v, e := p.live.Stop(c.GetString("user_id"), in.ID, in.Hash)
+	if e != nil {
+		planningError(c, e)
+		return
+	}
+	c.JSON(200, v)
+}
+func (s *Server) handlePlanningCheckStatus(c *gin.Context) {
+	var in struct {
+		ID string `json:"id"`
+	}
+	if c.ShouldBindJSON(&in) != nil || in.ID == "" {
+		planningError(c, errors.New("Select an execution record to check"))
+		return
+	}
+	p, e := s.planningService()
+	if e != nil {
+		planningError(c, e)
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
+	defer cancel()
+	v, e := p.live.CheckStatus(ctx, c.GetString("user_id"), in.ID)
 	if e != nil {
 		planningError(c, e)
 		return

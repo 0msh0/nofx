@@ -485,3 +485,101 @@ it('starts a separate draft from a locked trade without revising or executing th
   ).toBe(false)
   expect(screen.queryByText(/AI cannot modify a locked plan/)).toBeNull()
 })
+
+describe('previous trade recovery', () => {
+  it('identifies the blocking trade and checks it without submitting or cancelling orders', async () => {
+    const base = mocks.api.getMockImplementation()!
+    let closed = false
+    const old = {
+      id: 'previous-run',
+      exchange_id: 'ex',
+      plan_id: 'old',
+      approval_hash: 'hash',
+      state: 'needs_attention',
+      plan: plan('old'),
+      orders: [],
+    }
+    mocks.api.mockImplementation(async (path: string, body?: unknown) => {
+      if (path === 'state') {
+        const data = await base(path, body)
+        return {
+          ...data,
+          runs: [{ ...old, state: closed ? 'completed' : old.state }],
+        }
+      }
+      if (path === 'check-status') {
+        closed = true
+        return { ...old, state: 'completed' }
+      }
+      return base(path, body)
+    })
+    open()
+    const check = await screen.findByRole('button', {
+      name: 'Check previous trade',
+    })
+    expect(
+      screen.getByRole('region', { name: 'Previous trade blocking new orders' })
+    ).toHaveTextContent('BTCUSDT Long')
+    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: /Test plan one/ })
+    )
+    expect(
+      screen.getByRole('button', { name: 'Resolve previous trade above' })
+    ).toBeDisabled()
+    fireEvent.click(check)
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Review order' })).toBeEnabled()
+    )
+    expect(screen.getByRole('status')).toHaveTextContent(
+      'Previous trade is closed'
+    )
+    expect(mocks.api).toHaveBeenCalledWith('check-status', {
+      id: 'previous-run',
+    })
+    expect(
+      mocks.api.mock.calls.some(([path]) =>
+        ['execute', 'approve', 'stop', 'reconcile'].includes(path)
+      )
+    ).toBe(false)
+  })
+  it('keeps new orders blocked when the exchange check fails', async () => {
+    const base = mocks.api.getMockImplementation()!
+    mocks.api.mockImplementation(async (path: string, body?: unknown) => {
+      if (path === 'state')
+        return {
+          ...(await base(path, body)),
+          runs: [
+            {
+              id: 'previous-run',
+              exchange_id: 'ex',
+              plan_id: 'old',
+              state: 'needs_attention',
+              plan: plan('old'),
+              orders: [],
+            },
+          ],
+        }
+      if (path === 'check-status')
+        throw new Error('Could not confirm stop order. Check the exchange.')
+      return base(path, body)
+    })
+    open()
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Check previous trade' })
+    )
+    expect(
+      await screen.findByText(
+        'Could not confirm stop order. Check the exchange.'
+      )
+    ).toBeVisible()
+    expect(
+      screen.getByRole('region', { name: 'Previous trade blocking new orders' })
+    ).toBeVisible()
+    expect(
+      mocks.api.mock.calls.some(([path]) =>
+        ['execute', 'approve', 'stop'].includes(path)
+      )
+    ).toBe(false)
+  })
+})

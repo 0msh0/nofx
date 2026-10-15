@@ -2505,3 +2505,57 @@
   display: block;
   font-size: 14px;
 }
+
+.frontier-order-blocker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 20px 24px;
+  margin-bottom: 18px;
+  border: 1px solid #e7d1a4;
+  border-left: 4px solid #ac7827;
+  border-radius: 14px;
+  background: #fffbf2;
+  color: #453b28;
+}
+.frontier-order-blocker strong {
+  font-size: 16px;
+}
+.frontier-order-blocker p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+.frontier-order-blocker small,
+.frontier-order-blocker .frontier-check-hint {
+  font-size: 12px;
+  color: #746650;
+}
+.frontier-blocker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 190px;
+}
+.frontier-blocker-actions button {
+  background: white;
+  border: 1px solid #ddcfb4;
+  color: #453b28;
+}
+.frontier-blocker-actions a {
+  font-size: 13px;
+  padding: 8px;
+}
+.frontier-order-notice {
+  padding: 18px 24px;
+  background: #eef7f0;
+  color: #285b3a;
+  border-radius: 12px;
+  margin-bottom: 18px;
+}
+@media (max-width: 800px) {
+  .frontier-order-blocker {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

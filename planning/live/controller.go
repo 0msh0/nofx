@@ -139,7 +139,7 @@ func (c *Controller) Approve(ctx context.Context, user, planID, hash, phrase str
 			return errors.New("only an unchanged draft can be approved")
 		}
 		if er := tx.Create(&Lease{AccountKey: account, RunID: r.ID, UserID: user, ExchangeID: d.ExchangeID}).Error; er != nil {
-			return errors.New("This account already has an approved or unresolved plan; resolve it first")
+			return errors.New("An earlier trade is reserving this account. Open Positions & orders to check its status or cancel its unused approval.")
 		}
 		return tx.Create(&r).Error
 	})
