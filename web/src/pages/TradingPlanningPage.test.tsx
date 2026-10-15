@@ -447,3 +447,41 @@ it('shows generated plans automatically and uses the user idea instead of a gene
     )
   ).toBe(false)
 })
+
+it('starts a separate draft from a locked trade without revising or executing that trade', async () => {
+  const base = mocks.api.getMockImplementation()!
+  mocks.api.mockImplementation((path: string, body?: unknown) =>
+    path === 'state'
+      ? {
+          records: { one: { plan: plan('one'), state: 'approved' } },
+          accounts: { one: 'ex' },
+          runs: [],
+          mode: 'live',
+          now: new Date().toISOString(),
+        }
+      : base(path, body)
+  )
+  mocks.stream.mockResolvedValue(undefined)
+  open()
+  await waitFor(() =>
+    expect(screen.getByLabelText('NOFX AI model')).toHaveValue('model')
+  )
+  fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
+  fireEvent.click(await screen.findByText('Past plans · 1'))
+  fireEvent.click(await screen.findByRole('button', { name: /Test plan one/ }))
+  fireEvent.change(screen.getByLabelText('Trade idea'), {
+    target: { value: 'Generate a new independent entry plan.' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Generate plans' }))
+  await waitFor(() => expect(mocks.stream).toHaveBeenCalledTimes(1))
+  const input = mocks.stream.mock.calls[0][0]
+  expect(input.plan_id).toBeUndefined()
+  expect(input.history).toEqual([])
+  expect(input.message).toBe('Generate a new independent entry plan.')
+  expect(
+    mocks.api.mock.calls.some(([path]) =>
+      ['approve', 'execute', 'stop'].includes(path)
+    )
+  ).toBe(false)
+  expect(screen.queryByText(/AI cannot modify a locked plan/)).toBeNull()
+})

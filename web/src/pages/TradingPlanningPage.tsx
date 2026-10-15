@@ -424,15 +424,18 @@ export function TradingPlanningPage() {
       )
       return
     }
-    if (current && current.state !== 'draft') {
-      setError(
-        'AI cannot modify a locked plan. Start a new idea or revoke its approval first.'
-      )
-      return
+    // A locked trade is immutable, but it must not lock the whole workspace.
+    const separateDraft = Boolean(current && current.state !== 'draft')
+    const revisionID = current?.state === 'draft' ? selected : undefined
+    const historyMessages = separateDraft
+      ? []
+      : messages.filter((m) => m.role !== 'error').slice(-16)
+    if (separateDraft) {
+      session.current = crypto.randomUUID()
+      setSelected('')
+      setCompare([])
+      setMessages([])
     }
-    const historyMessages = messages
-      .filter((m) => m.role !== 'error')
-      .slice(-16)
     setBusy(true)
     setPlanningBusy(true)
     setAssistantView('chat')
@@ -441,7 +444,10 @@ export function TradingPlanningPage() {
     resetTurn()
     chatFollow.current = true
     setStatus('Reading current market context…')
-    setMessages((m) => [...m, { role: 'user', content: text }])
+    setMessages((m) => [
+      ...(separateDraft ? [] : m),
+      { role: 'user', content: text },
+    ])
     const controller = new AbortController()
     abort.current = controller
     let streamStarted = false
@@ -456,7 +462,7 @@ export function TradingPlanningPage() {
           visible_from: context.visible_from,
           visible_to: context.visible_to,
           message: text,
-          plan_id: selected || undefined,
+          plan_id: revisionID,
           execution_kind: 'auto',
           plugin_window: pluginWindow,
           session_id: session.current,
@@ -520,7 +526,7 @@ export function TradingPlanningPage() {
       )
     } catch (e) {
       if (!controller.signal.aborted) {
-        if (!streamStarted) setMessages(messages)
+        if (!streamStarted) setMessages(separateDraft ? [] : messages)
         const message = formatRequestError(e, 'en')
         setError(message)
         setTrace((items) =>

@@ -21,9 +21,15 @@ func TestAccountSizingUsesFreeMarginAndLeverage(t *testing.T) {
 		}
 	}
 	c.Leverage = 5
-	a.OpenOrders = 1
-	if _, e = AccountLimits(a, c); e == nil {
-		t.Fatal("existing orders allowed")
+	for _, position := range []core.Decimal{"0.01", "-0.02", "0"} {
+		a.Position, a.OpenOrders = position, 2
+		got, err := AccountLimits(a, c)
+		if err != nil {
+			t.Fatalf("existing exposure blocked a draft: %v", err)
+		}
+		if got.MaxNotional != c.MaxNotional || got.MaxRisk != c.MaxRisk {
+			t.Fatal("existing exposure increased the free-margin planning budget")
+		}
 	}
 }
 

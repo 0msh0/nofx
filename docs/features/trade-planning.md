@@ -405,3 +405,11 @@ section below the workspace, reachable with Positions & orders. Historical plans
 collapsed separately from valid drafts, and execution history lives with account
 activity. The existing account review, approval and exchange execution guards remain
 in place. Responsive layouts stack the assistant below the chart on narrow screens.
+
+Existing positions and working orders do not prevent draft generation. Automatic
+sizing uses remaining free margin and keeps its existing reserve and per-plan risk
+ceiling. Starting a discussion from a locked trade creates a separate draft context;
+it does not revise, revoke or execute the old trade. Execution still rejects mixing
+an independent entry with existing same-market exposure. Position-aware scale-ins,
+hedging and amendments require explicit execution support; generating a draft does
+not grant that authority.

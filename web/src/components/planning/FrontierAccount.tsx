@@ -333,8 +333,9 @@ export function FrontierAccount({
       )}
       {hasPosition && (
         <small>
-          A position already exists for {symbol}. Close it before opening
-          another independent entry.
+          You have a position in {symbol}. You can still generate new drafts.
+          Independent entries cannot execute alongside this position; drafts do
+          not modify existing positions or exit orders.
         </small>
       )}
       {notice && (

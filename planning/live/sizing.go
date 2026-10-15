@@ -8,15 +8,14 @@ import (
 
 // AccountLimits derives exact budgets from a fresh NOFX account snapshot.
 // Reserve 5% of free margin; retain a 1% equity stop-risk ceiling.
+// Existing exposure is not a reason to reject a draft. The controller checks
+// positions and working orders again before approving or submitting an entry.
 func AccountLimits(a Account, c core.Constraints) (core.Constraints, error) {
 	if !core.Positive(a.Equity) || !core.Positive(a.Available) {
 		return c, errors.New("account equity and available margin must be positive")
 	}
 	if c.Leverage < 1 || c.Leverage > 20 {
 		return c, errors.New("select leverage between 1x and 20x")
-	}
-	if a.Position != "0" && cmp(a.Position, "0") != 0 || a.OpenOrders != 0 {
-		return c, errors.New("this symbol already has positions or open orders; independent planning requires a clear symbol")
 	}
 	equity, _ := decimal(a.Equity)
 	available, _ := decimal(a.Available)
