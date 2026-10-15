@@ -46,6 +46,13 @@ import {
   type Page,
 } from './paths'
 
+function FrontierLoginRedirect() {
+  useEffect(() => {
+    sessionStorage.setItem('returnUrl', ROUTES.planning)
+  }, [])
+  return <Navigate to={ROUTES.login} replace />
+}
+
 function getTraderSlug(trader: TraderInfo) {
   const idPrefix = trader.trader_id.slice(0, 4)
   return `${trader.trader_name}-${idPrefix}`
@@ -415,7 +422,7 @@ export function AppRoutes() {
                 <TradingPlanningPage />
               </AppChrome>
             ) : (
-              <Navigate to={ROUTES.login} replace />
+              <FrontierLoginRedirect />
             )
           }
         />

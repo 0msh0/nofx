@@ -22,7 +22,7 @@ import {
 import { formatRequestError } from '../lib/requestErrors'
 import { preservePlanningPlans } from '../lib/planningPresentation'
 import { PlanningDataPanel } from '../components/planning/PlanningDataPanel'
-import { PlanningAI500 } from '../components/planning/PlanningAI500'
+import { FrontierMarkets } from '../components/planning/FrontierMarkets'
 import { ExecutionSchedule } from '../components/planning/ExecutionSchedule'
 import {
   PlanningActivity,
@@ -34,6 +34,10 @@ import {
   type PlanCheck,
 } from '../components/planning/PlanStructures'
 import { FrontierAccount } from '../components/planning/FrontierAccount'
+import {
+  FrontierSetup,
+  type FeeWalletState,
+} from '../components/planning/FrontierSetup'
 import { nativeMarket } from '../lib/frontierAccount'
 import './TradingPlanningPage.css'
 const format = (n: string | number) =>
@@ -66,6 +70,9 @@ interface ChatMessage {
   content: string
 }
 export function TradingPlanningPage() {
+  const [setupOpen, setSetupOpen] = useState<'ai' | 'exchange' | null>(null)
+  const [walletState, setWalletState] = useState<FeeWalletState>('checking')
+  const [configsLoaded, setConfigsLoaded] = useState(false)
   const [accounts, setAccounts] = useState<Exchange[]>([]),
     [models, setModels] = useState<AIModel[]>([]),
     [exchangeID, setExchangeID] = useState(''),
@@ -184,6 +191,7 @@ export function TradingPlanningPage() {
         const supported = ex.filter(
           (a) =>
             a.enabled &&
+            !a.testnet &&
             ['binance', 'hyperliquid'].includes(a.exchange_type || '')
         )
         const enabled = ai.filter((m) => m.enabled && m.has_api_key)
@@ -208,6 +216,7 @@ export function TradingPlanningPage() {
           setSymbolInput(native)
         }
         setModelID(enabled[0]?.id || '')
+        setConfigsLoaded(true)
       })
       .catch((e) => setError(String(e.message)))
     reload().catch((e) => setError(e.message))
@@ -280,6 +289,67 @@ export function TradingPlanningPage() {
     const box = chatBox.current
     if (box && chatFollow.current) box.scrollTop = box.scrollHeight
   }, [messages, trace])
+  async function refreshSetup(
+    preferredModel?: string,
+    preferredVenue?: string
+  ) {
+    const [ex, ai] = await Promise.all([
+      api.getExchangeConfigs(),
+      api.getModelConfigs(),
+    ])
+    if (!active.current) return
+    const supported = ex.filter(
+      (a) =>
+        a.enabled &&
+        !a.testnet &&
+        ['binance', 'hyperliquid'].includes(a.exchange_type || '')
+    )
+    const enabled = ai.filter((m) => m.enabled && m.has_api_key)
+    setAccounts(supported)
+    setModels(enabled)
+    setModelID((old) =>
+      preferredModel && enabled.some((m) => m.id === preferredModel)
+        ? preferredModel
+        : enabled.some((m) => m.id === old)
+          ? old
+          : enabled[0]?.id || ''
+    )
+    const nextVenue = preferredVenue || venue
+    const matching = supported.filter((a) => a.exchange_type === nextVenue)
+    const nextAccountID = matching.some((a) => a.id === exchangeID)
+      ? exchangeID
+      : matching[0]?.id || ''
+    setExchangeID(nextAccountID)
+    if (nextAccountID !== exchangeID) {
+      setSelected('')
+      setCompare([])
+      resetTurn()
+    }
+    if (preferredVenue && preferredVenue !== venue) {
+      requestedVenue.current = preferredVenue
+      setVenue(preferredVenue)
+      const native = preferredVenue === 'binance' ? 'BTCUSDT' : 'BTC'
+      setSymbol(native)
+      setSymbolInput(native)
+      setSelected('')
+      setCompare([])
+    }
+    setConfigsLoaded(true)
+  }
+  function openMarket(next: string) {
+    marketChosen.current = true
+    requestedVenue.current = venue
+    setPrice('—')
+    setSymbol(next)
+    setSymbolInput(next)
+    setSelected('')
+    resetTurn()
+    setCompare([])
+    setMessages([])
+    setTrace([])
+    setError('')
+    session.current = crypto.randomUUID()
+  }
   async function choose(p: Plan) {
     setSelected(p.id)
     setCompare([])
@@ -336,8 +406,13 @@ export function TradingPlanningPage() {
   }
   async function send(text = instruction) {
     if (busy || !text.trim()) return
-    if (!modelID) {
-      setError('Enable an AI model in NOFX settings first.')
+    if (
+      !modelID ||
+      (models.find((m) => m.id === modelID)?.provider === 'claw402' &&
+        walletState !== 'ready')
+    ) {
+      setInstruction(text)
+      setSetupOpen('ai')
       return
     }
     const context = chart.current?.context()
@@ -623,14 +698,11 @@ export function TradingPlanningPage() {
         <form
           onSubmit={(e) => {
             e.preventDefault()
-            setSymbol(
+            openMarket(
               symbolInput.trim().includes(':')
                 ? symbolInput.trim()
                 : symbolInput.trim().toUpperCase()
             )
-            setSelected('')
-            resetTurn()
-            setCompare([])
           }}
         >
           <input
@@ -641,24 +713,31 @@ export function TradingPlanningPage() {
           />
           <button disabled={busy}>Open market</button>
         </form>
-        {venue === 'binance' && (
-          <details className="frontier-market-picker">
-            <summary>Find a market · AI500</summary>
-            <PlanningAI500
-              venue={venue}
-              disabled={busy}
-              onSelect={(next) => {
-                setSymbol(next)
-                setSymbolInput(next)
-                setSelected('')
-                resetTurn()
-                setCompare([])
-              }}
-            />
-          </details>
-        )}
         <span className="planning-live">Live · approval required</span>
       </div>
+      <FrontierSetup
+        models={models}
+        modelID={modelID}
+        accounts={accounts}
+        accountID={exchangeID}
+        venue={venue}
+        loaded={configsLoaded}
+        open={setupOpen}
+        onOpen={setSetupOpen}
+        onRefresh={refreshSetup}
+        onWalletState={setWalletState}
+      />
+      {
+        <FrontierMarkets
+          venue={venue}
+          disabled={busy}
+          selected={symbol}
+          walletReady={walletState === 'ready'}
+          walletChecking={walletState === 'checking'}
+          onSetup={() => setSetupOpen('ai')}
+          onSelect={openMarket}
+        />
+      }
       {error &&
         !trace.some(
           (item) => item.state === 'failed' && item.detail === error
@@ -670,12 +749,6 @@ export function TradingPlanningPage() {
             </button>
           </div>
         )}
-      {!exchangeID && (
-        <div className="planning-empty">
-          Public market planning is available without a trading account. Connect
-          a matching NOFX account before approving or executing any plan.
-        </div>
-      )}
       <div className="planning-workspace">
         <section className="planning-chart-pane">
           <div className="planning-market">

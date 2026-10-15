@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   User,
@@ -38,7 +39,13 @@ function configBadge(label: string, active: boolean) {
 export function SettingsPage() {
   const { user } = useAuth()
   const { language } = useLanguage()
-  const [activeTab, setActiveTab] = useState<Tab>('account')
+  const [searchParams] = useSearchParams()
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const tab = searchParams.get('tab')
+    return tab === 'models' || tab === 'exchanges' || tab === 'telegram'
+      ? tab
+      : 'account'
+  })
 
   // Account state
   const [newPassword, setNewPassword] = useState('')
@@ -368,7 +375,9 @@ export function SettingsPage() {
             <div className="space-y-6">
               <div>
                 <p className="text-xs text-nofx-text-muted mb-1">Email</p>
-                <p className="text-sm text-nofx-text font-medium">{user?.email}</p>
+                <p className="text-sm text-nofx-text font-medium">
+                  {user?.email}
+                </p>
               </div>
 
               <div className="border-t border-[rgba(26,24,19,0.14)] pt-6">

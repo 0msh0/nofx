@@ -175,9 +175,12 @@ func (s *Server) planningWorkspace(user, id, venue string) (*store.Exchange, err
 
 func planningError(c *gin.Context, e error) { c.JSON(http.StatusBadRequest, gin.H{"error": e.Error()}) }
 func (s *Server) registerPlanning(api, protected *gin.RouterGroup) {
+	api.GET("/planning/markets", s.handlePlanningMarkets)
 	for _, path := range []string{"instrument", "candles", "feed"} {
 		api.GET("/planning/"+path, s.handlePlanningMarket)
 	}
+	protected.GET("/planning/setup-wallet", s.handlePlanningSetupWallet)
+	protected.POST("/planning/setup-wallet", s.handlePlanningSetupWallet)
 	protected.GET("/planning/account", s.handlePlanningReadAccount)
 	protected.GET("/planning/state", s.handlePlanningState)
 	protected.POST("/planning/chat", s.handlePlanningChat)

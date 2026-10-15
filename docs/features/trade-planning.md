@@ -348,3 +348,41 @@ not need that key. Checkout credentials are not persisted in the workspace.
 The owner's local SSH private key is not reused or uploaded. Forked pull requests
 do not receive repository secrets and cannot run the licensed-asset build
 without a maintainer-authorized environment; there is no public mirror fallback.
+
+## First-use setup and quick markets
+
+Frontier keeps the chart open before configuration. A compact two-step setup
+strip links directly to an in-workspace AI-wallet and exchange flow. Starting
+an AI request without a configured/funded Claw402 model opens setup and retains
+the idea; completing setup does not submit that request or any trade. Existing
+owner-configured direct AI providers do not require a Claw402 deposit for model
+calls. Paid AI500/holder sources still require their own fee-wallet path.
+
+The new authenticated GET/POST `/api/planning/setup-wallet` endpoint only returns
+public wallet details. Creation is explicit and idempotent for the current
+owner. It requires encrypted storage, does not write process-global credentials
+or .env, does not adopt other users' wallets, and does not export the private
+key. Balance reads distinguish an unknown RPC result from zero. The deposit
+QR/address uses Base USDC; exchange funds remain separate. Hyperliquid reuses
+NOFX's existing wallet/Agent/Builder authorization UI. Binance reuses encrypted
+NOFX API-key configuration, restricted here to mainnet Futures. Neither flow
+starts Autopilot or submits an order. Live permissions, fees, balances and risk
+remain subject to order review and execution preflight.
+
+AI500 is visible in the market selector rather than hidden inside a collapsed
+menu. Public Top volume, Stocks and All markets tabs work without a fee wallet
+or trading account. Binance markets come from USD-M exchangeInfo and ticker/24hr,
+including active PERPETUAL and TRADIFI_PERPETUAL USDT contracts. The stock filter
+uses venue equity classifications, including international equity subclasses.
+Hyperliquid discovers core and builder DEXs with perpDexs, perpCategories and
+metaAndAssetCtxs. Ranking uses 24h notional volume, not base-asset quantities.
+Native builder prefixes remain intact; a missing DEX/category read is reported
+as partial coverage. The discovery cache lasts one minute and coalesces requests.
+No paid fallback is used. Builders other than the currently integrated core/xyz
+execution paths are labeled Chart only; discovery does not add order adapters
+or bypass collateral/account validation.
+
+The latest opt-in public-data smoke check observed 745 Binance markets (182
+stock-classified contracts) and 333 Hyperliquid markets (128 stock-classified
+contracts), without missing-coverage warnings. These are changing snapshots,
+not a hardcoded universe or a promise of exchange-account eligibility.

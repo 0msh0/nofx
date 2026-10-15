@@ -1183,17 +1183,6 @@
   text-decoration: underline;
   white-space: nowrap;
 }
-.frontier-market-picker {
-  position: relative;
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: 12px;
-}
-.frontier-market-picker > summary {
-  cursor: pointer;
-  padding: 8px 10px;
-  white-space: nowrap;
-}
 @media (max-width: 850px) {
   .frontier-account > header {
     align-items: flex-start;
@@ -1463,21 +1452,6 @@
   border-color: var(--accent);
   padding-inline: 18px;
 }
-.frontier-market-picker > .planning-ai500 {
-  position: absolute;
-  left: 0;
-  top: calc(100% + 10px);
-  width: min(620px, calc(100vw - 48px));
-  z-index: 30;
-  background: var(--panel-bg);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  box-shadow: 0 12px 36px #27231c12;
-  padding: 16px;
-}
-.frontier-market-picker .planning-ai500 > div:first-child {
-  flex-wrap: wrap;
-}
 @media (max-width: 1100px) {
   .planning-toolbar .planning-live {
     display: none;
@@ -1533,12 +1507,254 @@
     height: min(720px, 90dvh);
     min-height: 440px;
   }
-  .frontier-market-picker > .planning-ai500 {
-    position: fixed;
-    left: 12px;
-    top: 140px;
-    width: calc(100vw - 24px);
-    max-height: 60dvh;
-    overflow: auto;
+}
+
+/* First-use setup stays in the workspace; normal use keeps the chart in focus. */
+.frontier-setup-strip {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 14px 18px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-bg);
+}
+.frontier-setup-strip > div {
+  flex: 1;
+  min-width: 220px;
+}
+.frontier-setup-strip b,
+.frontier-setup-strip span {
+  display: block;
+}
+.frontier-setup-strip span {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.frontier-setup-strip .setup-done {
+  color: #2e8b57;
+}
+.frontier-setup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: #1a181354;
+  backdrop-filter: blur(3px);
+}
+.frontier-setup-dialog {
+  background: var(--panel-bg);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: 0 24px 80px #1a18132b;
+  padding: 24px;
+  width: min(660px, 100%);
+  max-height: calc(100dvh - 40px);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.frontier-setup-dialog header,
+.frontier-setup-dialog footer,
+.frontier-setup-dialog nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.frontier-setup-dialog header {
+  margin-bottom: 18px;
+}
+.frontier-setup-dialog h2 {
+  font-size: 23px;
+  margin: 4px 0 0;
+  letter-spacing: -0.5px;
+  font-weight: 650;
+}
+.frontier-setup-dialog nav {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 16px;
+}
+.frontier-setup-dialog nav button {
+  flex: 1;
+}
+.frontier-setup-dialog button[aria-current='step'],
+.frontier-exchange-choices button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: #e0483b0a;
+}
+.frontier-setup-dialog p {
+  color: var(--text-secondary);
+  margin: 14px 0;
+}
+.frontier-setup-dialog footer {
+  margin-top: 24px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+.frontier-setup-dialog .frontier-setup-error {
+  color: #b53025;
+}
+.frontier-wallet-card {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  padding: 20px 0;
+}
+.frontier-wallet-card svg {
+  flex-shrink: 0;
+  padding: 8px;
+  background: white;
+  border-radius: 8px;
+}
+.frontier-wallet-card > div {
+  min-width: 0;
+}
+.frontier-wallet-card code {
+  user-select: all;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.frontier-setup-start,
+.frontier-setup-success {
+  background: #f6f4ed;
+  border-radius: 10px;
+  padding: 18px;
+  margin: 18px 0;
+}
+.frontier-setup-dialog .frontier-setup-note {
+  font-size: 11px;
+  line-height: 1.6;
+}
+.frontier-exchange-choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 16px 0;
+}
+.frontier-exchange-choices button {
+  text-align: left;
+  padding: 16px;
+}
+.frontier-exchange-choices span {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+.planning-ai500 {
+  margin: 12px 0;
+  padding: 12px 16px;
+}
+.planning-ai500-symbols {
+  flex-wrap: nowrap;
+  max-height: none;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  margin-bottom: 4px;
+}
+.planning-ai500-symbols button {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.planning-ai500-symbols button[aria-pressed='true'] {
+  border-color: var(--accent);
+  background: #e0483b0d;
+  color: var(--accent);
+}
+.planning-ai500-setup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text-secondary);
+  margin-top: 10px;
+}
+@media (max-width: 650px) {
+  .frontier-wallet-card {
+    flex-direction: column;
+    align-items: center;
   }
+  .frontier-exchange-choices {
+    grid-template-columns: 1fr;
+  }
+  .frontier-setup-backdrop {
+    padding: 10px;
+  }
+  .frontier-setup-dialog {
+    padding: 18px;
+    max-height: calc(100dvh - 20px);
+  }
+}
+.frontier-markets {
+  margin: 12px 0 16px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-bg);
+}
+.frontier-market-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.frontier-market-filters > b {
+  margin-right: 6px;
+  font-size: 12px;
+}
+.frontier-market-filters button {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+.frontier-market-filters button[aria-pressed='true'],
+.frontier-market-shortcuts button[aria-pressed='true'] {
+  background: #e0483b0d;
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.frontier-market-filters input {
+  margin-left: auto;
+  width: min(240px, 100%);
+  font-size: 12px;
+}
+.frontier-markets .planning-ai500 {
+  padding: 0;
+  border: 0;
+  margin: 10px 0 0;
+}
+.frontier-markets .planning-ai500 > div:first-child > b {
+  display: none;
+}
+.frontier-market-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 6px;
+  max-height: 230px;
+  overflow-y: auto;
+}
+.frontier-market-shortcuts button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.frontier-market-shortcuts b {
+  font-weight: 550;
+}
+.frontier-market-shortcuts small {
+  font-size: 10px;
+}
+.frontier-markets > small {
+  display: block;
+  font-size: 10px;
+}
+.frontier-show-markets {
+  font-size: 11px !important;
+  padding: 5px 8px !important;
+  margin-bottom: 5px;
 }

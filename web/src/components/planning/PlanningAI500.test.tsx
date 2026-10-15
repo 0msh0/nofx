@@ -46,3 +46,19 @@ describe('paid AI500 board', () => {
     expect(mocks.api).toHaveBeenCalledTimes(1)
   })
 })
+
+it('guides missing-wallet users without making a paid request', () => {
+  const setup = vi.fn()
+  render(
+    <PlanningAI500
+      venue="binance"
+      disabled={false}
+      walletReady={false}
+      onSetup={setup}
+      onSelect={() => {}}
+    />
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'Set up AI wallet' }))
+  expect(setup).toHaveBeenCalledOnce()
+  expect(mocks.api).not.toHaveBeenCalled()
+})

@@ -12,6 +12,13 @@ const mocks = vi.hoisted(() => ({
   api: vi.fn(),
   stream: vi.fn(),
   exchangesGate: undefined as Promise<void> | undefined,
+  models: [] as {
+    id: string
+    name: string
+    provider: string
+    enabled: boolean
+    has_api_key: boolean
+  }[],
   exchanges: [] as {
     id: string
     name: string
@@ -34,15 +41,7 @@ vi.mock('../lib/api', () => ({
       return mocks.exchanges
     },
     getTraders: async () => [],
-    getModelConfigs: async () => [
-      {
-        id: 'model',
-        name: 'Configured DeepSeek',
-        provider: 'deepseek',
-        enabled: true,
-        has_api_key: true,
-      },
-    ],
+    getModelConfigs: async () => mocks.models,
   },
 }))
 vi.mock('../lib/planning', async (importOriginal) => ({
@@ -100,6 +99,15 @@ const plan = (id: string) => ({
   orders: [{ index: 1, price: '80000', quantity: '0.01', offset_seconds: 0 }],
 })
 beforeEach(() => {
+  mocks.models = [
+    {
+      id: 'model',
+      name: 'Configured DeepSeek',
+      provider: 'deepseek',
+      enabled: true,
+      has_api_key: true,
+    },
+  ]
   mocks.exchangesGate = undefined
   mocks.exchanges = [
     {
@@ -128,6 +136,17 @@ beforeEach(() => {
       }
     if (path.startsWith('account?'))
       return { equity: '1000', available: '1000', fee_bps: '5' }
+    if (path.startsWith('setup-wallet'))
+      return {
+        found: true,
+        enabled: true,
+        address: '0x1111111111111111111111111111111111111111',
+        model_id: 'model',
+        chain: 'base',
+        asset: 'USDC',
+        balance_usdc: '1',
+        balance_status: 'ok',
+      }
     if (path === 'ai500')
       return {
         coins: [{ pair: 'ETHUSDT', score: 85 }],
@@ -236,12 +255,12 @@ it('opens the only connected account by default and keeps Binance AI500 reachabl
   fireEvent.change(screen.getByLabelText('Market venue'), {
     target: { value: 'binance' },
   })
-  fireEvent.click(screen.getByText('Find a market · AI500'))
+  expect(screen.getByLabelText('Quick market selection')).toBeVisible()
   await screen.findByRole('button', { name: /ETH/ })
   expect(screen.getByLabelText('Market venue')).toHaveValue('binance')
   expect(screen.getByLabelText('Trading account')).toHaveValue('')
   expect(
-    screen.getByText(/Public market planning is available/)
+    screen.getByRole('region', { name: 'Frontier setup' })
   ).toBeInTheDocument()
   fireEvent.click(screen.getByRole('button', { name: /ETH/ }))
   expect(screen.getByLabelText('Symbol')).toHaveValue('ETHUSDT')
@@ -327,4 +346,20 @@ it('account review does not restart model activity or show a planning stop butto
   expect(screen.queryByRole('button', { name: 'Stop planning' })).toBeNull()
   finish({ ...plan('resized'), constraints: { leverage: 5 } })
   await screen.findByRole('dialog')
+})
+
+it('opens setup before a paid request and retains the original idea when AI is missing', async () => {
+  mocks.models = []
+  open()
+  await screen.findByRole('region', { name: 'Frontier setup' })
+  const idea = screen.getByRole('textbox', { name: 'Trade idea' })
+  fireEvent.change(idea, {
+    target: { value: 'Compare a ladder and TWAP for BTC' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }))
+  expect(
+    await screen.findByRole('dialog', { name: 'Enable your AI' })
+  ).toBeVisible()
+  expect(idea).toHaveValue('Compare a ladder and TWAP for BTC')
+  expect(mocks.stream).not.toHaveBeenCalled()
 })

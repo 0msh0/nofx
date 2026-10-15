@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/singleflight"
 	"io"
 	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"nofx/planning/core"
@@ -19,6 +21,9 @@ import (
 )
 
 type Client struct {
+	discoveryMu                               sync.Mutex
+	discoveryCache                            map[string]MarketList
+	discoveryFlight                           singleflight.Group
 	HTTP                                      *http.Client
 	Binance, BinanceFutures, OKX, Hyperliquid string
 }

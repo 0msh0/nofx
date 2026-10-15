@@ -11,10 +11,18 @@ export function PlanningAI500({
   venue,
   onSelect,
   disabled,
+  selected,
+  walletReady = true,
+  walletChecking = false,
+  onSetup,
 }: {
   venue: string
   onSelect: (symbol: string) => void
   disabled: boolean
+  selected?: string
+  walletReady?: boolean
+  walletChecking?: boolean
+  onSetup?: () => void
 }) {
   const [board, setBoard] = useState<Board | null>(null)
   const [error, setError] = useState('')
@@ -22,7 +30,7 @@ export function PlanningAI500({
   const [search, setSearch] = useState('')
   const [revision, setRevision] = useState(0)
   useEffect(() => {
-    if (venue !== 'binance') return
+    if (venue !== 'binance' || !walletReady) return
     let current = true
     setLoading(true)
     setError('')
@@ -46,7 +54,7 @@ export function PlanningAI500({
     return () => {
       current = false
     }
-  }, [venue, revision])
+  }, [venue, revision, walletReady])
   if (venue !== 'binance') return null
   const coins =
     board?.coins.filter((v) =>
@@ -64,21 +72,34 @@ export function PlanningAI500({
           onChange={(e) => setSearch(e.target.value)}
         />
         <button
-          disabled={loading || disabled}
+          disabled={loading || disabled || !walletReady}
           onClick={() => setRevision((v) => v + 1)}
         >
           Refresh list
         </button>
       </div>
+      {!walletReady && (
+        <div className="planning-ai500-setup">
+          <span>
+            {walletChecking
+              ? 'Checking AI wallet…'
+              : 'Enable your AI fee wallet to load AI500 shortcuts.'}
+          </span>
+          {!walletChecking && onSetup && (
+            <button onClick={onSetup}>Set up AI wallet</button>
+          )}
+        </div>
+      )}
       {loading && <p role="status">Loading AI500…</p>}
       {error && <p role="alert">{error}</p>}
-      {!loading && !error && board && (
+      {walletReady && !loading && !error && board && (
         <>
           <div className="planning-ai500-symbols">
             {coins.map((v) => (
               <button
                 disabled={disabled}
                 key={v.pair}
+                aria-pressed={selected === v.pair}
                 onClick={() => onSelect(v.pair)}
                 title={`AI score ${v.score}`}
               >

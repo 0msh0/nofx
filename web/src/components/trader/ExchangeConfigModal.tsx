@@ -40,6 +40,7 @@ interface ExchangeConfigModalProps {
   allExchanges: Exchange[]
   editingExchangeId: string | null
   initialExchangeType?: string | null
+  allowedExchangeTypes?: string[]
   onSave: (
     exchangeId: string | null,
     exchangeType: string,
@@ -151,6 +152,7 @@ export function ExchangeConfigModal({
   allExchanges,
   editingExchangeId,
   initialExchangeType,
+  allowedExchangeTypes,
   onSave,
   onDelete,
   onClose,
@@ -339,8 +341,8 @@ export function ExchangeConfigModal({
   }
 
   const stepLabels = [t('exchangeConfig.selectExchange', language), t('exchangeConfig.configure', language)]
-  const cexExchanges = SUPPORTED_EXCHANGE_TEMPLATES.filter(t => t.type === 'cex')
-  const dexExchanges = SUPPORTED_EXCHANGE_TEMPLATES.filter(t => t.type === 'dex')
+  const cexExchanges = SUPPORTED_EXCHANGE_TEMPLATES.filter(t => t.type === 'cex' && (!allowedExchangeTypes || allowedExchangeTypes.includes(t.exchange_type)))
+  const dexExchanges = SUPPORTED_EXCHANGE_TEMPLATES.filter(t => t.type === 'dex' && (!allowedExchangeTypes || allowedExchangeTypes.includes(t.exchange_type)))
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4 overflow-y-auto backdrop-blur-xs">
