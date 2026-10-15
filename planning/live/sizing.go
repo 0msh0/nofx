@@ -7,7 +7,7 @@ import (
 )
 
 // AccountLimits derives exact budgets from a fresh NOFX account snapshot.
-// Reserve 5% of free margin; retain a 1% equity stop-risk ceiling.
+// Use free margin at the selected leverage, reserving estimated execution costs.
 // Existing exposure is not a reason to reject a draft. The controller checks
 // positions and working orders again before approving or submitting an entry.
 func AccountLimits(a Account, c core.Constraints) (core.Constraints, error) {
@@ -23,7 +23,10 @@ func AccountLimits(a Account, c core.Constraints) (core.Constraints, error) {
 		available = new(big.Rat).Set(equity)
 	}
 	c.Equity = a.Equity
-	c.MaxRisk = core.Decimal(new(big.Rat).Mul(equity, big.NewRat(1, 100)).FloatString(12))
+	c.AvailableMargin = core.Decimal(available.FloatString(12))
+	// Auto sizing allocates margin, rather than silently applying a 1% loss budget.
+	// The compiler still validates stop distance, reward/risk and liquidity.
+	c.MaxRisk = a.Equity
 	if !core.Positive(a.FeeBPS) && a.FeeBPS != "0" {
 		return c, errors.New("account fee estimate unavailable")
 	}
@@ -36,8 +39,7 @@ func AccountLimits(a Account, c core.Constraints) (core.Constraints, error) {
 	fee, _ := decimal(c.FeeBPS)
 	slip, _ := decimal(c.SlippageBPS)
 	perUnit := new(big.Rat).Add(big.NewRat(1, int64(c.Leverage)), new(big.Rat).Quo(new(big.Rat).Add(fee, slip), big.NewRat(5000, 1)))
-	budget := new(big.Rat).Mul(available, big.NewRat(95, 100))
-	c.MaxNotional = core.Decimal(new(big.Rat).Quo(budget, perUnit).FloatString(12))
+	c.MaxNotional = core.Decimal(new(big.Rat).Quo(available, perUnit).FloatString(12))
 	return c, c.Validate()
 }
 

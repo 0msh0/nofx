@@ -5,6 +5,7 @@ export interface Plan {
   expires: string
   created: string
   quantity: string
+  sizing_limit?: 'budget' | 'risk' | 'liquidity'
   risk: string
   reward: string
   reward_risk: string
@@ -42,6 +43,7 @@ export interface Idea {
 }
 export interface Constraints {
   leverage?: number
+  available_margin?: string
   equity: string
   max_risk: string
   max_notional: string

@@ -38,6 +38,7 @@ type testBroker struct {
 	account                Account
 	prepareErr, errorPlace error
 	lookupErr              bool
+	fillEntryImmediately   bool
 }
 
 func (b *testBroker) Venue() string { return "binance" }
@@ -54,8 +55,48 @@ func (b *testBroker) Place(_ context.Context, o Order) (Order, error) {
 	o.OrderID = fmt.Sprint(len(b.placed))
 	o.Status = "NEW"
 	o.Filled = "0"
+	if b.fillEntryImmediately && o.Role == "entry" {
+		o.Status, o.Filled = "FILLED", o.Quantity
+	}
 	b.orders[o.ClientID] = o
 	return o, b.errorPlace
+}
+
+func TestImmediateFillWaitsForPositionBeforeCompletion(t *testing.T) {
+	c, b, _, p := setup(t, "limit")
+	v := started(t, c, p)
+	b.fillEntryImmediately = true
+	for range 2 {
+		if c.step(context.Background(), "alice", v.ID) {
+			t.Fatal("monitor stopped before position confirmation")
+		}
+	}
+	got, _ := c.Get("alice", v.ID)
+	var leases int64
+	c.DB.Model(&Lease{}).Count(&leases)
+	if got.State == "completed" || leases != 1 || len(b.placed) != 1 {
+		t.Fatal("filled entry lost its reservation or was resubmitted", got.State, leases, len(b.placed))
+	}
+	b.account.Position = got.Orders[0].Filled
+	for range 2 {
+		c.step(context.Background(), "alice", v.ID)
+	}
+	if len(b.placed) != 3 || b.placed[1].Role != "sl" || b.placed[2].Role != "tp" {
+		t.Fatal("confirmed position did not receive exactly one protection pair", b.placed)
+	}
+	// Only a confirmed exit fill and flat position can finish automatically.
+	tp := b.orders[b.placed[2].ClientID]
+	tp.Status, tp.Filled = "FILLED", tp.Quantity
+	b.orders[tp.ClientID] = tp
+	b.account.Position = "0"
+	if !c.step(context.Background(), "alice", v.ID) {
+		t.Fatal("confirmed closed trade did not finish")
+	}
+	got, _ = c.Get("alice", v.ID)
+	c.DB.Model(&Lease{}).Count(&leases)
+	if got.State != "completed" || leases != 0 {
+		t.Fatal("closed trade retained reservation")
+	}
 }
 func (b *testBroker) Lookup(_ context.Context, o Order) (Order, error) {
 	b.mu.Lock()

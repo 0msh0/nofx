@@ -34,6 +34,7 @@ import {
   type PlanCheck,
 } from '../components/planning/PlanStructures'
 import { FrontierOrderBlocker } from '../components/planning/FrontierOrderBlocker'
+import { PlanFunding } from '../components/planning/PlanFunding'
 import { FrontierAccount } from '../components/planning/FrontierAccount'
 import {
   FrontierSetup,
@@ -47,7 +48,7 @@ const states: Record<string, string> = {
   draft: 'Awaiting approval',
   approved: 'Approved',
   running: 'Running',
-  position_open: 'Position open · protected',
+  position_open: 'Position open',
   stopping: 'Stop further entries',
   needs_attention: 'Needs reconciliation',
   completed: 'Completed',
@@ -942,7 +943,7 @@ export function TradingPlanningPage() {
             </label>
             <span>
               {exchangeID
-                ? 'Auto size · current free margin · 1% equity risk cap · 5% margin reserve'
+                ? `Available margin × ${leverage}x · execution costs reserved`
                 : 'Connect an account for automatic sizing'}
             </span>
           </div>
@@ -994,6 +995,7 @@ export function TradingPlanningPage() {
                   </strong>
                 </span>
               </div>
+              <PlanFunding plan={current.plan} />
               <details>
                 <summary>
                   {current.plan.orders.length || 1} child orders · Inspect
@@ -1053,7 +1055,7 @@ export function TradingPlanningPage() {
                   {(
                     Object.keys(defaultLimits) as Exclude<
                       keyof Constraints,
-                      'leverage'
+                      'leverage' | 'available_margin'
                     >[]
                   )
                     .filter(
@@ -1092,7 +1094,8 @@ export function TradingPlanningPage() {
                 </div>
                 <p>
                   Live sizing refreshes before planning and review. Leverage is
-                  a ceiling; stop risk and liquidity can reduce size.
+                  applied to current available margin, with execution costs
+                  reserved. Order-book liquidity and rounding can reduce size.
                   Hyperliquid costs must include Builder fees. Gaps, failed
                   protection and slippage may cause losses beyond the estimate.
                 </p>
@@ -1472,7 +1475,10 @@ export function TradingPlanningPage() {
                     </button>
                   </>
                 ) : (
-                  run && (
+                  run &&
+                  !['completed', 'cancelled', 'expired'].includes(
+                    run.state
+                  ) && (
                     <button
                       disabled={busy}
                       onClick={() => runAction('stop', run)}
@@ -1607,22 +1613,10 @@ export function TradingPlanningPage() {
               {review.orders.length || 1} child orders ·{' '}
               {review.constraints.leverage || 1}x leverage
             </p>
+            <PlanFunding plan={review} />
             <p>
-              Estimated initial margin{' '}
-              {format(
-                String(
-                  (review.orders.length
-                    ? review.orders.reduce(
-                        (sum, order) =>
-                          sum + Number(order.price) * Number(order.quantity),
-                        0
-                      )
-                    : Number(review.idea.entry) * Number(review.quantity)) /
-                    (review.constraints.leverage || 1)
-                )
-              )}{' '}
-              {review.snapshot.quote_asset} · fees reserved separately. Quantity
-              is locked at this review; balance changes require a new review.
+              Quantity is locked at this review; balance changes require a new
+              review.
             </p>
             <details>
               <summary>Execution and protection details</summary>

@@ -3,6 +3,7 @@ package live
 import (
 	"nofx/planning/core"
 	"testing"
+	"time"
 )
 
 func TestAccountSizingUsesFreeMarginAndLeverage(t *testing.T) {
@@ -11,7 +12,7 @@ func TestAccountSizingUsesFreeMarginAndLeverage(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if cmp(c.MaxNotional, "185.909980430528") != 0 || cmp(c.MaxRisk, "1") != 0 || c.FeeBPS != "12" {
+	if cmp(c.MaxNotional, "195.694716242661") != 0 || cmp(c.MaxRisk, "100") != 0 || c.FeeBPS != "12" || cmp(c.AvailableMargin, "40") != 0 {
 		t.Fatalf("incorrect automatic limits: %+v", c)
 	}
 	for _, leverage := range []int{-1, 0, 21} {
@@ -30,6 +31,34 @@ func TestAccountSizingUsesFreeMarginAndLeverage(t *testing.T) {
 		if got.MaxNotional != c.MaxNotional || got.MaxRisk != c.MaxRisk {
 			t.Fatal("existing exposure increased the free-margin planning budget")
 		}
+	}
+}
+
+func TestAutoSizingAllocatesMarginAcrossEntryStructures(t *testing.T) {
+	for _, kind := range []string{"limit", "ladder", "twap"} {
+		t.Run(kind, func(t *testing.T) {
+			_, b, m, base := setup(t, kind)
+			b.account.Equity, b.account.Available = "283.22", "283.22"
+			limits, err := AccountLimits(b.account, core.Constraints{Leverage: 5, MinRewardRisk: "2", FeeBPS: "10", SlippageBPS: "10"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			p, err := core.Compile(m.book, limits, base.Idea, time.Now().UTC())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if cmp(p.Quantity, "0.013") < 0 || cmp(p.Risk, "2.8322") <= 0 || p.SizingLimit != "budget" {
+				t.Fatalf("margin sizing still capped by a hidden risk budget: %+v", p)
+			}
+			if err := CheckAccountCapacity(p, b.account); err != nil {
+				t.Fatal(err)
+			}
+			m.book.AskSize = "0.01"
+			limited, err := core.Compile(m.book, limits, base.Idea, time.Now().UTC())
+			if err != nil || limited.SizingLimit != "liquidity" || cmp(limited.Quantity, "0.001") > 0 {
+				t.Fatalf("liquidity cap missing or unexplained: %+v %v", limited, err)
+			}
+		})
 	}
 }
 
@@ -62,5 +91,15 @@ func TestLegacyLeverageAndBounds(t *testing.T) {
 	c.Leverage = 21
 	if c.Validate() == nil {
 		t.Fatal("leverage bound bypassed")
+	}
+}
+
+func TestLegacyPlanStillVerifiesWithoutSizingMetadata(t *testing.T) {
+	_, _, _, p := setup(t, "limit")
+	p.SizingLimit = ""
+	p.Hash = p.Digest()
+	p.ID = p.Hash[:16]
+	if err := p.Verify(time.Now().UTC()); err != nil {
+		t.Fatal("previously saved plan no longer verifies", err)
 	}
 }

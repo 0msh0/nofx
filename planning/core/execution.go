@@ -104,8 +104,9 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 	if i.Side == "short" {
 		liquidity = must(s.BidSize)
 	}
-	total := floorStep(min(min(div(must(c.MaxRisk), lossSum), div(must(c.MaxNotional), notional)), div(liquidity, big.NewRat(10, 1))), must(s.Step))
-	p := Plan{Snapshot: s, Constraints: c, Idea: i, Created: now, Expires: now.Add(5 * time.Minute)}
+	size, limit := sizeByLimits(div(must(c.MaxRisk), lossSum), div(must(c.MaxNotional), notional), div(liquidity, big.NewRat(10, 1)))
+	total := floorStep(size, must(s.Step))
+	p := Plan{Snapshot: s, Constraints: c, Idea: i, SizingLimit: limit, Created: now, Expires: now.Add(5 * time.Minute)}
 	risk, reward, qty := new(big.Rat), new(big.Rat), new(big.Rat)
 	for n, l := range levels {
 		q := floorStep(mul(total, weights[n]), must(s.Step))

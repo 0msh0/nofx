@@ -2559,3 +2559,39 @@
     align-items: stretch;
   }
 }
+.frontier-funding {
+  margin: 16px 0;
+  padding: 16px;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 12px;
+  background: rgba(46, 139, 87, 0.04);
+}
+.frontier-funding-equation {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.frontier-funding-equation div {
+  display: grid;
+  gap: 6px;
+}
+.frontier-funding-equation strong {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+.frontier-funding-equation span,
+.frontier-funding-equation small,
+.frontier-funding p,
+.frontier-funding-compact small {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary, #6b7280);
+}
+.frontier-funding p {
+  margin: 12px 0 0;
+}
+.frontier-funding-compact small {
+  display: block;
+  margin-top: 4px;
+}

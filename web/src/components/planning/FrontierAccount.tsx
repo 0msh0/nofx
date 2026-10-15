@@ -348,6 +348,20 @@ export function FrontierAccount({
           not modify existing positions or exit orders.
         </small>
       )}
+      {hasPosition &&
+        !error &&
+        !orderError &&
+        orders?.accountID === accountID &&
+        orders.symbol === symbol &&
+        open.length === 0 && (
+          <p role="alert" className="frontier-notice">
+            {symbol} position is open, but no working orders were reported.
+            Stop-loss and take-profit protection is not confirmed.{' '}
+            <a href={exchangeURL(venue)} target="_blank" rel="noreferrer">
+              Check protection at the exchange ↗
+            </a>
+          </p>
+        )}
       {notice && (
         <p role="status" className="frontier-notice">
           {notice}

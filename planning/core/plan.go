@@ -112,13 +112,14 @@ func (s Snapshot) Validate(now time.Time) error {
 }
 
 type Constraints struct {
-	Leverage      int     `json:"leverage,omitempty"`
-	Equity        Decimal `json:"equity"`
-	MaxRisk       Decimal `json:"max_risk"`
-	MaxNotional   Decimal `json:"max_notional"`
-	MinRewardRisk Decimal `json:"min_reward_risk"`
-	FeeBPS        Decimal `json:"fee_bps"`
-	SlippageBPS   Decimal `json:"slippage_bps"`
+	Leverage        int     `json:"leverage,omitempty"`
+	AvailableMargin Decimal `json:"available_margin,omitempty"`
+	Equity          Decimal `json:"equity"`
+	MaxRisk         Decimal `json:"max_risk"`
+	MaxNotional     Decimal `json:"max_notional"`
+	MinRewardRisk   Decimal `json:"min_reward_risk"`
+	FeeBPS          Decimal `json:"fee_bps"`
+	SlippageBPS     Decimal `json:"slippage_bps"`
 }
 
 func (c Constraints) EffectiveLeverage() int {
@@ -136,6 +137,9 @@ func (c Constraints) Validate() error {
 	}
 	if c.Leverage < 0 || c.Leverage > 20 {
 		return errors.New("planning leverage must be between 1x and 20x")
+	}
+	if c.AvailableMargin != "" && (!Positive(c.AvailableMargin) || must(c.AvailableMargin).Cmp(must(c.Equity)) > 0) {
+		return errors.New("available margin must be positive and cannot exceed equity")
 	}
 	if must(c.MaxRisk).Cmp(must(c.Equity)) > 0 || must(c.MaxNotional).Cmp(mul(must(c.Equity), big.NewRat(int64(c.EffectiveLeverage()), 1))) > 0 {
 		return errors.New("risk exceeds equity or notional exceeds leveraged equity")
@@ -162,6 +166,7 @@ type Plan struct {
 	Constraints   Constraints `json:"constraints"`
 	Idea          Idea        `json:"idea"`
 	Quantity      Decimal     `json:"quantity"`
+	SizingLimit   string      `json:"sizing_limit,omitempty"`
 	VenueQuantity Decimal     `json:"venue_quantity,omitempty"`
 	Risk          Decimal     `json:"risk"`
 	Reward        Decimal     `json:"reward"`
@@ -177,6 +182,17 @@ func floorStep(v, step *big.Rat) *big.Rat {
 	q := div(v, step)
 	n := new(big.Int).Quo(q.Num(), q.Denom())
 	return mul(new(big.Rat).SetInt(n), step)
+}
+
+func sizeByLimits(risk, budget, liquidity *big.Rat) (*big.Rat, string) {
+	quantity, limit := budget, "budget"
+	if risk.Cmp(quantity) < 0 {
+		quantity, limit = risk, "risk"
+	}
+	if liquidity.Cmp(quantity) < 0 {
+		quantity, limit = liquidity, "liquidity"
+	}
+	return quantity, limit
 }
 func Compile(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, error) {
 	if i.Execution != nil {
@@ -229,11 +245,13 @@ func Compile(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, error) {
 	if i.Side == "short" {
 		liquidity = must(s.BidSize)
 	}
-	q := floorStep(min(min(div(must(c.MaxRisk), loss), div(must(c.MaxNotional), mul(e, add(big.NewRat(1, 1), cost)))), div(liquidity, big.NewRat(10, 1))), must(s.Step))
+	size, limit := sizeByLimits(div(must(c.MaxRisk), loss), div(must(c.MaxNotional), mul(e, add(big.NewRat(1, 1), cost))), div(liquidity, big.NewRat(10, 1)))
+	q := floorStep(size, must(s.Step))
 	if q.Cmp(must(s.MinQty)) < 0 || mul(q, e).Cmp(must(s.MinNotional)) < 0 {
 		return p, fmt.Errorf("Risk, notional and liquidity constraints allow quantity %s (notional %s), below venue minimum quantity %s or notional %s. Top-of-book side size is %s; participation is capped at 10%%. Changing the target cannot remove liquidity or minimum-order limits.", number(q), number(mul(q, e)), s.MinQty, s.MinNotional, number(liquidity))
 	}
 	p = Plan{Snapshot: s, Constraints: c, Idea: i, Quantity: number(q), Risk: number(mul(q, loss)), Reward: number(mul(q, gain)), RewardRisk: number(div(gain, loss)), Created: now, Expires: now.Add(60 * time.Second)}
+	p.SizingLimit = limit
 	for _, d := range []Decimal{p.Quantity, p.Risk, p.Reward, p.RewardRisk} {
 		if !Positive(d) {
 			return Plan{}, errors.New("derived amount exceeds supported decimal magnitude/precision")
@@ -263,6 +281,12 @@ func (p Plan) Verify(now time.Time) error {
 	rebuilt, err := Compile(p.Snapshot, p.Constraints, p.Idea, p.Created)
 	if err != nil {
 		return err
+	}
+	if p.SizingLimit == "" {
+		// Preserve the exact approved digest of plans saved before sizing labels.
+		rebuilt.SizingLimit = ""
+		rebuilt.Hash = rebuilt.Digest()
+		rebuilt.ID = rebuilt.Hash[:16]
 	}
 	rebuilt, err = rebuilt.WithAnalysis(p.Analysis)
 	if err != nil {

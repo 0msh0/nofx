@@ -1,6 +1,7 @@
 import type { Plan } from '../../lib/planning'
 import { validationSummary } from '../../lib/planningPresentation'
 import { structureNames } from './PlanningActivity'
+import { PlanFunding } from './PlanFunding'
 export interface PlanCheck {
   id: string
   kind: string
@@ -88,6 +89,7 @@ export function PlanStructures({
                     <dd className="target-text">{price(plan.idea.target)}</dd>
                   </div>
                 </dl>
+                <PlanFunding plan={plan} compact />
                 <div className="frontier-plan-outcomes">
                   <span>
                     Planned loss{' '}

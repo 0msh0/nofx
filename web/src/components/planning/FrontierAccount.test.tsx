@@ -128,6 +128,19 @@ it('shows all account positions and native stop/target orders without submitting
   expect(mocks.planning).not.toHaveBeenCalled()
 })
 
+it('flags a live position with no reported exit orders without taking action', async () => {
+  vi.mocked(fetch).mockResolvedValue(new Response('[]'))
+  open()
+  await screen.findByText(
+    /position is open, but no working orders were reported/
+  )
+  expect(
+    screen.getByRole('link', { name: /Check protection at the exchange/ })
+  ).toHaveAttribute('href', 'https://app.hyperliquid.xyz/')
+  expect(mocks.close).not.toHaveBeenCalled()
+  expect(mocks.planning).not.toHaveBeenCalled()
+})
+
 it('requires an explicit close click, uses the existing NOFX close API and never repeats a timeout', async () => {
   mocks.close.mockRejectedValue(new Error('timeout'))
   open()

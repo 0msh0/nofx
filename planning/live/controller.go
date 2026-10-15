@@ -450,17 +450,10 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 	if entries == 0 {
 		entries = 1
 	}
-	expected := core.Decimal("0")
-	for _, order := range v.Orders {
-		if order.Role == "entry" {
-			expected = add(expected, order.Filled)
-		} else {
-			if cmp(expected, order.Filled) >= 0 {
-				expected = sub(expected, order.Filled)
-			} else {
-				positionValid = false
-			}
-		}
+	expected := filledExposure(v.Orders)
+	if cmp(expected, "0") < 0 {
+		positionValid = false
+		attention("Exit fills exceed confirmed entry fills; reconcile live positions.")
 	}
 	positionMatches := positionValid && cmp(account.Position, expected) == 0
 	if positionValid && !positionMatches {
@@ -619,7 +612,14 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 			pending = true
 		}
 	}
-	if !pending && er == nil && cmp(account.Position, "0") == 0 {
+	// A filled entry can precede its account-position update. Recompute after
+	// placement and require confirmed exits before releasing the reservation.
+	// An external close is reconciled explicitly by CheckStatus.
+	expected = filledExposure(v.Orders)
+	if er == nil && cmp(account.Position, expected) != 0 {
+		attention("Entry fills and the exchange position do not yet match. Further entries stopped; waiting for position confirmation. Check the exchange if this persists.")
+	}
+	if !pending && er == nil && cmp(account.Position, "0") == 0 && cmp(expected, "0") == 0 {
 		for i := entries; i < len(v.Orders); i++ {
 			o := v.Orders[i]
 			if o.Status == "UNKNOWN" || o.Status == "submitting" || o.Status == "TRIGGERED" {
@@ -661,6 +661,18 @@ func (c *Controller) step(ctx context.Context, user, id string) bool {
 		return true
 	}
 	return false
+}
+
+func filledExposure(orders []Order) core.Decimal {
+	entry, exit := core.Decimal("0"), core.Decimal("0")
+	for _, order := range orders {
+		if order.Role == "entry" {
+			entry = add(entry, order.Filled)
+		} else {
+			exit = add(exit, order.Filled)
+		}
+	}
+	return sub(entry, exit)
 }
 
 var nativeDecimal = regexp.MustCompile(`^[0-9]{1,24}(\.[0-9]{1,12})?$`)
