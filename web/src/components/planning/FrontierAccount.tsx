@@ -26,6 +26,14 @@ interface OpenOrder {
 }
 const format = (value: number | string) =>
   Number(value).toLocaleString('en-US', { maximumFractionDigits: 8 })
+const amount = (value: number) =>
+  Number.isFinite(value)
+    ? value.toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits:
+          Math.abs(value) > 0 && Math.abs(value) < 0.01 ? 4 : 2,
+      })
+    : 'Unavailable'
 const exchangeURL = (venue: string) =>
   venue === 'hyperliquid'
     ? 'https://app.hyperliquid.xyz/'
@@ -367,12 +375,14 @@ export function FrontierAccount({
                 <thead>
                   <tr>
                     <th>Market</th>
-                    <th>Side</th>
-                    <th>Size</th>
+                    <th>Position value</th>
+                    <th title="Position value divided by leverage. This estimate is not the exchange-reported margin balance.">
+                      Est. initial margin
+                    </th>
+                    <th>Quantity</th>
                     <th>Average entry</th>
                     <th>Mark price</th>
                     <th>Unrealized PnL</th>
-                    <th>Leverage</th>
                     <th />
                   </tr>
                 </thead>
@@ -381,23 +391,42 @@ export function FrontierAccount({
                     <tr key={p.symbol + p.side}>
                       <td>
                         <strong>{nativeMarket(p.symbol, venue)}</strong>
+                        <span className={'frontier-position-badge ' + p.side}>
+                          {p.side === 'long' ? 'Long' : 'Short'}{' '}
+                          <b>{p.leverage}x</b>
+                        </span>
+                      </td>
+                      <td className="frontier-position-value">
+                        <strong>{amount(p.quantity * p.mark)}</strong>
+                        <small>
+                          {venue === 'hyperliquid' ? 'USDC' : 'USDT'} notional
+                        </small>
                       </td>
                       <td
-                        className={
-                          p.side === 'long' ? 'target-text' : 'stop-text'
-                        }
+                        className="frontier-position-margin"
+                        title="Current notional / leverage. Cross margin, added collateral and exchange rules can change actual margin requirements."
                       >
-                        {p.side === 'long' ? 'Long' : 'Short'}
+                        <strong>
+                          ≈ {amount((p.quantity * p.mark) / p.leverage)}
+                        </strong>
+                        <small>
+                          {venue === 'hyperliquid' ? 'USDC' : 'USDT'} ·
+                          estimated
+                        </small>
                       </td>
-                      <td>{format(p.quantity)}</td>
+                      <td>
+                        {format(p.quantity)}{' '}
+                        <small>
+                          {nativeMarket(p.symbol, venue).replace(/USDT$/, '')}
+                        </small>
+                      </td>
                       <td>{format(p.entry)}</td>
                       <td>{format(p.mark)}</td>
                       <td className={p.pnl >= 0 ? 'target-text' : 'stop-text'}>
                         {p.pnl >= 0 ? '+' : ''}
-                        {format(p.pnl)}{' '}
+                        {amount(p.pnl)}{' '}
                         {venue === 'hyperliquid' ? 'USDC' : 'USDT'}
                       </td>
-                      <td>{p.leverage}x</td>
                       <td>
                         <button
                           disabled={
@@ -426,6 +455,12 @@ export function FrontierAccount({
           ) : loading ? (
             <p>Reading positions…</p>
           ) : null}
+          {positions.length > 0 && (
+            <p className="frontier-margin-note">
+              Position value = quantity × mark price. Estimated initial margin =
+              position value ÷ leverage; actual exchange margin may differ.
+            </p>
+          )}
           {open.filter((o) => /STOP|TAKE_PROFIT/.test(o.type)).length > 0 && (
             <div className="frontier-protection">
               <strong>Exchange exit orders · {symbol}</strong>

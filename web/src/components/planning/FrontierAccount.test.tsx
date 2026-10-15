@@ -116,8 +116,8 @@ function open(symbol = 'BTC', onManual = vi.fn()) {
 
 it('shows all account positions and native stop/target orders without submitting anything', async () => {
   open()
-  await screen.findByText('ETH')
-  expect(screen.getByText('BTC')).toBeInTheDocument()
+  await screen.findByText('ETH', { selector: 'strong' })
+  expect(screen.getByText('BTC', { selector: 'strong' })).toBeInTheDocument()
   await screen.findByText('Exchange exit orders · BTC')
   expect(screen.getAllByText('84,000')[0]).toBeInTheDocument()
   expect(screen.getAllByText('79,000')[0]).toBeInTheDocument()
@@ -131,7 +131,7 @@ it('shows all account positions and native stop/target orders without submitting
 it('requires an explicit close click, uses the existing NOFX close API and never repeats a timeout', async () => {
   mocks.close.mockRejectedValue(new Error('timeout'))
   open()
-  await screen.findByText('ETH')
+  await screen.findByText('ETH', { selector: 'strong' })
   fireEvent.click(screen.getAllByRole('button', { name: 'Close position' })[0])
   expect(mocks.close).not.toHaveBeenCalled()
   fireEvent.click(screen.getByRole('button', { name: 'Keep position' }))
@@ -161,7 +161,7 @@ it('does not present a failed exchange read as an empty account', async () => {
 it('manual entry opens a review form through its callback, never a model or order request', async () => {
   const manual = vi.fn()
   open('SOL', manual)
-  await screen.findByText('ETH')
+  await screen.findByText('ETH', { selector: 'strong' })
   fireEvent.click(screen.getByRole('button', { name: 'Sell / Short' }))
   expect(manual).toHaveBeenCalledWith('short')
   expect(mocks.close).not.toHaveBeenCalled()
@@ -170,7 +170,7 @@ it('manual entry opens a review form through its callback, never a model or orde
 
 it('refuses to close a position that grew after the user reviewed it', async () => {
   open()
-  await screen.findByText('ETH')
+  await screen.findByText('ETH', { selector: 'strong' })
   fireEvent.click(screen.getAllByRole('button', { name: 'Close position' })[0])
   mocks.positions.mockResolvedValue([
     { ...positions[0], positionAmt: 1 },
@@ -179,4 +179,53 @@ it('refuses to close a position that grew after the user reviewed it', async () 
   fireEvent.click(screen.getByRole('button', { name: 'Confirm market close' }))
   await screen.findByText(/Position changed/)
   expect(mocks.close).not.toHaveBeenCalled()
+})
+
+it('shows position value, visible leverage and explicitly estimated margin without placing orders', async () => {
+  render(
+    <FrontierAccount
+      account={account}
+      accounts={[account]}
+      venue="hyperliquid"
+      symbol="BTC"
+      runs={[]}
+      busy={false}
+      onView={() => {}}
+      onManual={() => {}}
+      onBusy={() => {}}
+      onRefresh={async () => {}}
+    />
+  )
+  expect(await screen.findByText('820.00')).toBeVisible()
+  expect(screen.getByText('≈ 273.33')).toBeVisible()
+  expect(screen.getByText('3x')).toBeVisible()
+  expect(
+    screen.getByText('3x').closest('.frontier-position-badge')
+  ).toHaveTextContent('Short')
+  expect(
+    screen.getByRole('columnheader', { name: 'Est. initial margin' })
+  ).toBeVisible()
+  expect(screen.getByText(/actual exchange margin may differ/)).toBeVisible()
+  expect(mocks.close).not.toHaveBeenCalled()
+  expect(mocks.planning).not.toHaveBeenCalled()
+})
+
+it('uses USDT for Binance position amounts', async () => {
+  const binance = { ...account, exchange_type: 'binance' }
+  render(
+    <FrontierAccount
+      account={binance}
+      accounts={[binance]}
+      venue="binance"
+      symbol="BTCUSDT"
+      runs={[]}
+      busy={false}
+      onView={() => {}}
+      onManual={() => {}}
+      onBusy={() => {}}
+      onRefresh={async () => {}}
+    />
+  )
+  expect(await screen.findAllByText('USDT notional')).toHaveLength(2)
+  expect(screen.queryByText('USDC notional')).toBeNull()
 })
