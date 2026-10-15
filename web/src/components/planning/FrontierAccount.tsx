@@ -283,7 +283,7 @@ export function FrontierAccount({
       <header>
         <div>
           <h2>
-            Positions{' '}
+            Positions & orders{' '}
             <span className="frontier-count">
               {snapshot?.accountID === accountID ? positions.length : '—'}
             </span>
@@ -441,7 +441,7 @@ export function FrontierAccount({
                 ))}
             </div>
           )}
-          <details className="frontier-native-orders">
+          <details className="frontier-native-orders" open>
             <summary>
               Exchange orders · {symbol}
               {orders?.accountID === accountID && orders.symbol === symbol
@@ -538,7 +538,9 @@ export function FrontierAccount({
               <span>
                 {run.plan.snapshot.symbol} ·{' '}
                 {run.plan.idea.side === 'long' ? 'Long' : 'Short'}{' '}
-                <span className="frontier-record-label">Execution record</span>
+                <span className="frontier-record-label">
+                  Execution record · {name}
+                </span>
               </span>
               <span
                 className={

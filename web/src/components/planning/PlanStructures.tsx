@@ -22,6 +22,12 @@ export function PlanStructures({
   selected: string
   onSelect: (plan: Plan) => void
 }) {
+  const price = (value: string) =>
+    Number(value).toLocaleString('en-US', { maximumFractionDigits: 8 })
+  const money = (value: string) =>
+    Number(value).toLocaleString('en-US', {
+      maximumFractionDigits: Math.abs(Number(value)) < 0.01 ? 4 : 2,
+    })
   if (!checks.length && !busy) return null
   return (
     <section
@@ -68,6 +74,31 @@ export function PlanStructures({
                       : 'entry'}{' '}
                   · Net R:R {Number(plan.reward_risk).toFixed(2)} : 1
                 </p>
+                <dl className="frontier-plan-levels">
+                  <div>
+                    <dt>Entry</dt>
+                    <dd>{price(plan.idea.entry)}</dd>
+                  </div>
+                  <div>
+                    <dt>Stop</dt>
+                    <dd className="stop-text">{price(plan.idea.stop)}</dd>
+                  </div>
+                  <div>
+                    <dt>Target</dt>
+                    <dd className="target-text">{price(plan.idea.target)}</dd>
+                  </div>
+                </dl>
+                <div className="frontier-plan-outcomes">
+                  <span>
+                    Planned loss{' '}
+                    <b className="stop-text">−{money(plan.risk)}</b>
+                  </span>
+                  <span>
+                    Target return{' '}
+                    <b className="target-text">+{money(plan.reward)}</b>
+                  </span>
+                  <small>{plan.snapshot.quote_asset} · costs included</small>
+                </div>
                 <button onClick={() => onSelect(plan)}>
                   {plan.id === selected ? 'Showing on chart' : 'View on chart'}
                 </button>

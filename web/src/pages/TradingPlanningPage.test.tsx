@@ -172,6 +172,7 @@ function open() {
 describe('NOFX live planning', () => {
   it('refreshes account sizing and executes only after the explicit review click', async () => {
     open()
+    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
     const card = await screen.findByRole('button', { name: /Test plan one/ })
     fireEvent.click(card)
     await waitFor(() =>
@@ -205,8 +206,11 @@ describe('NOFX live planning', () => {
   })
   it('selecting a plan exits comparison and displays only that plan on the chart', async () => {
     open()
+    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
     await screen.findByRole('button', { name: /Test plan one/ })
-    fireEvent.click(screen.getByRole('button', { name: 'Compare on chart' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Compare plans', exact: true })
+    )
     await waitFor(() =>
       expect(
         mocks.plot.mock.calls.some(([, , list]) => list?.length === 2)
@@ -221,7 +225,9 @@ describe('NOFX live planning', () => {
   })
   it('custom entry mode does not attach TWAP parameters to a ladder', async () => {
     open()
+    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
     await screen.findByRole('button', { name: /Test plan one/ })
+    fireEvent.click(screen.getByText('Chart data & advanced tools'))
     fireEvent.click(
       screen.getByText('Risk budget, entry orders and advanced tools')
     )
@@ -313,6 +319,7 @@ it('keeps a venue chosen while account configuration is still loading', async ()
 
 it('preflight failure clears busy state without accumulating phantom user messages', async () => {
   open()
+  fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
   await screen.findByRole('button', { name: /Test plan one/ })
   const generate = screen.getByRole('button', { name: 'Generate plans' })
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -339,6 +346,7 @@ it('account review does not restart model activity or show a planning stop butto
     path === 'compile' ? pending : base(path, body)
   )
   open()
+  fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
   fireEvent.click(await screen.findByRole('button', { name: /Test plan one/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
   await screen.findByText('Validating account and order details…')
@@ -362,4 +370,80 @@ it('opens setup before a paid request and retains the original idea when AI is m
   ).toBeVisible()
   expect(idea).toHaveValue('Compare a ladder and TWAP for BTC')
   expect(mocks.stream).not.toHaveBeenCalled()
+})
+
+it('offers a safe starting point, keeps real account activity separate and supports keyboard views', async () => {
+  open()
+  await waitFor(() =>
+    expect(screen.getByLabelText('NOFX AI model')).toHaveValue('model')
+  )
+  const positions = screen.getByRole('region', {
+    name: 'Account positions and orders',
+  })
+  expect(positions.closest('.planning-workspace')).toBeNull()
+  expect(
+    screen.getByText('Chart data & advanced tools').closest('details')
+  ).not.toHaveAttribute('open')
+  fireEvent.click(screen.getByRole('button', { name: /Find a pullback entry/ }))
+  expect(screen.getByLabelText('Trade idea')).toHaveValue(
+    'Find a pullback entry with clear risk and exits.'
+  )
+  expect(mocks.stream).not.toHaveBeenCalled()
+  expect(
+    mocks.api.mock.calls.some(
+      ([path]) => path === 'approve' || path === 'execute'
+    )
+  ).toBe(false)
+  fireEvent.keyDown(screen.getByRole('tab', { name: 'Assistant' }), {
+    key: 'ArrowRight',
+  })
+  expect(screen.getByRole('tab', { name: /^Plans/ })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
+  expect(screen.getByLabelText('Trade idea')).toHaveValue(
+    'Find a pullback entry with clear risk and exits.'
+  )
+  fireEvent.keyDown(screen.getByRole('tab', { name: /^Plans/ }), {
+    key: 'Home',
+  })
+  expect(screen.getByRole('tab', { name: 'Assistant' })).toHaveAttribute(
+    'aria-selected',
+    'true'
+  )
+})
+
+it('shows generated plans automatically and uses the user idea instead of a generic prompt', async () => {
+  mocks.stream.mockImplementation(async (_body, _signal, onEvent) => {
+    onEvent({
+      type: 'plans',
+      data: { plans: [plan('one'), plan('two')], checks: [] },
+    })
+  })
+  open()
+  await waitFor(() =>
+    expect(screen.getByLabelText('NOFX AI model')).toHaveValue('model')
+  )
+  fireEvent.change(screen.getByLabelText('Trade idea'), {
+    target: { value: 'Compare timed entries for a pullback.' },
+  })
+  fireEvent.click(screen.getByRole('button', { name: 'Generate plans' }))
+  await waitFor(() =>
+    expect(screen.getByRole('tab', { name: /^Plans/ })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    )
+  )
+  expect(mocks.stream).toHaveBeenCalledWith(
+    expect.objectContaining({
+      message: 'Compare timed entries for a pullback.',
+    }),
+    expect.anything(),
+    expect.any(Function)
+  )
+  expect(
+    mocks.api.mock.calls.some(
+      ([path]) => path === 'approve' || path === 'execute'
+    )
+  ).toBe(false)
 })

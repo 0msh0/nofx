@@ -386,3 +386,22 @@ The latest opt-in public-data smoke check observed 745 Binance markets (182
 stock-classified contracts) and 333 Hyperliquid markets (128 stock-classified
 contracts), without missing-coverage warnings. These are changing snapshots,
 not a hardcoded universe or a promise of exchange-account eligibility.
+
+### Frontier workspace layout
+
+The workspace follows three steps: explore a market, compare plans, then review a trade.
+Exchange, account and native-symbol selection share one toolbar. AI500, volume-ranked
+markets and stock contracts remain visible in a compact market strip.
+
+The main chart shows the selected plan. The right-hand assistant switches between
+conversation and plan results without recreating the chart; fresh results open the
+Plans view automatically. Idea starters only fill the composer. They do not call a
+model, charge a wallet or submit an order. Generate plans uses the entered idea when
+present. Model selection, chart-data plugins and advanced entry tools are optional
+expanded sections.
+
+Real positions and current-market exchange orders have a separate full-width account
+section below the workspace, reachable with Positions & orders. Historical plans are
+collapsed separately from valid drafts, and execution history lives with account
+activity. The existing account review, approval and exchange execution guards remain
+in place. Responsive layouts stack the assistant below the chart on narrow screens.

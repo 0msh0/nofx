@@ -1758,3 +1758,705 @@
   padding: 5px 8px !important;
   margin-bottom: 5px;
 }
+
+/* Frontier workspace: market, decision, then actual account activity. */
+.planning-page {
+  --panel-bg: #ffffff;
+  --panel-bg-hover: #f7f7f5;
+  --line: #e8e7e3;
+  background: #f6f6f3;
+  padding: 82px 24px 28px;
+  font-size: 13px;
+}
+.planning-page [hidden] {
+  display: none !important;
+}
+.planning-heading {
+  margin-bottom: 16px;
+}
+.planning-heading h1 {
+  font-size: 24px;
+  letter-spacing: -1px;
+}
+.planning-heading > div {
+  gap: 14px;
+}
+.frontier-workflow {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  margin-left: auto;
+}
+.frontier-workflow span {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  color: #777873;
+}
+.frontier-workflow b {
+  display: grid;
+  place-items: center;
+  border: 1px solid #dddeda;
+  border-radius: 50%;
+  width: 21px;
+  height: 21px;
+  font-size: 10px;
+  font-weight: 500;
+}
+.frontier-workflow span:first-child {
+  color: #242924;
+}
+.frontier-workflow span:first-child b {
+  background: #263b30;
+  color: white;
+  border-color: #263b30;
+}
+.planning-toolbar {
+  border-radius: 12px 12px 0 0;
+  padding: 10px 16px;
+  gap: 22px;
+}
+.frontier-toolbar-field {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.frontier-toolbar-field > span {
+  color: #858680;
+  font-size: 11px;
+}
+.planning-toolbar select {
+  max-width: 225px;
+  border: 0;
+  padding-left: 0;
+  font-weight: 550;
+}
+.planning-toolbar form input {
+  width: 132px;
+  background: #f7f7f5;
+}
+.planning-toolbar form button {
+  border-color: transparent;
+  font-size: 11px;
+}
+.planning-toolbar .planning-live {
+  border: 0;
+  color: #646d64;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 10px;
+}
+.planning-live i,
+.frontier-live-dot {
+  display: inline-block;
+  height: 5px;
+  width: 5px;
+  border-radius: 50%;
+  background: #4d9b75;
+}
+.frontier-markets {
+  margin: 0 0 14px;
+  border-radius: 0 0 12px 12px;
+  border-top: 0;
+  padding: 9px 16px;
+}
+.frontier-market-filters {
+  gap: 4px;
+}
+.frontier-market-filters > b {
+  display: none;
+}
+.frontier-market-filters button {
+  border-color: transparent;
+  background: transparent;
+  font-size: 11px;
+  min-height: 28px;
+  padding: 4px 9px;
+}
+.frontier-market-filters button[aria-pressed='true'] {
+  background: #f0f1ed;
+  border-color: transparent;
+  color: #263b30;
+  font-weight: 650;
+}
+.frontier-market-filters input {
+  min-height: 28px;
+  padding: 4px 9px;
+  width: 200px;
+}
+.frontier-market-filters > small {
+  font-size: 9px;
+}
+.frontier-market-shortcuts {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  margin: 7px 0 0;
+  padding-bottom: 4px;
+  max-height: 100px;
+  scrollbar-width: thin;
+}
+.frontier-market-shortcuts button {
+  white-space: nowrap;
+  min-height: 28px;
+  padding: 4px 9px;
+  font-size: 11px;
+  border-color: #eeeeea;
+}
+.frontier-market-shortcuts small {
+  font-size: 9px;
+}
+.frontier-markets > small {
+  margin-top: 3px;
+  font-size: 9px;
+  color: #8c8e87;
+}
+.frontier-show-markets {
+  margin: 4px 0 0;
+  min-height: 24px !important;
+  font-size: 10px !important;
+}
+.frontier-markets .planning-ai500 {
+  margin-top: 5px;
+}
+.frontier-markets .planning-ai500 > div:first-child {
+  gap: 8px;
+}
+.frontier-markets .planning-ai500 input {
+  min-height: 26px;
+  padding: 3px 8px;
+}
+.frontier-markets .planning-ai500 button {
+  min-height: 26px;
+  padding: 3px 9px;
+}
+.frontier-markets .planning-ai500 small {
+  font-size: 9px;
+}
+.frontier-markets .planning-ai500-symbols {
+  margin: 5px 0 0;
+}
+.planning-workspace {
+  grid-template-columns: minmax(0, 1fr) 370px;
+  gap: 16px;
+  margin-top: 0;
+  align-items: start;
+}
+.planning-chart-pane {
+  border-radius: 12px;
+  background: white;
+}
+.planning-market {
+  padding: 14px 18px 10px;
+  border-bottom: 0;
+}
+.planning-market strong {
+  font-size: 29px;
+  font-weight: 550;
+  letter-spacing: -1px;
+}
+.planning-market small {
+  font-size: 10px;
+  color: #858980;
+}
+.planning-market button {
+  font-size: 10px;
+  min-height: 29px;
+  padding: 4px 8px;
+  border-color: #ecece7;
+}
+.planning-chart {
+  height: clamp(320px, calc(100dvh - 450px), 560px);
+}
+.frontier-sizing {
+  padding: 0 18px 10px;
+  border: 0;
+  gap: 12px;
+  font-size: 10px;
+}
+.frontier-sizing select {
+  min-height: 25px;
+  padding: 2px 6px;
+  font-size: 10px;
+}
+.frontier-sizing > span {
+  font-size: 9px;
+}
+.planning-legend {
+  padding: 8px 18px;
+  gap: 6px;
+  font-size: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.planning-selected {
+  padding: 12px 18px;
+  margin: 0;
+  background: #f8faf8;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+}
+.planning-selected > b {
+  font-size: 12px;
+}
+.planning-price-row {
+  margin-top: 9px;
+  gap: 28px;
+}
+.planning-selected .planning-price-row strong {
+  font-size: 17px;
+}
+.frontier-advanced > summary {
+  padding: 10px 18px;
+  font-size: 10px;
+  list-style-position: inside;
+}
+.frontier-advanced[open] {
+  border-top: 1px solid var(--line);
+}
+.frontier-advanced .planning-tools {
+  padding: 8px 18px;
+}
+.planning-assistant {
+  position: sticky;
+  top: 80px;
+  height: clamp(630px, calc(100dvh - 285px), 860px);
+  min-height: 0;
+  padding: 18px;
+  gap: 10px;
+  border-radius: 12px;
+}
+.planning-assistant-title {
+  padding-bottom: 10px;
+  border: 0;
+  align-items: center;
+}
+.planning-assistant-title > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.planning-assistant-title b {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+.planning-assistant-title .frontier-eyebrow {
+  color: #8f968d;
+  font-size: 8px;
+  letter-spacing: 1.5px;
+}
+.planning-assistant-title button {
+  min-height: 28px;
+  font-size: 10px;
+  padding: 4px 8px;
+  color: #7c8178;
+}
+.frontier-model-settings {
+  font-size: 10px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+.frontier-model-settings summary {
+  padding: 0;
+  color: #6a756c;
+  list-style: none;
+}
+.frontier-model-settings summary span {
+  float: right;
+  color: #90958d;
+}
+.frontier-model-settings select {
+  width: 100%;
+  max-width: none;
+  margin-top: 8px;
+}
+.frontier-assistant-action .planning-primary {
+  width: 100%;
+  min-height: 38px;
+  font-size: 12px;
+  border-radius: 8px;
+}
+.frontier-view-tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+  gap: 20px;
+}
+.frontier-view-tabs button {
+  border: 0;
+  border-radius: 0;
+  padding: 8px 0;
+  font-size: 11px;
+  color: #93968e;
+  background: transparent;
+}
+.frontier-view-tabs button[aria-selected='true'] {
+  color: #243c2c;
+  box-shadow: inset 0 -2px #243c2c;
+  font-weight: 650;
+}
+.frontier-view-tabs button span {
+  margin-left: 4px;
+  background: #eef1eb;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+}
+.planning-thread {
+  scrollbar-gutter: auto;
+}
+.frontier-welcome {
+  padding: 18px 0 8px;
+}
+.frontier-welcome-icon {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  background: #edf2e9;
+  color: #5b7755;
+  font-size: 23px;
+  margin-bottom: 15px;
+}
+.frontier-welcome h2 {
+  font-size: 25px;
+  line-height: 1.18;
+  font-weight: 550;
+  letter-spacing: -0.9px;
+  margin: 0 0 12px;
+}
+.frontier-welcome p {
+  font-size: 12px;
+  line-height: 1.65;
+  color: #868b80;
+  max-width: 285px;
+}
+.frontier-welcome-note {
+  display: flex;
+  gap: 14px;
+  padding: 14px 0 !important;
+  margin-top: 12px !important;
+  border: 0 !important;
+  font-size: 9px;
+  color: #868e7e;
+}
+.frontier-starters {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.frontier-starters button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8f9f6;
+  border-color: #eff0eb;
+  text-align: left;
+  font-size: 11px;
+  padding: 9px 11px;
+}
+.frontier-starters button span {
+  color: #97a18e;
+}
+.planning-assistant .planning-candidates {
+  padding: 5px 0;
+  margin: 0;
+  border: 0;
+}
+.planning-assistant .planning-section-title {
+  margin-bottom: 8px;
+}
+.planning-assistant .planning-section-title b {
+  font-size: 11px;
+  color: #788071;
+}
+.planning-assistant .planning-structures {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.planning-assistant .planning-structures article {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fafbf8;
+}
+.planning-assistant .planning-structures article.selected {
+  border-color: #58764d;
+  background: #f2f6ee;
+  box-shadow: none;
+}
+.planning-assistant .planning-structures article header {
+  gap: 8px;
+  font-size: 11px;
+}
+.planning-assistant .planning-structures article header span {
+  font-size: 9px;
+}
+.planning-assistant .planning-structures article > b {
+  display: block;
+  font-size: 12px;
+  margin: 8px 0;
+}
+.planning-assistant .planning-structures article p {
+  margin: 5px 0;
+  font-size: 10px;
+}
+.planning-assistant .planning-structures article button {
+  width: 100%;
+  margin-top: 6px;
+  font-size: 10px;
+  min-height: 28px;
+}
+.planning-assistant .planning-card-list {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  max-height: none;
+  overflow: visible;
+}
+.planning-assistant .planning-card {
+  min-width: 0;
+  width: 100%;
+  min-height: 0;
+  padding: 12px;
+  gap: 6px;
+  text-align: left;
+}
+.planning-assistant .planning-card strong {
+  font-size: 12px;
+}
+.planning-assistant .planning-composer {
+  border: 1px solid #dbdfd5;
+  border-radius: 10px;
+  padding: 9px;
+  background: #fafbf8;
+  margin: 0;
+}
+.planning-assistant .planning-composer textarea {
+  border: 0;
+  background: transparent;
+  padding: 2px;
+  font-size: 12px;
+  height: 60px;
+  min-height: 60px;
+}
+.planning-composer > div {
+  padding-top: 5px;
+}
+.planning-composer > div button {
+  font-size: 10px;
+  min-height: 27px;
+  padding: 3px 8px;
+}
+.planning-composer button[type='submit'] {
+  background: #263b30;
+  border-color: #263b30;
+  color: white;
+}
+.planning-assistant .planning-review {
+  padding: 10px 0 0;
+  border-top: 1px solid var(--line);
+  max-height: 195px;
+}
+.planning-review > p.frontier-no-orders {
+  margin: 0;
+  font-size: 10px;
+  color: #7c8577;
+}
+.frontier-no-orders span {
+  margin-right: 4px;
+}
+.planning-history {
+  font-size: 10px;
+}
+.planning-history summary {
+  padding: 0;
+}
+.frontier-portfolio {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  overflow: hidden;
+}
+.frontier-portfolio .frontier-account {
+  margin: 0;
+  border: 0;
+  padding: 18px;
+}
+.frontier-portfolio .frontier-account > header h2 {
+  font-size: 15px;
+}
+.frontier-portfolio .frontier-account header p {
+  font-size: 11px;
+}
+@media (min-width: 1600px) {
+  .planning-workspace {
+    grid-template-columns: minmax(0, 1fr) 390px;
+  }
+}
+@media (max-width: 1100px) {
+  .frontier-workflow {
+    display: none;
+  }
+  .planning-toolbar {
+    gap: 10px;
+  }
+  .frontier-toolbar-field > span {
+    display: none;
+  }
+  .planning-toolbar .planning-live {
+    display: none;
+  }
+  .planning-workspace {
+    grid-template-columns: minmax(0, 1fr) 340px;
+  }
+}
+@media (max-width: 850px) {
+  .planning-page {
+    padding: 76px 12px 20px;
+  }
+  .planning-heading {
+    flex-direction: row;
+  }
+  .planning-heading p {
+    display: none;
+  }
+  .planning-toolbar {
+    padding: 8px;
+  }
+  .planning-toolbar select {
+    max-width: 180px;
+  }
+  .frontier-market-filters > small {
+    display: none;
+  }
+  .frontier-markets {
+    padding: 8px;
+  }
+  .planning-workspace {
+    display: flex;
+    flex-direction: column;
+  }
+  .planning-chart-pane,
+  .planning-assistant {
+    width: 100%;
+  }
+  .planning-chart {
+    height: 360px;
+  }
+  .planning-assistant {
+    position: static;
+    height: 650px;
+  }
+  .planning-market {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .planning-market strong {
+    font-size: 25px;
+  }
+  .frontier-sizing > span {
+    max-width: 220px;
+  }
+  .planning-price-row {
+    flex-wrap: wrap;
+    gap: 15px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .planning-page *,
+  .planning-page *::before,
+  .planning-page *::after {
+    scroll-behavior: auto !important;
+    transition: none !important;
+  }
+}
+.frontier-account-link {
+  color: #42563f !important;
+  font-size: 11px !important;
+}
+.frontier-portfolio {
+  scroll-margin-top: 86px;
+}
+.frontier-workflow span:first-child {
+  color: #777873;
+}
+.frontier-workflow span:first-child b {
+  background: transparent;
+  color: inherit;
+  border-color: #dddeda;
+}
+.frontier-workflow span[data-active='true'] {
+  color: #243c2c;
+}
+.frontier-workflow span[data-active='true'] b {
+  background: #263b30;
+  color: white;
+  border-color: #263b30;
+}
+.frontier-plan-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+  padding-top: 9px;
+  border-top: 1px solid var(--line);
+}
+.frontier-plan-levels dt {
+  font-size: 10px;
+  color: #868e80;
+}
+.frontier-plan-levels dd {
+  margin: 3px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.frontier-plan-outcomes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 14px;
+  font-size: 10px;
+}
+.frontier-plan-outcomes small {
+  width: 100%;
+  color: #8b9285;
+  font-size: 9px;
+}
+.planning-page .frontier-market-filters > small {
+  font-size: 10px;
+}
+.planning-page .frontier-market-shortcuts small {
+  font-size: 10px;
+}
+.planning-page .frontier-market-shortcuts button {
+  font-size: 12px;
+}
+.planning-page .frontier-model-settings {
+  font-size: 11px;
+}
+.planning-page .frontier-sizing > span {
+  font-size: 10px;
+}
+.planning-page .frontier-sizing {
+  font-size: 11px;
+}
+.planning-page .frontier-starters button {
+  font-size: 12px;
+}
+.planning-page .frontier-welcome-note {
+  font-size: 10px;
+}
+.planning-page .frontier-no-orders {
+  font-size: 11px !important;
+}
+.planning-page .frontier-toolbar-field > span {
+  font-size: 12px;
+}
+.planning-page .planning-legend {
+  font-size: 11px;
+}

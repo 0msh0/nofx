@@ -92,10 +92,10 @@
         ],
         overrides: {
           "paneProperties.backgroundType": "solid",
-          "paneProperties.background": "#F7F4EC",
-          "paneProperties.vertGridProperties.color": "#e5e0d6",
-          "paneProperties.horzGridProperties.color": "#e5e0d6",
-          "scalesProperties.textColor": "#6B6557",
+          "paneProperties.background": "#FFFFFF",
+          "paneProperties.vertGridProperties.color": "#eef0eb",
+          "paneProperties.horzGridProperties.color": "#eef0eb",
+          "scalesProperties.textColor": "#7a8275",
           "mainSeriesProperties.candleStyle.upColor": "#2E8B57",
           "mainSeriesProperties.candleStyle.downColor": "#D6433A",
           "mainSeriesProperties.candleStyle.borderUpColor": "#2E8B57",
@@ -104,7 +104,7 @@
           "mainSeriesProperties.candleStyle.wickDownColor": "#D6433A",
         },
         loading_screen: {
-          backgroundColor: "#F7F4EC",
+          backgroundColor: "#FFFFFF",
           foregroundColor: "#2E8B57",
         },
         auto_save_delay: 1,

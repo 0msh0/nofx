@@ -70,6 +70,7 @@ interface ChatMessage {
   content: string
 }
 export function TradingPlanningPage() {
+  const [assistantView, setAssistantView] = useState<'chat' | 'plans'>('chat')
   const [setupOpen, setSetupOpen] = useState<'ai' | 'exchange' | null>(null)
   const [walletState, setWalletState] = useState<FeeWalletState>('checking')
   const [configsLoaded, setConfigsLoaded] = useState(false)
@@ -152,6 +153,7 @@ export function TradingPlanningPage() {
   const [checks, setChecks] = useState<PlanCheck[]>([])
   const [turnPlanIDs, setTurnPlanIDs] = useState<string[]>([])
   function resetTurn() {
+    setAssistantView('chat')
     setChecks([])
     setTurnPlanIDs([])
     setTrace([])
@@ -433,6 +435,7 @@ export function TradingPlanningPage() {
       .slice(-16)
     setBusy(true)
     setPlanningBusy(true)
+    setAssistantView('chat')
     setError('')
     setInstruction('')
     resetTurn()
@@ -502,6 +505,7 @@ export function TradingPlanningPage() {
                 ...new Set([...ids, ...plans.map((plan) => plan.id)]),
               ])
               setSelected(plans[0].id)
+              setAssistantView('plans')
               setCompare([])
             }
             reload().catch(() => {})
@@ -642,78 +646,143 @@ export function TradingPlanningPage() {
     setTrace([])
     setError('')
   }
+  const readyRecords = records.filter(
+    (r) => r.state === 'draft' && !expired(r.plan, clock)
+  )
+  const archivedRecords = records.filter((r) => !readyRecords.includes(r))
+  const renderPlanCard = (r: PlanningState['records'][string]) => (
+    <button
+      key={r.plan.id}
+      className={'planning-card ' + (selected === r.plan.id ? 'selected' : '')}
+      onClick={() => choose(r.plan)}
+    >
+      <span
+        className={r.plan.idea.side === 'long' ? 'target-text' : 'stop-text'}
+      >
+        {compare.includes(r.plan.id)
+          ? String.fromCharCode(65 + compare.indexOf(r.plan.id)) + ' · '
+          : ''}
+        {r.plan.idea.side === 'long' ? '↗ Long' : '↘ Short'} ·{' '}
+        {r.plan.idea.execution.kind === 'ladder'
+          ? 'Price ladder'
+          : r.plan.idea.execution.kind === 'twap'
+            ? 'TWAP'
+            : 'Single limit'}
+      </span>
+      <strong>{r.plan.idea.name}</strong>
+      <span>Entry {format(r.plan.idea.entry)}</span>
+      <div>
+        <span>
+          Planned loss <b>{format(r.plan.risk)}</b>
+        </span>
+        <span>
+          Net reward/risk <b>{Number(r.plan.reward_risk).toFixed(2)} : 1</b>
+        </span>
+      </div>
+      <small>
+        {expired(r.plan, clock) && r.state === 'draft'
+          ? 'Expired · replan'
+          : states[r.state] || r.state}
+      </small>
+    </button>
+  )
   return (
     <div className="planning-page">
       <div className="planning-heading">
         <div>
           <h1>Frontier</h1>
-          <p>Explore. Plan. Trade.</p>
+          <p>Your market. Your next move.</p>
         </div>
-        <Link to={ROUTES.settings}>Manage accounts and AI →</Link>
+        <nav className="frontier-workflow" aria-label="How Frontier works">
+          <span data-active={!current && !turnPlanIDs.length}>
+            <b>1</b> Explore the market
+          </span>
+          <span data-active={!current && turnPlanIDs.length > 0}>
+            <b>2</b> Compare plans
+          </span>
+          <span data-active={Boolean(current)}>
+            <b>3</b> Review & trade
+          </span>
+        </nav>
+        <a className="frontier-account-link" href="#frontier-account">
+          Positions & orders ↓
+        </a>
+        <Link to={ROUTES.settings}>Settings ↗</Link>
       </div>
       <div className="planning-toolbar">
-        <select
-          aria-label="Market venue"
-          value={venue}
-          disabled={busy}
-          onChange={(e) => {
-            const next = e.target.value
-            marketChosen.current = true
-            requestedVenue.current = next
-            setVenue(next)
-            setLimits(defaultLimits)
-            setExchangeID(
-              accounts.find((a) => a.exchange_type === next)?.id || ''
-            )
-            const native = next === 'binance' ? 'BTCUSDT' : 'BTC'
-            setSymbol(native)
-            setSymbolInput(native)
-            setSelected('')
-            resetTurn()
-            setCompare([])
-            setMessages([])
-            setError('')
-            setPrice('—')
-            session.current = crypto.randomUUID()
-          }}
-        >
-          <option value="binance">Binance · USDT perpetual</option>
-          <option value="hyperliquid">Hyperliquid · perpetual</option>
-        </select>
-        <select
-          aria-label="Trading account"
-          value={exchangeID}
-          onChange={(e) => changeAccount(e.target.value)}
-          disabled={busy}
-        >
-          <option value="">Planning only · no execution account</option>
-          {accounts
-            .filter((a) => a.exchange_type === venue)
-            .map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name} · {a.exchange_type}
-              </option>
-            ))}
-        </select>
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            openMarket(
-              symbolInput.trim().includes(':')
-                ? symbolInput.trim()
-                : symbolInput.trim().toUpperCase()
-            )
-          }}
-        >
-          <input
-            aria-label="Symbol"
-            value={symbolInput}
-            onChange={(e) => setSymbolInput(e.target.value)}
+        <div className="frontier-toolbar-field">
+          <span>Exchange</span>
+          <select
+            aria-label="Market venue"
+            value={venue}
             disabled={busy}
-          />
-          <button disabled={busy}>Open market</button>
-        </form>
-        <span className="planning-live">Live · approval required</span>
+            onChange={(e) => {
+              const next = e.target.value
+              marketChosen.current = true
+              requestedVenue.current = next
+              setVenue(next)
+              setLimits(defaultLimits)
+              setExchangeID(
+                accounts.find((a) => a.exchange_type === next)?.id || ''
+              )
+              const native = next === 'binance' ? 'BTCUSDT' : 'BTC'
+              setSymbol(native)
+              setSymbolInput(native)
+              setSelected('')
+              resetTurn()
+              setCompare([])
+              setMessages([])
+              setError('')
+              setPrice('—')
+              session.current = crypto.randomUUID()
+            }}
+          >
+            <option value="binance">Binance · USDT perpetual</option>
+            <option value="hyperliquid">Hyperliquid · perpetual</option>
+          </select>
+        </div>
+        <div className="frontier-toolbar-field">
+          <span>Account</span>
+          <select
+            aria-label="Trading account"
+            value={exchangeID}
+            onChange={(e) => changeAccount(e.target.value)}
+            disabled={busy}
+          >
+            <option value="">Explore without an account</option>
+            {accounts
+              .filter((a) => a.exchange_type === venue)
+              .map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name} · {a.exchange_type}
+                </option>
+              ))}
+          </select>
+        </div>
+        <div className="frontier-toolbar-field">
+          <span>Market</span>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              openMarket(
+                symbolInput.trim().includes(':')
+                  ? symbolInput.trim()
+                  : symbolInput.trim().toUpperCase()
+              )
+            }}
+          >
+            <input
+              aria-label="Symbol"
+              value={symbolInput}
+              onChange={(e) => setSymbolInput(e.target.value)}
+              disabled={busy}
+            />
+            <button disabled={busy}>Open market</button>
+          </form>
+        </div>
+        <span className="planning-live">
+          <i /> Live trading · You’re in control
+        </span>
       </div>
       <FrontierSetup
         models={models}
@@ -755,16 +824,19 @@ export function TradingPlanningPage() {
             <div>
               <b>{symbol}</b>
               <strong>{price === '—' ? price : format(price)}</strong>
-              <small>{interval} · Live public market data</small>
+              <small>
+                <i className="frontier-live-dot" /> Live market · {interval}
+              </small>
             </div>
             <div>
-              <button onClick={() => chart.current?.focusPlan()}>
-                Focus plan
+              <button
+                disabled={!current}
+                onClick={() => chart.current?.focusPlan()}
+              >
+                Fit selected plan
               </button>
               <button
-                disabled={
-                  busy || records.filter((r) => r.state === 'draft').length < 2
-                }
+                disabled={busy || readyRecords.length < 2}
                 onClick={() => {
                   setCompare(
                     records
@@ -776,9 +848,31 @@ export function TradingPlanningPage() {
                   )
                 }}
               >
-                Compare on chart
+                Compare plans
               </button>
             </div>
+          </div>
+          <div className="frontier-sizing">
+            <label>
+              Leverage{' '}
+              <select
+                aria-label="Planning leverage"
+                value={leverage}
+                disabled={busy}
+                onChange={(e) => setLeverage(Number(e.target.value))}
+              >
+                {[1, 2, 3, 5, 10, 20].map((value) => (
+                  <option key={value} value={value}>
+                    {value}x
+                  </option>
+                ))}
+              </select>
+            </label>
+            <span>
+              {exchangeID
+                ? 'Auto size · current free margin · 1% equity risk cap · 5% margin reserve'
+                : 'Connect an account for automatic sizing'}
+            </span>
           </div>
           <div className="planning-chart-frame">
             <div className="planning-chart" id="chart-container" />
@@ -864,309 +958,219 @@ export function TradingPlanningPage() {
               </details>
             </div>
           )}
-          <div className="frontier-sizing">
-            <label>
-              Leverage{' '}
-              <select
-                aria-label="Planning leverage"
-                value={leverage}
-                disabled={busy}
-                onChange={(e) => setLeverage(Number(e.target.value))}
+          <details className="frontier-advanced">
+            <summary>Chart data & advanced tools</summary>
+            <div>
+              <details
+                className="planning-tools"
+                onToggle={(e) => setExtrasOpen(e.currentTarget.open)}
               >
-                {[1, 2, 3, 5, 10, 20].map((value) => (
-                  <option key={value} value={value}>
-                    {value}x
-                  </option>
-                ))}
-              </select>
-            </label>
-            <span>
-              {exchangeID
-                ? 'Auto size · current free margin · 1% equity risk cap · 5% margin reserve'
-                : 'Connect an account for automatic sizing'}
-            </span>
-          </div>
-          <div className="planning-candidates">
-            <div className="planning-section-title">
-              <b>
-                {busy || checks.length
-                  ? `Entry alternatives · ${turnPlanIDs.length} saved`
-                  : `Ready plans ${records.filter((r) => r.state === 'draft' && !expired(r.plan, clock)).length}`}
-              </b>
-              <button
-                className="planning-primary"
-                disabled={busy}
-                onClick={() =>
-                  send(
-                    'Compare single-limit, weighted ladder and TWAP plans for this market.'
+                <summary>Market data and indicators</summary>
+                {extrasOpen && (
+                  <PlanningDataPanel
+                    exchangeID={exchangeID}
+                    symbol={symbol}
+                    venue={venue}
+                    onWindowChange={setPluginWindow}
+                  />
+                )}
+              </details>
+              <details className="planning-tools">
+                <summary>Risk budget, entry orders and advanced tools</summary>
+                <div className="planning-limit-grid">
+                  {(
+                    Object.keys(defaultLimits) as Exclude<
+                      keyof Constraints,
+                      'leverage'
+                    >[]
                   )
-                }
-              >
-                Generate plans
-              </button>
-            </div>
-            <PlanStructures
-              checks={checks}
-              plans={records
-                .filter((record) => turnPlanIDs.includes(record.plan.id))
-                .map((record) => record.plan)}
-              busy={planningBusy}
-              selected={selected}
-              onSelect={choose}
-            />
-            <details className="planning-all-plans">
-              <summary>Saved plans · {records.length}</summary>
-              <div className="planning-card-list">
-                {records.map((r) => (
-                  <button
-                    key={r.plan.id}
-                    className={
-                      'planning-card ' +
-                      (selected === r.plan.id ? 'selected' : '')
-                    }
-                    onClick={() => choose(r.plan)}
-                  >
-                    <span
-                      className={
-                        r.plan.idea.side === 'long'
-                          ? 'target-text'
-                          : 'stop-text'
-                      }
-                    >
-                      {compare.includes(r.plan.id)
-                        ? String.fromCharCode(65 + compare.indexOf(r.plan.id)) +
-                          ' · '
-                        : ''}
-                      {r.plan.idea.side === 'long' ? '↗ Long' : '↘ Short'} ·{' '}
-                      {r.plan.idea.execution.kind === 'ladder'
-                        ? 'Price ladder'
-                        : r.plan.idea.execution.kind === 'twap'
-                          ? 'TWAP'
-                          : 'Single limit'}
-                    </span>
-                    <strong>{r.plan.idea.name}</strong>
-                    <span>Entry {format(r.plan.idea.entry)}</span>
-                    <div>
-                      <span>
-                        Planned loss <b>{format(r.plan.risk)}</b>
-                      </span>
-                      <span>
-                        Net reward/risk{' '}
-                        <b>{Number(r.plan.reward_risk).toFixed(2)} : 1</b>
-                      </span>
-                    </div>
-                    <small>
-                      {expired(r.plan, clock) && r.state === 'draft'
-                        ? 'Expired · replan'
-                        : states[r.state] || r.state}
-                    </small>
-                  </button>
-                ))}
-              </div>
-            </details>
-            {records.length === 0 && !busy && (
-              <p>
-                Describe your idea or generate plans. If none is feasible, no
-                trade is a valid decision.
-              </p>
-            )}
-          </div>
-          <FrontierAccount
-            account={account}
-            accounts={accounts}
-            venue={venue}
-            symbol={symbol}
-            runs={data.runs}
-            busy={busy}
-            onView={viewTrade}
-            onManual={manualEntry}
-            onBusy={setBusy}
-            onRefresh={reload}
-          />
-          <details
-            className="planning-tools"
-            onToggle={(e) => setExtrasOpen(e.currentTarget.open)}
-          >
-            <summary>Market data and indicators</summary>
-            {extrasOpen && (
-              <PlanningDataPanel
-                exchangeID={exchangeID}
-                symbol={symbol}
-                venue={venue}
-                onWindowChange={setPluginWindow}
-              />
-            )}
-          </details>
-          <details className="planning-tools">
-            <summary>Risk budget, entry orders and advanced tools</summary>
-            <div className="planning-limit-grid">
-              {(
-                Object.keys(defaultLimits) as Exclude<
-                  keyof Constraints,
-                  'leverage'
-                >[]
-              )
-                .filter(
-                  (key) =>
-                    !exchangeID ||
-                    !['equity', 'max_risk', 'max_notional'].includes(key)
-                )
-                .map((key) => (
-                  <label key={key}>
-                    {
-                      {
-                        equity: 'Equity budget',
-                        max_risk: 'Maximum planned loss',
-                        max_notional: 'Maximum notional',
-                        min_reward_risk: 'Minimum net reward/risk',
-                        fee_bps: 'Fee assumption / bps',
-                        slippage_bps: 'Slippage assumption / bps',
-                      }[key]
-                    }
-                    <input
-                      value={limits[key]}
-                      inputMode="decimal"
-                      disabled={
-                        busy ||
-                        (Boolean(exchangeID) &&
-                          ['equity', 'max_risk', 'max_notional'].includes(key))
-                      }
-                      onChange={(e) =>
-                        setLimits({ ...limits, [key]: e.target.value })
-                      }
-                    />
-                  </label>
-                ))}
-            </div>
-            <p>
-              Live sizing refreshes before planning and review. Leverage is a
-              ceiling; stop risk and liquidity can reduce size. Hyperliquid
-              costs must include Builder fees. Gaps, failed protection and
-              slippage may cause losses beyond the estimate.
-            </p>
-            <button disabled={busy} onClick={() => setBuilder(true)}>
-              Custom limit / ladder / TWAP
-            </button>
-            <label>
-              Discussion preferences
-              <textarea
-                value={preferences}
-                onChange={(e) => setPreferences(e.target.value)}
-                maxLength={1600}
-              />
-            </label>
-            <button
-              onClick={async () => {
-                try {
-                  const r = await fetch('/api/planning/preferences', {
-                    method: 'PUT',
-                    headers: getAuthHeaders(),
-                    body: JSON.stringify({ text: preferences }),
-                  })
-                  await handleJSONResponse(r)
-                  setStatus(
-                    'Preferences saved; hard risk constraints are unchanged'
-                  )
-                } catch (e) {
-                  setError(String(e))
-                }
-              }}
-            >
-              Save preferences
-            </button>
-            <button
-              onClick={async () => {
-                try {
-                  setTools(
-                    await planningAPI<unknown[]>(
-                      'entry-plugins?session_id=' + session.current
+                    .filter(
+                      (key) =>
+                        !exchangeID ||
+                        !['equity', 'max_risk', 'max_notional'].includes(key)
                     )
-                  )
-                } catch (e) {
-                  setError(String(e))
-                }
-              }}
-            >
-              Inspect entry calculators
-            </button>
-            {tools.length > 0 && <pre>{JSON.stringify(tools, null, 2)}</pre>}
-          </details>
-          <details className="planning-tools">
-            <summary>
-              Previous executions ·{' '}
-              {
-                data.runs.filter((r) =>
-                  ['completed', 'cancelled', 'expired'].includes(r.state)
-                ).length
-              }
-            </summary>
-            {data.runs
-              .filter(
-                (r) =>
-                  r.exchange_id === exchangeID &&
-                  ['completed', 'cancelled', 'expired'].includes(r.state)
-              )
-              .map((r) => (
-                <div className="planning-run" key={r.id}>
-                  <b>
-                    {r.plan.idea.name} · {states[r.state] || r.state}
-                  </b>
-                  {r.error && <p className="stop-text">{r.error}</p>}
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>Type</th>
-                        <th>Native order ID</th>
-                        <th>State</th>
-                        <th>Filled quantity</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {r.orders.map((o) => (
-                        <tr key={o.client_id}>
-                          <td>{o.role}</td>
-                          <td>{o.order_id || 'Unconfirmed'}</td>
-                          <td>{orderStates[o.status] || o.status}</td>
-                          <td>{format(o.filled)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <button
-                    disabled={busy}
-                    onClick={() => runAction('reconcile', r)}
-                  >
-                    Reconcile exchange state
-                  </button>
-                  <button disabled={busy} onClick={() => runAction('stop', r)}>
-                    Stop entries / cancel unfilled orders
-                  </button>
+                    .map((key) => (
+                      <label key={key}>
+                        {
+                          {
+                            equity: 'Equity budget',
+                            max_risk: 'Maximum planned loss',
+                            max_notional: 'Maximum notional',
+                            min_reward_risk: 'Minimum net reward/risk',
+                            fee_bps: 'Fee assumption / bps',
+                            slippage_bps: 'Slippage assumption / bps',
+                          }[key]
+                        }
+                        <input
+                          value={limits[key]}
+                          inputMode="decimal"
+                          disabled={
+                            busy ||
+                            (Boolean(exchangeID) &&
+                              ['equity', 'max_risk', 'max_notional'].includes(
+                                key
+                              ))
+                          }
+                          onChange={(e) =>
+                            setLimits({ ...limits, [key]: e.target.value })
+                          }
+                        />
+                      </label>
+                    ))}
                 </div>
-              ))}
+                <p>
+                  Live sizing refreshes before planning and review. Leverage is
+                  a ceiling; stop risk and liquidity can reduce size.
+                  Hyperliquid costs must include Builder fees. Gaps, failed
+                  protection and slippage may cause losses beyond the estimate.
+                </p>
+                <button disabled={busy} onClick={() => setBuilder(true)}>
+                  Custom limit / ladder / TWAP
+                </button>
+                <label>
+                  Discussion preferences
+                  <textarea
+                    value={preferences}
+                    onChange={(e) => setPreferences(e.target.value)}
+                    maxLength={1600}
+                  />
+                </label>
+                <button
+                  onClick={async () => {
+                    try {
+                      const r = await fetch('/api/planning/preferences', {
+                        method: 'PUT',
+                        headers: getAuthHeaders(),
+                        body: JSON.stringify({ text: preferences }),
+                      })
+                      await handleJSONResponse(r)
+                      setStatus(
+                        'Preferences saved; hard risk constraints are unchanged'
+                      )
+                    } catch (e) {
+                      setError(String(e))
+                    }
+                  }}
+                >
+                  Save preferences
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      setTools(
+                        await planningAPI<unknown[]>(
+                          'entry-plugins?session_id=' + session.current
+                        )
+                      )
+                    } catch (e) {
+                      setError(String(e))
+                    }
+                  }}
+                >
+                  Inspect entry calculators
+                </button>
+                {tools.length > 0 && (
+                  <pre>{JSON.stringify(tools, null, 2)}</pre>
+                )}
+              </details>
+            </div>
           </details>
         </section>
         <aside className="planning-assistant">
           <div className="planning-assistant-title">
-            <b>NOFX Frontier</b>
+            <div>
+              <span className="frontier-eyebrow">YOUR TRADING COPILOT</span>
+              <b>Trade assistant</b>
+            </div>
             <button onClick={newSession} disabled={busy}>
               New idea
             </button>
           </div>
-          <select
-            aria-label="NOFX AI model"
-            value={modelID}
-            onChange={(e) => setModelID(e.target.value)}
-            disabled={busy}
+          <details className="frontier-model-settings">
+            <summary>
+              {models.find((m) => m.id === modelID)?.customModelName ||
+                models.find((m) => m.id === modelID)?.name ||
+                'Choose AI'}{' '}
+              <span>Change model</span>
+            </summary>
+            <select
+              aria-label="NOFX AI model"
+              value={modelID}
+              onChange={(e) => setModelID(e.target.value)}
+              disabled={busy}
+            >
+              {models.length === 0 && (
+                <option>Enable AI in NOFX settings first</option>
+              )}
+              {models.map((m) => (
+                <option value={m.id} key={m.id}>
+                  {m.name} · {m.customModelName || m.provider}
+                </option>
+              ))}
+            </select>
+          </details>
+          <div className="frontier-assistant-action">
+            <button
+              className="planning-primary"
+              disabled={busy}
+              onClick={() =>
+                send(
+                  instruction.trim() ||
+                    'Compare single-limit, weighted ladder and TWAP plans for this market.'
+                )
+              }
+            >
+              Generate plans
+            </button>
+          </div>
+          <div
+            className="frontier-view-tabs"
+            role="tablist"
+            aria-label="Trade assistant views"
+            onKeyDown={(event) => {
+              if (
+                !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
+              )
+                return
+              event.preventDefault()
+              const view =
+                event.key === 'Home' || event.key === 'ArrowLeft'
+                  ? 'chat'
+                  : 'plans'
+              setAssistantView(view)
+              event.currentTarget
+                .querySelector<HTMLButtonElement>(`#frontier-${view}-tab`)
+                ?.focus()
+            }}
           >
-            {models.length === 0 && (
-              <option>Enable AI in NOFX settings first</option>
-            )}
-            {models.map((m) => (
-              <option value={m.id} key={m.id}>
-                {m.name} · {m.customModelName || m.provider}
-              </option>
-            ))}
-          </select>
+            <button
+              id="frontier-chat-tab"
+              role="tab"
+              aria-selected={assistantView === 'chat'}
+              tabIndex={assistantView === 'chat' ? 0 : -1}
+              aria-controls="frontier-chat-panel"
+              onClick={() => setAssistantView('chat')}
+            >
+              Assistant
+            </button>
+            <button
+              id="frontier-plans-tab"
+              role="tab"
+              aria-selected={assistantView === 'plans'}
+              tabIndex={assistantView === 'plans' ? 0 : -1}
+              aria-controls="frontier-plans-panel"
+              onClick={() => setAssistantView('plans')}
+            >
+              Plans{' '}
+              <span>
+                {
+                  records.filter(
+                    (r) => r.state === 'draft' && !expired(r.plan, clock)
+                  ).length
+                }
+              </span>
+            </button>
+          </div>
           {busy && (
             <div className="planning-progress" role="status" aria-live="polite">
               <span className="planning-spinner" />
@@ -1188,17 +1192,105 @@ export function TradingPlanningPage() {
                   box.scrollHeight - box.scrollTop - box.clientHeight < 80
             }}
           >
-            <div className="planning-messages">
+            <div
+              className="planning-candidates"
+              hidden={assistantView !== 'plans'}
+              id="frontier-plans-panel"
+              role="tabpanel"
+              aria-labelledby="frontier-plans-tab"
+            >
+              <div className="planning-section-title">
+                <b>
+                  {busy || checks.length
+                    ? `Entry alternatives · ${turnPlanIDs.length} saved`
+                    : `Ready plans ${records.filter((r) => r.state === 'draft' && !expired(r.plan, clock)).length}`}
+                </b>
+              </div>
+              <PlanStructures
+                checks={checks}
+                plans={records
+                  .filter((record) => turnPlanIDs.includes(record.plan.id))
+                  .map((record) => record.plan)}
+                busy={planningBusy}
+                selected={selected}
+                onSelect={choose}
+              />
+              {!checks.length && readyRecords.length > 0 && (
+                <div className="planning-card-list frontier-ready-plans">
+                  {readyRecords.map(renderPlanCard)}
+                </div>
+              )}
+              {archivedRecords.length > 0 && (
+                <details className="planning-all-plans">
+                  <summary>Past plans · {archivedRecords.length}</summary>
+                  <div className="planning-card-list">
+                    {archivedRecords.map(renderPlanCard)}
+                  </div>
+                </details>
+              )}
+              {readyRecords.length === 0 && !busy && !checks.length && (
+                <p>
+                  No active plans yet. Generate fresh plans for this market.
+                </p>
+              )}
+            </div>
+            <div
+              className="planning-messages"
+              hidden={assistantView !== 'chat'}
+              id="frontier-chat-panel"
+              role="tabpanel"
+              aria-labelledby="frontier-chat-tab"
+            >
               {messages.length === 0 && (
                 <div className="frontier-welcome">
-                  <span className="frontier-eyebrow">MARKET TO ACTION</span>
-                  <h2>What’s your next move?</h2>
+                  <span className="frontier-welcome-icon" aria-hidden="true">
+                    ✳
+                  </span>
+                  <h2>
+                    Turn a market view
+                    <br />
+                    into a clear plan.
+                  </h2>
                   <p>
-                    Explore an idea. Compare entries on the chart. You decide
-                    when to trade.
+                    Tell me what you’re considering. I’ll map out entries, risk
+                    and exits for you to review.
                   </p>
                   <div className="frontier-welcome-note">
-                    Every order needs your approval.
+                    <span>01 Explore</span>
+                    <span>02 Compare</span>
+                    <span>03 Review & trade</span>
+                  </div>
+                  <div
+                    className="frontier-starters"
+                    aria-label="Trade idea suggestions"
+                  >
+                    <button
+                      onClick={() =>
+                        setInstruction(
+                          'Find a pullback entry with clear risk and exits.'
+                        )
+                      }
+                    >
+                      Find a pullback entry <span>↗</span>
+                    </button>
+                    <button
+                      onClick={() =>
+                        setInstruction(
+                          'Compare a single entry, a price ladder and a timed entry for this market.'
+                        )
+                      }
+                    >
+                      Compare ways to enter <span>↗</span>
+                    </button>
+                    <button
+                      onClick={() =>
+                        setInstruction(
+                          'Mark support and resistance, without creating orders.'
+                        )
+                      }
+                    >
+                      Explore key price levels <span>↗</span>
+                    </button>
                   </div>
                 </div>
               )}
@@ -1216,7 +1308,9 @@ export function TradingPlanningPage() {
                   </div>
                 ))}
             </div>
-            <PlanningActivity items={trace} busy={planningBusy} />
+            <div hidden={assistantView !== 'chat'}>
+              <PlanningActivity items={trace} busy={planningBusy} />
+            </div>
           </div>
 
           <form
@@ -1230,7 +1324,7 @@ export function TradingPlanningPage() {
               aria-label="Trade idea"
               value={instruction}
               onChange={(e) => setInstruction(e.target.value)}
-              placeholder="Describe a trade idea…"
+              placeholder="Ask about this market, or describe a trade…"
               maxLength={8000}
               disabled={busy}
             />
@@ -1272,17 +1366,19 @@ export function TradingPlanningPage() {
                     className="planning-primary"
                     disabled={
                       busy ||
-                      !exchangeID ||
                       expired(current.plan, clock) ||
-                      data.accounts[selected] !== exchangeID
+                      (!!exchangeID && data.accounts[selected] !== exchangeID)
                     }
                     onClick={() => {
-                      void reviewWithAccount(current.plan)
+                      if (!exchangeID) setSetupOpen('exchange')
+                      else void reviewWithAccount(current.plan)
                     }}
                   >
                     {expired(current.plan, clock)
                       ? 'Expired; generate a new plan'
-                      : 'Review order'}
+                      : !exchangeID
+                        ? 'Connect account to trade'
+                        : 'Review order'}
                   </button>
                 ) : run?.state === 'approved' ? (
                   <>
@@ -1316,7 +1412,10 @@ export function TradingPlanningPage() {
                 </small>
               </>
             ) : (
-              <p>Select a plan and review it on the chart before approval.</p>
+              <p className="frontier-no-orders">
+                <span aria-hidden="true">○</span> Plans are drafts. You approve
+                every trade.
+              </p>
             )}
           </div>
           <details className="planning-history">
@@ -1342,6 +1441,66 @@ export function TradingPlanningPage() {
             ))}
           </details>
         </aside>
+      </div>
+      <div className="frontier-portfolio" id="frontier-account">
+        <FrontierAccount
+          account={account}
+          accounts={accounts}
+          venue={venue}
+          symbol={symbol}
+          runs={data.runs}
+          busy={busy}
+          onView={viewTrade}
+          onManual={manualEntry}
+          onBusy={setBusy}
+          onRefresh={reload}
+        />
+        <details className="planning-tools">
+          <summary>
+            Previous executions ·{' '}
+            {
+              data.runs.filter(
+                (r) =>
+                  r.exchange_id === exchangeID &&
+                  ['completed', 'cancelled', 'expired'].includes(r.state)
+              ).length
+            }
+          </summary>
+          {data.runs
+            .filter(
+              (r) =>
+                r.exchange_id === exchangeID &&
+                ['completed', 'cancelled', 'expired'].includes(r.state)
+            )
+            .map((r) => (
+              <div className="planning-run" key={r.id}>
+                <b>
+                  {r.plan.idea.name} · {states[r.state] || r.state}
+                </b>
+                {r.error && <p className="stop-text">{r.error}</p>}
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Native order ID</th>
+                      <th>State</th>
+                      <th>Filled quantity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {r.orders.map((o) => (
+                      <tr key={o.client_id}>
+                        <td>{o.role}</td>
+                        <td>{o.order_id || 'Unconfirmed'}</td>
+                        <td>{orderStates[o.status] || o.status}</td>
+                        <td>{format(o.filled)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+        </details>{' '}
       </div>
       {review && (
         <div className="planning-modal-backdrop">
