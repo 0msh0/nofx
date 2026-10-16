@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -109,5 +110,57 @@ func TestProposalCorrectionUsesExistingTurnBudgetBeyondThreeAttempts(t *testing.
 	}
 	if planner.calls != 5 || len(store.plans) != 1 || last.Type != "outcome" {
 		t.Fatalf("correction was cut off or exceeded budget: calls=%d plans=%d last=%+v", planner.calls, len(store.plans), last)
+	}
+}
+
+type incompleteComparisonModel struct {
+	calls            int
+	sawMissingMarket bool
+}
+
+func (f *incompleteComparisonModel) Chat(_ context.Context, messages []model.Message, _ []model.Tool) (model.Message, error) {
+	f.calls++
+	if f.calls == 2 || f.calls >= 4 {
+		return model.Message{Role: "assistant", Content: "Drafts saved."}, nil
+	}
+	kinds := []string{"limit", "ladder", "twap"}
+	if f.calls == 3 {
+		f.sawMissingMarket = strings.Contains(messages[len(messages)-1].Content, "missing structures with propose_plans: market")
+		kinds = []string{"market"}
+	}
+	ideas := []core.Idea{}
+	for _, kind := range kinds {
+		idea := core.Idea{Name: kind, Side: "long", Entry: "1000", Stop: "990", Target: "1040", Execution: &core.Execution{Kind: kind}}
+		if kind == "ladder" {
+			idea.Execution.Levels = []core.Level{{Price: "998", Weight: "0.5"}, {Price: "1000", Weight: "0.5"}}
+		}
+		if kind == "twap" {
+			idea.Execution.Slices = 2
+			idea.Execution.IntervalSeconds = 30
+		}
+		ideas = append(ideas, idea)
+	}
+	raw, _ := json.Marshal(map[string]any{"ideas": ideas})
+	call := model.ToolCall{ID: fmt.Sprintf("comparison_%d", f.calls), Type: "function"}
+	call.Function.Name = "propose_plans"
+	call.Function.Arguments = string(raw)
+	return model.Message{Role: "assistant", ToolCalls: []model.ToolCall{call}}, nil
+}
+func TestFourWayComparisonCompletesMissingMarketWithinSameTurn(t *testing.T) {
+	for _, compare := range []bool{true, false} {
+		store := &textDraftFixture{}
+		source := textMarketFixture{}
+		planner := &incompleteComparisonModel{}
+		engine := Engine{Model: planner, Store: store, Market: source, Charts: source, Limits: core.Constraints{Equity: "10000", MaxRisk: "100", MaxNotional: "1000", MinRewardRisk: "2", FeeBPS: "10", SlippageBPS: "10"}}
+		err := engine.Run(context.Background(), Input{CompareStructures: compare, Message: "Plan entry alternatives", Venue: "binance", Symbol: "BTCUSDT", Interval: "1h"}, func(Event) error { return nil })
+		want := 3
+		calls := 2
+		if compare {
+			want = 4
+			calls = 4
+		}
+		if err != nil || len(store.plans) != want || planner.calls != calls || planner.sawMissingMarket != compare {
+			t.Fatalf("compare=%v plans=%d calls=%d missing=%v err=%v", compare, len(store.plans), planner.calls, planner.sawMissingMarket, err)
+		}
 	}
 }

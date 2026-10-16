@@ -177,6 +177,9 @@ func (b *HyperliquidTrader) PrepareExecutionLeverage(ctx context.Context, symbol
 	return e
 }
 func (b *HyperliquidTrader) SubmitOrder(ctx context.Context, o execution.Order) (execution.Order, error) {
+	if o.Type != "" && (o.Type != "market" || o.Role != "entry" || o.PostOnly || o.ReduceOnly) {
+		return o, errors.New("unsupported execution order type")
+	}
 	if e := b.CheckTradingAuthorization(); e != nil {
 		return o, e
 	}
@@ -203,6 +206,9 @@ func (b *HyperliquidTrader) SubmitOrder(ctx context.Context, o execution.Order) 
 	client := "0x" + o.ClientID
 	buy := o.Side == "long"
 	typ := hl.OrderType{Limit: &hl.LimitOrderType{Tif: hl.TifGtc}}
+	if o.Type == "market" {
+		typ.Limit.Tif = hl.TifIoc
+	}
 	reduce := o.ReduceOnly
 	if o.PostOnly {
 		typ.Limit.Tif = hl.TifAlo
@@ -223,14 +229,29 @@ func (b *HyperliquidTrader) SubmitOrder(ctx context.Context, o execution.Order) 
 		return o, fmt.Errorf("Hyperliquid rejected locked %s order", o.Role)
 	}
 	if receipt.Resting != nil && receipt.Resting.Oid > 0 {
+		if o.Type == "market" {
+			return o, errors.New("unexpected resting market receipt; reconcile by cloid")
+		}
 		o.OrderID = fmt.Sprint(receipt.Resting.Oid)
 		o.Status = "NEW"
 		o.Filled = "0"
 		return o, nil
 	}
 	if receipt.Filled != nil && receipt.Filled.Oid > 0 {
+		filled, ok := new(big.Rat).SetString(receipt.Filled.TotalSz)
+		requested, _ := new(big.Rat).SetString(string(o.Quantity))
+		if !ok || filled.Sign() <= 0 || filled.Cmp(requested) > 0 {
+			return o, errors.New("invalid Hyperliquid fill quantity")
+		}
 		o.OrderID = fmt.Sprint(receipt.Filled.Oid)
 		o.Status = "FILLED"
+		if filled.Cmp(requested) < 0 {
+			o.Status = "PARTIALLY_FILLED"
+			if o.Type == "market" {
+				// IOC cancels the unfilled remainder; protect only confirmed fills.
+				o.Status = "CANCELED"
+			}
+		}
 		o.Filled = execution.Decimal(receipt.Filled.TotalSz)
 		o.Average = execution.Decimal(receipt.Filled.AvgPx)
 		return o, nil

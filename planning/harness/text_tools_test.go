@@ -23,9 +23,10 @@ func (f *textGatewayFixture) CallWithRequestFull(req *mcp.Request) (*mcp.LLMResp
 	}
 	f.calls++
 	if f.calls > 1 {
-		return &mcp.LLMResponse{Content: `{"content":"Three drafts saved for review; none approved or executed.","tool_calls":[]}`}, nil
+		return &mcp.LLMResponse{Content: `{"content":"Four drafts saved for review; none approved or executed.","tool_calls":[]}`}, nil
 	}
 	ideas := []core.Idea{
+		{Name: "Market", Side: "long", Entry: "950", Stop: "990", Target: "1040", Execution: &core.Execution{Kind: "market"}},
 		{Name: "Limit", Side: "long", Entry: "1000", Stop: "990", Target: "1040", Execution: &core.Execution{Kind: "limit"}},
 		{Name: "Ladder", Side: "long", Entry: "1000", Stop: "990", Target: "1040", Execution: &core.Execution{Kind: "ladder", Levels: []core.Level{{Price: "998", Weight: "0.5"}, {Price: "1000", Weight: "0.5"}}}},
 		{Name: "TWAP", Side: "long", Entry: "1000", Stop: "990", Target: "1040", Execution: &core.Execution{Kind: "twap", Slices: 2, IntervalSeconds: 30}},
@@ -57,20 +58,20 @@ func (s *textDraftFixture) Add(plans []core.Plan) error {
 func (s *textDraftFixture) Revise(_ string, plans []core.Plan, _ time.Time) error {
 	return s.Add(plans)
 }
-func TestTextOnlyGatewayProducesValidatedLimitLadderTWAPDrafts(t *testing.T) {
+func TestTextOnlyGatewayProducesFourValidatedEntryStructures(t *testing.T) {
 	gateway := &textGatewayFixture{}
 	store := &textDraftFixture{}
 	source := textMarketFixture{}
 	engine := Engine{Model: &model.NOFXAdapter{Client: gateway, TextTools: true}, Store: store, Market: source, Charts: source, Limits: core.Constraints{Equity: "10000", MaxRisk: "100", MaxNotional: "1000", MinRewardRisk: "2", FeeBPS: "10", SlippageBPS: "10"}}
 	var events []Event
-	err := engine.Run(context.Background(), Input{Message: "Compare entry structures", Venue: "binance", Symbol: "BTCUSDT", Interval: "1h"}, func(event Event) error { events = append(events, event); return nil })
+	err := engine.Run(context.Background(), Input{CompareStructures: true, Message: "Compare entry structures", Venue: "binance", Symbol: "BTCUSDT", Interval: "1h"}, func(event Event) error { events = append(events, event); return nil })
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(store.plans) != 3 || gateway.calls != 2 {
+	if len(store.plans) != 4 || gateway.calls != 2 {
 		t.Fatalf("plans=%d calls=%d events=%+v", len(store.plans), gateway.calls, events)
 	}
-	for index, kind := range []string{"limit", "ladder", "twap"} {
+	for index, kind := range []string{"market", "limit", "ladder", "twap"} {
 		plan := store.plans[index]
 		if plan.Idea.Execution.Kind != kind || plan.Hash == "" || len(plan.Orders) == 0 {
 			t.Fatalf("invalid draft: %+v", plan)

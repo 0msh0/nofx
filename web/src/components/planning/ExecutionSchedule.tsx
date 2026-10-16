@@ -4,7 +4,7 @@ const number = (value: string) =>
   Number(value).toLocaleString('en-US', { maximumFractionDigits: 8 })
 export function ExecutionSchedule({ plan }: { plan: Plan }) {
   const kind = plan.idea.execution.kind
-  if (kind === 'limit' || !plan.orders.length) return null
+  if (kind === 'market' || kind === 'limit' || !plan.orders.length) return null
   const timed = kind === 'twap'
   const total = Number(plan.quantity)
   return (

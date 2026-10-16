@@ -149,7 +149,14 @@ export function TradingPlanningPage() {
             r.plan.snapshot.venue === venue
         )
         .sort(
-          (a, b) => Date.parse(b.plan.created) - Date.parse(a.plan.created)
+          (a, b) =>
+            Date.parse(b.plan.created) - Date.parse(a.plan.created) ||
+            ['market', 'limit', 'ladder', 'twap'].indexOf(
+              a.plan.idea.execution.kind
+            ) -
+              ['market', 'limit', 'ladder', 'twap'].indexOf(
+                b.plan.idea.execution.kind
+              )
         ),
     [data, exchangeID, symbol, venue]
   )
@@ -425,7 +432,7 @@ export function TradingPlanningPage() {
     })
     setBuilder(true)
   }
-  async function send(text = instruction) {
+  async function send(text = instruction, compareStructures = false) {
     if (busy || !text.trim()) return
     if (
       !modelID ||
@@ -445,7 +452,8 @@ export function TradingPlanningPage() {
     }
     // A locked trade is immutable, but it must not lock the whole workspace.
     const separateDraft = Boolean(current && current.state !== 'draft')
-    const revisionID = current?.state === 'draft' ? selected : undefined
+    const revisionID =
+      !compareStructures && current?.state === 'draft' ? selected : undefined
     const historyMessages = separateDraft
       ? []
       : messages.filter((m) => m.role !== 'error').slice(-16)
@@ -470,6 +478,7 @@ export function TradingPlanningPage() {
     const controller = new AbortController()
     abort.current = controller
     let streamStarted = false
+    let preferredPlan: Plan | undefined
     try {
       await streamPlanning(
         {
@@ -483,6 +492,7 @@ export function TradingPlanningPage() {
           message: text,
           plan_id: revisionID,
           execution_kind: 'auto',
+          compare_structures: compareStructures,
           plugin_window: pluginWindow,
           session_id: session.current,
           turn_id: crypto.randomUUID(),
@@ -523,13 +533,29 @@ export function TradingPlanningPage() {
           if (event.type === 'plans') {
             if (Array.isArray(event.data.checks))
               mergeChecks(event.data.checks as PlanCheck[])
-            const plans = event.data.plans as Plan[]
+            const plans = (event.data.plans as Plan[])
+              ?.slice()
+              .sort(
+                (a, b) =>
+                  ['market', 'limit', 'ladder', 'twap'].indexOf(
+                    a.idea.execution.kind
+                  ) -
+                  ['market', 'limit', 'ladder', 'twap'].indexOf(
+                    b.idea.execution.kind
+                  )
+              )
             if (plans?.length) {
               setLimits(plans[0].constraints)
               setTurnPlanIDs((ids) => [
                 ...new Set([...ids, ...plans.map((plan) => plan.id)]),
               ])
-              setSelected(plans[0].id)
+              const rank = (p: Plan) =>
+                ['market', 'limit', 'ladder', 'twap'].indexOf(
+                  p.idea.execution.kind
+                )
+              if (!preferredPlan || rank(plans[0]) < rank(preferredPlan))
+                preferredPlan = plans[0]
+              setSelected(preferredPlan.id)
               setAssistantView('plans')
               setCompare([])
             }
@@ -712,11 +738,13 @@ export function TradingPlanningPage() {
           ? String.fromCharCode(65 + compare.indexOf(r.plan.id)) + ' · '
           : ''}
         {r.plan.idea.side === 'long' ? '↗ Long' : '↘ Short'} ·{' '}
-        {r.plan.idea.execution.kind === 'ladder'
-          ? 'Price ladder'
-          : r.plan.idea.execution.kind === 'twap'
-            ? 'TWAP'
-            : 'Single limit'}
+        {r.plan.idea.execution.kind === 'market'
+          ? 'Market'
+          : r.plan.idea.execution.kind === 'ladder'
+            ? 'Price ladder'
+            : r.plan.idea.execution.kind === 'twap'
+              ? 'TWAP'
+              : 'Single limit'}
       </span>
       <strong>{r.plan.idea.name}</strong>
       <span>Entry {format(r.plan.idea.entry)}</span>
@@ -916,7 +944,7 @@ export function TradingPlanningPage() {
                       .filter(
                         (r) => r.state === 'draft' && !expired(r.plan, clock)
                       )
-                      .slice(0, 3)
+                      .slice(0, 4)
                       .map((r) => r.plan.id)
                   )
                 }}
@@ -973,7 +1001,10 @@ export function TradingPlanningPage() {
               </b>
               <div className="planning-price-row">
                 <span>
-                  Entry <strong>{format(current.plan.idea.entry)}</strong>
+                  {current.plan.idea.execution.kind === 'market'
+                    ? 'Est. market entry'
+                    : 'Entry'}{' '}
+                  <strong>{format(current.plan.idea.entry)}</strong>
                 </span>
                 <span>
                   Stop loss{' '}
@@ -1005,7 +1036,11 @@ export function TradingPlanningPage() {
                   <thead>
                     <tr>
                       <th>Child order</th>
-                      <th>Limit price</th>
+                      <th>
+                        {current?.plan.idea.execution.kind === 'market'
+                          ? 'Execution estimate'
+                          : 'Limit price'}
+                      </th>
                       <th>Quantity</th>
                       <th>Release time</th>
                     </tr>
@@ -1100,7 +1135,7 @@ export function TradingPlanningPage() {
                   protection and slippage may cause losses beyond the estimate.
                 </p>
                 <button disabled={busy} onClick={() => setBuilder(true)}>
-                  Custom limit / ladder / TWAP
+                  Custom market / limit / ladder / TWAP
                 </button>
                 <label>
                   Discussion preferences
@@ -1191,7 +1226,8 @@ export function TradingPlanningPage() {
               onClick={() =>
                 send(
                   instruction.trim() ||
-                    'Compare single-limit, weighted ladder and TWAP plans for this market.'
+                    'Compare four plans in this order: market entry, single limit, weighted ladder and TWAP for this market.',
+                  true
                 )
               }
             >
@@ -1351,7 +1387,7 @@ export function TradingPlanningPage() {
                     <button
                       onClick={() =>
                         setInstruction(
-                          'Compare a single entry, a price ladder and a timed entry for this market.'
+                          'Compare market, single-limit, price-ladder and TWAP entries for this market.'
                         )
                       }
                     >
@@ -1603,7 +1639,12 @@ export function TradingPlanningPage() {
               {review.idea.side === 'long' ? 'Long' : 'Short'}
             </p>
             <div className="planning-price-row">
-              <span>Entry {format(review.idea.entry)}</span>
+              <span>
+                {review.idea.execution.kind === 'market'
+                  ? 'Est. market entry'
+                  : 'Entry'}{' '}
+                {format(review.idea.entry)}
+              </span>
               <span>Stop loss {format(review.idea.stop)}</span>
               <span>Target {format(review.idea.target)}</span>
             </div>
@@ -1621,8 +1662,10 @@ export function TradingPlanningPage() {
             <details>
               <summary>Execution and protection details</summary>
               <p>
-                Only the locked, fixed-limit basket will be submitted. Ladder
-                entries are released immediately; TWAP slices follow the
+                {review.idea.execution.kind === 'market'
+                  ? 'Market entry is sent immediately after approval. Binance uses a market order; Hyperliquid uses an IOC order within the approved slippage bound. Actual fill may differ and any unfilled IOC quantity is canceled. '
+                  : 'Only the locked, fixed-limit basket will be submitted. '}
+                Ladder entries are released immediately; TWAP slices follow the
                 schedule. Partial fills receive matching reduce-only protection.
                 Protection failures stop further entries and require manual
                 review. Stopping entries does not close filled positions. Actual
@@ -1632,7 +1675,11 @@ export function TradingPlanningPage() {
             <table>
               <thead>
                 <tr>
-                  <th>Limit price</th>
+                  <th>
+                    {review.idea.execution.kind === 'market'
+                      ? 'Execution estimate'
+                      : 'Limit price'}
+                  </th>
                   <th>Quantity</th>
                   <th>Release time</th>
                 </tr>
@@ -1703,6 +1750,7 @@ export function TradingPlanningPage() {
                 })
               }
             >
+              <option value="market">Market</option>
               <option value="limit">Single limit</option>
               <option value="ladder">Price ladder</option>
               <option value="twap">TWAP fixed limit</option>
@@ -1720,24 +1768,34 @@ export function TradingPlanningPage() {
               <option value="long">Long</option>
               <option value="short">Short</option>
             </select>
-            {(['entry', 'stop', 'target'] as const).map((k) => (
-              <label key={k}>
-                {
+            {builderIdea.execution.kind === 'market' && (
+              <p>
+                Entry uses the current market quote when you create the draft.
+                Actual fill may differ.
+              </p>
+            )}
+            {(['entry', 'stop', 'target'] as const)
+              .filter(
+                (k) => k !== 'entry' || builderIdea.execution.kind !== 'market'
+              )
+              .map((k) => (
+                <label key={k}>
                   {
-                    name: 'Name',
-                    entry: 'Limit price',
-                    stop: 'Stop loss',
-                    target: 'Take profit',
-                  }[k]
-                }
-                <input
-                  value={builderIdea[k]}
-                  onChange={(e) =>
-                    setBuilderIdea({ ...builderIdea, [k]: e.target.value })
+                    {
+                      name: 'Name',
+                      entry: 'Limit price',
+                      stop: 'Stop loss',
+                      target: 'Take profit',
+                    }[k]
                   }
-                />
-              </label>
-            ))}
+                  <input
+                    value={builderIdea[k]}
+                    onChange={(e) =>
+                      setBuilderIdea({ ...builderIdea, [k]: e.target.value })
+                    }
+                  />
+                </label>
+              ))}
             {builderIdea.execution.kind === 'ladder' && (
               <label>
                 Enter one price and quantity weight per line; weights must sum

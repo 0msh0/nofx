@@ -40,6 +40,7 @@ func NewClientID() (string, error) {
 }
 
 type Order struct {
+	Type          string  `json:"type,omitempty"` // Empty preserves legacy limit entries.
 	ReduceOnly    bool    `json:"reduce_only,omitempty"`
 	PostOnly      bool    `json:"post_only,omitempty"`
 	VenueClientID string  `json:"venue_client_id,omitempty"`

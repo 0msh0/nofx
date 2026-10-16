@@ -109,3 +109,51 @@ func TestPlanningHyperliquidNativeReceiptsAndUnknownLookup(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestMarketEntryUsesIOCAndKeepsBuilder(t *testing.T) {
+	key, _ := crypto.GenerateKey()
+	agent := crypto.PubkeyToAddress(key.PublicKey).Hex()
+	filled := "0.001"
+	resting := false
+	s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var request map[string]any
+		json.NewDecoder(r.Body).Decode(&request)
+		w.Header().Set("Content-Type", "application/json")
+		if r.URL.Path != "/exchange" {
+			fmt.Fprintf(w, `[{"address":%q,"validUntil":%d}]`, agent, time.Now().Add(time.Hour).UnixMilli())
+			return
+		}
+		action := request["action"].(map[string]any)
+		wire := action["orders"].([]any)[0].(map[string]any)
+		if wire["t"].(map[string]any)["limit"].(map[string]any)["tif"] != "Ioc" || wire["p"] != "100100" || wire["s"] != "0.001" || wire["r"] != false {
+			t.Errorf("market did not use bounded IOC: %v", wire)
+		}
+		builder := action["builder"].(map[string]any)
+		if builder["b"] != defaultBuilder.Builder || builder["f"] != float64(defaultBuilder.Fee) {
+			t.Error("lost builder routing")
+		}
+		if resting {
+			fmt.Fprint(w, `{"status":"ok","response":{"type":"order","data":{"statuses":[{"resting":{"oid":12345}}]}}}`)
+			return
+		}
+		fmt.Fprintf(w, `{"status":"ok","response":{"type":"order","data":{"statuses":[{"filled":{"oid":12345,"totalSz":%q,"avgPx":"100001"}}]}}}`, filled)
+	}))
+	defer s.Close()
+	meta := &hl.Meta{Universe: []hl.AssetInfo{{Name: "BTC", SzDecimals: 5, MaxLeverage: 50}}}
+	ex := hl.NewExchange(context.Background(), key, s.URL, meta, "", "owner", &hl.SpotMeta{}, nil, hl.ExchangeOptClientOptions(hl.ClientOptHTTPClient(s.Client())))
+	b := &HyperliquidTrader{ctx: context.Background(), apiURL: s.URL, privateKey: key, walletAddr: "owner", meta: meta, exchange: ex}
+	o := execution.Order{Type: "market", ClientID: strings.Repeat("b", 32), Symbol: "BTC", Role: "entry", Side: "long", Price: "100100", Quantity: "0.001", Filled: "0"}
+	got, err := b.SubmitOrder(context.Background(), o)
+	if err != nil || got.Status != "FILLED" || got.Filled != "0.001" {
+		t.Fatal(got, err)
+	}
+	filled = "0.0005"
+	got, err = b.SubmitOrder(context.Background(), o)
+	if err != nil || got.Status != "CANCELED" || got.Filled != execution.Decimal(filled) {
+		t.Fatal("IOC remainder must not rest or be resubmitted", got, err)
+	}
+	resting = true
+	if _, err = b.SubmitOrder(context.Background(), o); err == nil {
+		t.Fatal("resting receipt accepted for immediate order")
+	}
+}

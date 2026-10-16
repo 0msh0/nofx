@@ -529,7 +529,7 @@
       if(data?.candles?.length) this.onPrice(data.candles.at(-1),data);
     }
     async plot(plan, phase = "draft", comparisons = []) {
-      const comparisonPlans=comparisons.filter(p=>p.snapshot.kind==="perpetual" && p.snapshot.venue===this.venue && p.snapshot.symbol===this.symbol).slice(0,3);
+      const comparisonPlans=comparisons.filter(p=>p.snapshot.kind==="perpetual" && p.snapshot.venue===this.venue && p.snapshot.symbol===this.symbol).slice(0,4);
       const key = (plan ? plan.hash + phase : "")+comparisonPlans.map(p=>p.hash).join(":");
       this.comparisonPlans=comparisonPlans;
       if (key === this.planKey && (plan ? this.plan?.hash === plan.hash : !this.plan)) return;
@@ -583,7 +583,7 @@
           if(version===this.plotVersion && this.aiCandidates.length)await this.draw(this.aiCandidates.slice(),"ai");
           return;
         }
-        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["Limit order "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#9b6a14"]) : [[plan.idea.execution?.kind==="twap"?"TWAP · "+plan.orders.length+" slices · T+0s to T+"+Math.max(...plan.orders.map(o=>o.offset_seconds))+"s":"Entry",plan.idea.entry,"#9b6a14"]];
+        const entries=plan.idea.execution?.kind==="ladder" ? plan.orders.map(o=>["Limit order "+o.index+" · "+Number(o.quantity).toLocaleString("en-US",{maximumFractionDigits:8}),o.price,"#9b6a14"]) : [[plan.idea.execution?.kind==="twap"?"TWAP · "+plan.orders.length+" slices · T+0s to T+"+Math.max(...plan.orders.map(o=>o.offset_seconds))+"s":plan.idea.execution?.kind==="market"?"Est. market entry":"Entry",plan.idea.entry,"#9b6a14"]];
         for (const [label, price, color] of [
           ...entries,
           ["Stop loss", plan.idea.stop, "#D6433A"],
@@ -646,7 +646,7 @@
       }
     }
     async paintComparisons(plans,selected,times,common,make,version) {
-      const colors=["#9b6a14","#3575a8","#8050a1"],letters=["A","B","C"],span=Math.min(times.length-1,Math.max(2,Math.floor((times.length-1)*0.72))),base=times.length-1-span,lane=Math.max(2,Math.floor(span/plans.length));
+      const colors=["#9b6a14","#3575a8","#8050a1","#237a69"],letters=["A","B","C","D"],span=Math.min(times.length-1,Math.max(2,Math.floor((times.length-1)*0.72))),base=times.length-1-span,lane=Math.max(2,Math.floor(span/plans.length));
       for(let i=0;i<plans.length;i++) {
         if(version!==this.plotVersion)return;
         const p=plans[i],orders=p.orders?.length?p.orders:[{price:p.idea.entry,quantity:p.quantity}],total=orders.reduce((n,o)=>n+Number(o.quantity),0),entry=total?orders.reduce((n,o)=>n+Number(o.price)*Number(o.quantity),0)/total:Number(p.idea.entry);
@@ -656,7 +656,7 @@
         levels.push([Number(p.idea.stop),"#D6433A"],[Number(p.idea.target),"#2E8B57"]);
         for(const [price,c]of levels)await make([{time:start,price},{time:end,price}],{...common,shape:"trend_line",text:"",overrides:{linecolor:c,linewidth:active?2:1,linestyle:active?0:2,extendLeft:false,extendRight:false,showLabel:false,showPrice:false,showDistance:false,showAngle:false}});
         const fmt=x=>window.PlanCompare?.format(x) || Number(x).toLocaleString("en-US",{maximumFractionDigits:4});
-        const labels=[[Number(p.idea.target),tag+" · "+(p.idea.side==="long"?"Long":"Short")+" Target "+fmt(p.idea.target),"#2E8B57"],[entry,(orders.length>1 && p.idea.execution?.kind==="ladder"?"Average entry ≈ ":"Entry ")+fmt(entry),color],[Number(p.idea.stop),"Stop loss "+fmt(p.idea.stop),"#D6433A"]];
+        const labels=[[Number(p.idea.target),tag+" · "+(p.idea.side==="long"?"Long":"Short")+" Target "+fmt(p.idea.target),"#2E8B57"],[entry,(orders.length>1 && p.idea.execution?.kind==="ladder"?"Average entry ≈ ":p.idea.execution?.kind==="market"?"Est. market entry ":"Entry ")+fmt(entry),color],[Number(p.idea.stop),"Stop loss "+fmt(p.idea.stop),"#D6433A"]];
         for(const [price,text,c]of labels){
           const label=await this.chart.createShape({time:text.startsWith("Stop loss")?times[Math.min(times.length-1,base+i*lane+Math.floor(lane*0.45))]:start,price},{...common,shape:"text",text,overrides:{color:c,textcolor:c,fontsize:text.startsWith("Stop loss")?12:14,bold:active}});
           if(version===this.plotVersion)this.overlays.push(label);else try{this.chart.removeEntity(label);}catch{}

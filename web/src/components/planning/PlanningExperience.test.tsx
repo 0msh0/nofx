@@ -6,7 +6,7 @@ import { ExecutionSchedule } from './ExecutionSchedule'
 import { PlanningActivity, recordActivity } from './PlanningActivity'
 import { PlanStructures } from './PlanStructures'
 afterEach(cleanup)
-const plan = (kind: 'limit' | 'ladder' | 'twap'): Plan => ({
+const plan = (kind: 'market' | 'limit' | 'ladder' | 'twap'): Plan => ({
   id: kind,
   hash: kind,
   created: new Date().toISOString(),
@@ -65,7 +65,7 @@ it('shows ladder prices without fake time staggering', () => {
   expect(screen.getAllByText('Placed together at start')).toHaveLength(2)
   expect(screen.queryByText('T+30s')).not.toBeInTheDocument()
 })
-it('shows three structure outcomes without inventing a third valid draft', () => {
+it('shows four structure outcomes without inventing missing valid drafts', () => {
   const select = vi.fn()
   render(
     <PlanStructures
@@ -177,4 +177,33 @@ it('updates plugin observations without duplicate rows and identifies cancellati
   expect(rows.find((row) => row.id === 'outcome')?.label).toBe(
     'Planning stopped'
   )
+})
+
+it('puts market first regardless of model order and labels the estimate', () => {
+  const select = vi.fn()
+  render(
+    <PlanStructures
+      checks={[
+        { id: 'market', kind: 'market', name: 'Market', status: 'saved' },
+      ]}
+      plans={[plan('twap'), plan('limit'), plan('market'), plan('ladder')]}
+      selected=""
+      busy={false}
+      onSelect={select}
+    />
+  )
+  const cards = screen.getAllByRole('article')
+  expect(cards).toHaveLength(4)
+  expect(cards[0]).toHaveTextContent('Market')
+  expect(cards[1]).toHaveTextContent('Single limit')
+  expect(cards[2]).toHaveTextContent('Weighted ladder')
+  expect(cards[3]).toHaveTextContent('TWAP')
+  expect(cards[0]).toHaveTextContent('Est. entry')
+  expect(cards[0]).toHaveTextContent('Actual fill may differ')
+  fireEvent.click(screen.getAllByRole('button', { name: 'View on chart' })[0])
+  expect(select).toHaveBeenCalledWith(expect.objectContaining({ id: 'market' }))
+})
+it('does not mislabel immediate market entry as a ladder or timed schedule', () => {
+  const { container } = render(<ExecutionSchedule plan={plan('market')} />)
+  expect(container).toBeEmptyDOMElement()
 })

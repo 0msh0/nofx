@@ -35,7 +35,7 @@ export function PlanStructures({
       className="planning-structures"
       aria-label="Entry structure comparison"
     >
-      {['limit', 'ladder', 'twap'].map((kind) => {
+      {['market', 'limit', 'ladder', 'twap'].map((kind) => {
         const plan = plans.find((p) => p.idea.execution.kind === kind)
         const check = checks.filter((row) => row.kind === kind).slice(-1)[0]
         return (
@@ -77,7 +77,7 @@ export function PlanStructures({
                 </p>
                 <dl className="frontier-plan-levels">
                   <div>
-                    <dt>Entry</dt>
+                    <dt>{kind === 'market' ? 'Est. entry' : 'Entry'}</dt>
                     <dd>{price(plan.idea.entry)}</dd>
                   </div>
                   <div>
@@ -89,6 +89,11 @@ export function PlanStructures({
                     <dd className="target-text">{price(plan.idea.target)}</dd>
                   </div>
                 </dl>
+                {kind === 'market' && (
+                  <p>
+                    Enter immediately after approval. Actual fill may differ.
+                  </p>
+                )}
                 <PlanFunding plan={plan} compact />
                 <div className="frontier-plan-outcomes">
                   <span>

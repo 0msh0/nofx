@@ -22,6 +22,7 @@ const titles: Record<string, string> = {
   run_entry_plugin: 'Run entry calculator',
 }
 export const structureNames: Record<string, string> = {
+  market: 'Market',
   limit: 'Single limit',
   ladder: 'Weighted ladder',
   twap: 'TWAP',
@@ -227,7 +228,7 @@ export function PlanningActivity({
   items: ActivityItem[]
   busy: boolean
 }) {
-  const [now, setNow] = useState(Date.now())
+  const [now, setNow] = useState(Date.now)
   const [expanded, setExpanded] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   const follow = useRef(true)

@@ -269,3 +269,51 @@ func TestNOFXLimitAPIUsesSharedSubmission(t *testing.T) {
 		})
 	}
 }
+
+func TestMarketEntryUsesNativeMarketAndBrokerRoute(t *testing.T) {
+	for _, side := range []string{"long", "short"} {
+		t.Run(side, func(t *testing.T) {
+			o := planningOrder()
+			o.Type = "market"
+			o.Side = side
+			nativeSide := "BUY"
+			if side == "short" {
+				nativeSide = "SELL"
+			}
+			submits := 0
+			s := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.ParseForm()
+				w.Header().Set("Content-Type", "application/json")
+				if r.URL.Path == "/fapi/v1/positionSide/dual" {
+					fmt.Fprint(w, `{"dualSidePosition":false}`)
+					return
+				}
+				if r.URL.Path != "/fapi/v1/order" {
+					t.Error(r.URL.Path)
+					return
+				}
+				if r.Method == "POST" {
+					submits++
+					if r.Form.Get("type") != "MARKET" || r.Form.Get("price") != "" || r.Form.Get("timeInForce") != "" || r.Form.Get("newClientOrderId") != o.VenueClientID || r.Form.Get("quantity") != string(o.Quantity) || r.Form.Get("side") != nativeSide {
+						t.Errorf("wrong market wire intent: %v", r.Form)
+					}
+				} else if r.Form.Get("origClientOrderId") != o.VenueClientID {
+					t.Fatal("lookup lost broker identity")
+				}
+				fmt.Fprintf(w, `{"orderId":123,"clientOrderId":%q,"symbol":"BTCUSDT","price":"0","origQty":"0.001","side":%q,"positionSide":"BOTH","type":"MARKET","status":"FILLED","executedQty":"0.001","avgPrice":"100005"}`, o.VenueClientID, nativeSide)
+			}))
+			defer s.Close()
+			b := NewExecutionTrader("test", "test", "")
+			b.client.BaseURL = s.URL
+			b.client.HTTPClient = s.Client()
+			got, err := b.SubmitOrder(context.Background(), o)
+			if err != nil || got.Status != "FILLED" || got.Type != "market" || got.Average != "100005" {
+				t.Fatal(got, err)
+			}
+			got, err = b.LookupOrder(context.Background(), got)
+			if err != nil || got.Status != "FILLED" || submits != 1 {
+				t.Fatal(got, err, submits)
+			}
+		})
+	}
+}

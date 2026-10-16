@@ -138,6 +138,9 @@ func executionPosition(side string, hedge bool) futures.PositionSideType {
 	return futures.PositionSideTypeShort
 }
 func (b *FuturesTrader) SubmitOrder(ctx context.Context, o execution.Order) (execution.Order, error) {
+	if o.Type != "" && (o.Type != "market" || o.Role != "entry" || o.PostOnly || o.ReduceOnly) {
+		return o, errors.New("unsupported execution order type")
+	}
 	nativeID, err := b.nativeClientID(o)
 	if err != nil {
 		return o, err
@@ -177,7 +180,14 @@ func (b *FuturesTrader) SubmitOrder(ctx context.Context, o execution.Order) (exe
 				positionSide = futures.PositionSideTypeLong
 			}
 		}
-		service := b.client.NewCreateOrderService().Symbol(o.Symbol).Side(side).PositionSide(positionSide).Type(futures.OrderTypeLimit).TimeInForce(tif).Price(string(o.Price)).Quantity(string(o.Quantity)).NewClientOrderID(nativeID)
+		orderType := futures.OrderTypeLimit
+		service := b.client.NewCreateOrderService().Symbol(o.Symbol).Side(side).PositionSide(positionSide).Quantity(string(o.Quantity)).NewClientOrderID(nativeID)
+		if o.Type == "market" {
+			orderType = futures.OrderTypeMarket
+		} else {
+			service.TimeInForce(tif).Price(string(o.Price))
+		}
+		service.Type(orderType)
 		if o.ReduceOnly && !mode.DualSidePosition {
 			service.ReduceOnly(true)
 		}
@@ -185,7 +195,8 @@ func (b *FuturesTrader) SubmitOrder(ctx context.Context, o execution.Order) (exe
 		if e != nil {
 			return o, errors.New("Binance entry submission is unconfirmed; reconcile by client ID")
 		}
-		if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) || r.Side != side || r.Type != futures.OrderTypeLimit || r.TimeInForce != tif || r.PositionSide != positionSide || (o.ReduceOnly && !mode.DualSidePosition && !r.ReduceOnly) {
+		limitMismatch := o.Type != "market" && (!sameNativeDecimal(r.Price, string(o.Price)) || r.TimeInForce != tif)
+		if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || limitMismatch || r.Side != side || r.Type != orderType || r.PositionSide != positionSide || (o.ReduceOnly && !mode.DualSidePosition && !r.ReduceOnly) {
 			return o, errors.New("invalid Binance order receipt")
 		}
 		o.OrderID = fmt.Sprint(r.OrderID)
@@ -263,7 +274,9 @@ func (b *FuturesTrader) LookupOrder(ctx context.Context, o execution.Order) (exe
 	if e != nil {
 		return o, errors.New("Binance order lookup is unconfirmed; missing does not mean filled")
 	}
-	if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || !sameNativeDecimal(r.Price, string(o.Price)) {
+	priceMismatch := o.Type != "market" && !sameNativeDecimal(r.Price, string(o.Price))
+	marketMismatch := o.Type == "market" && (r.Type != futures.OrderTypeMarket || (o.Side == "long" && r.Side != futures.SideTypeBuy) || (o.Side == "short" && r.Side != futures.SideTypeSell))
+	if r.OrderID <= 0 || r.ClientOrderID != nativeID || r.Symbol != o.Symbol || !sameNativeDecimal(r.OrigQuantity, string(o.Quantity)) || priceMismatch || marketMismatch {
 		return o, errors.New("order identity mismatch")
 	}
 	o.OrderID = fmt.Sprint(r.OrderID)

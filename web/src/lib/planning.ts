@@ -35,7 +35,7 @@ export interface Idea {
   target: string
   rationale: string
   execution: {
-    kind: 'limit' | 'ladder' | 'twap'
+    kind: 'market' | 'limit' | 'ladder' | 'twap'
     levels?: { price: string; weight: string }[]
     slices?: number
     interval_seconds?: number

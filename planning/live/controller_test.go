@@ -63,41 +63,46 @@ func (b *testBroker) Place(_ context.Context, o Order) (Order, error) {
 }
 
 func TestImmediateFillWaitsForPositionBeforeCompletion(t *testing.T) {
-	c, b, _, p := setup(t, "limit")
-	v := started(t, c, p)
-	b.fillEntryImmediately = true
-	for range 2 {
-		if c.step(context.Background(), "alice", v.ID) {
-			t.Fatal("monitor stopped before position confirmation")
-		}
-	}
-	got, _ := c.Get("alice", v.ID)
-	var leases int64
-	c.DB.Model(&Lease{}).Count(&leases)
-	if got.State == "completed" || leases != 1 || len(b.placed) != 1 {
-		t.Fatal("filled entry lost its reservation or was resubmitted", got.State, leases, len(b.placed))
-	}
-	b.account.Position = got.Orders[0].Filled
-	for range 2 {
-		c.step(context.Background(), "alice", v.ID)
-	}
-	if len(b.placed) != 3 || b.placed[1].Role != "sl" || b.placed[2].Role != "tp" {
-		t.Fatal("confirmed position did not receive exactly one protection pair", b.placed)
-	}
-	// Only a confirmed exit fill and flat position can finish automatically.
-	tp := b.orders[b.placed[2].ClientID]
-	tp.Status, tp.Filled = "FILLED", tp.Quantity
-	b.orders[tp.ClientID] = tp
-	b.account.Position = "0"
-	if !c.step(context.Background(), "alice", v.ID) {
-		t.Fatal("confirmed closed trade did not finish")
-	}
-	got, _ = c.Get("alice", v.ID)
-	c.DB.Model(&Lease{}).Count(&leases)
-	if got.State != "completed" || leases != 0 {
-		t.Fatal("closed trade retained reservation")
+	for _, kind := range []string{"limit", "market"} {
+		t.Run(kind, func(t *testing.T) {
+			c, b, _, p := setup(t, kind)
+			v := started(t, c, p)
+			b.fillEntryImmediately = true
+			for range 2 {
+				if c.step(context.Background(), "alice", v.ID) {
+					t.Fatal("monitor stopped before position confirmation")
+				}
+			}
+			got, _ := c.Get("alice", v.ID)
+			var leases int64
+			c.DB.Model(&Lease{}).Count(&leases)
+			if got.State == "completed" || leases != 1 || len(b.placed) != 1 {
+				t.Fatal("filled entry lost its reservation or was resubmitted", got.State, leases, len(b.placed))
+			}
+			b.account.Position = got.Orders[0].Filled
+			for range 2 {
+				c.step(context.Background(), "alice", v.ID)
+			}
+			if len(b.placed) != 3 || b.placed[1].Role != "sl" || b.placed[2].Role != "tp" {
+				t.Fatal("confirmed position did not receive exactly one protection pair", b.placed)
+			}
+			// Only a confirmed exit fill and flat position can finish automatically.
+			tp := b.orders[b.placed[2].ClientID]
+			tp.Status, tp.Filled = "FILLED", tp.Quantity
+			b.orders[tp.ClientID] = tp
+			b.account.Position = "0"
+			if !c.step(context.Background(), "alice", v.ID) {
+				t.Fatal("confirmed closed trade did not finish")
+			}
+			got, _ = c.Get("alice", v.ID)
+			c.DB.Model(&Lease{}).Count(&leases)
+			if got.State != "completed" || leases != 0 {
+				t.Fatal("closed trade retained reservation")
+			}
+		})
 	}
 }
+
 func (b *testBroker) Lookup(_ context.Context, o Order) (Order, error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -143,6 +148,9 @@ func setup(t *testing.T, kind string) (*Controller, *testBroker, *testMarket, co
 	now := time.Now().UTC()
 	m := &testMarket{book: core.Snapshot{Venue: "binance", Symbol: "BTCUSDT", Kind: "perpetual", Bid: "99999", Ask: "100000", BidSize: "100", AskSize: "100", Tick: "1", Step: "0.00001", MinQty: "0.00001", MinNotional: "10", Observed: now}}
 	idea := core.Idea{Name: "plan", Side: "long", Entry: "100000", Stop: "99000", Target: "104000"}
+	if kind == "market" {
+		idea.Execution = &core.Execution{Kind: "market"}
+	}
 	if kind == "twap" {
 		idea.Execution = &core.Execution{Kind: "twap", Slices: 2, IntervalSeconds: 30}
 	}
@@ -189,7 +197,7 @@ func started(t *testing.T, c *Controller, p core.Plan) View {
 		specs = []core.OrderSpec{{Index: 1, Price: p.Idea.Entry, Quantity: p.Quantity}}
 	}
 	for _, s := range specs {
-		v.Orders = append(v.Orders, Order{ClientID: cid(v.ID, s.Index, "entry", ""), Role: "entry", Symbol: p.Snapshot.Symbol, Side: p.Idea.Side, Price: s.Price, Quantity: s.Quantity, Status: "scheduled", Filled: "0"})
+		v.Orders = append(v.Orders, Order{Type: entryOrderType(p), ClientID: cid(v.ID, s.Index, "entry", ""), Role: "entry", Symbol: p.Snapshot.Symbol, Side: p.Idea.Side, Price: s.Price, Quantity: s.Quantity, Status: "scheduled", Filled: "0"})
 	}
 	if e := c.save(&v); e != nil {
 		t.Fatal(e)
@@ -453,5 +461,29 @@ func TestPersistedExecutionFlagsCannotChangeLockedPlan(t *testing.T) {
 				t.Fatal("changed execution flags escaped locked plan")
 			}
 		})
+	}
+}
+
+func TestMarketIntentAndReceiptCannotBecomeRestingLimit(t *testing.T) {
+	c, _, _, p := setup(t, "market")
+	v := started(t, c, p)
+	if err := validateIntent(v); err != nil {
+		t.Fatal(err)
+	}
+	original := v.Orders[0]
+	got := original
+	got.OrderID = "123"
+	got.Status = "FILLED"
+	got.Filled = got.Quantity
+	if !validReceipt(original, got) {
+		t.Fatal("valid market fill rejected")
+	}
+	got.Type = ""
+	if validReceipt(original, got) {
+		t.Fatal("market intent accepted a limit receipt")
+	}
+	v.Orders[0].Type = ""
+	if validateIntent(v) == nil {
+		t.Fatal("persisted market intent became a resting limit")
 	}
 }

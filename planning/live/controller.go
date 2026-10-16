@@ -279,7 +279,7 @@ func (c *Controller) Execute(ctx context.Context, user, id, hash string) (View, 
 		specs = []core.OrderSpec{{Index: 1, Price: v.Plan.Idea.Entry, Quantity: v.Plan.Quantity}}
 	}
 	for _, o := range specs {
-		intent, err := routedOrder(b, Order{ClientID: cid(v.ID, o.Index, "entry", ""), Role: "entry", Symbol: v.Plan.Snapshot.Symbol, Side: v.Plan.Idea.Side, Price: o.Price, Quantity: o.Quantity, Status: "scheduled", Filled: "0"})
+		intent, err := routedOrder(b, Order{Type: entryOrderType(v.Plan), ClientID: cid(v.ID, o.Index, "entry", ""), Role: "entry", Symbol: v.Plan.Snapshot.Symbol, Side: v.Plan.Idea.Side, Price: o.Price, Quantity: o.Quantity, Status: "scheduled", Filled: "0"})
 		if err != nil {
 			return v, err
 		}
@@ -678,7 +678,7 @@ func filledExposure(orders []Order) core.Decimal {
 var nativeDecimal = regexp.MustCompile(`^[0-9]{1,24}(\.[0-9]{1,12})?$`)
 
 func validReceipt(request, got Order) bool {
-	if got.PostOnly != request.PostOnly || got.ReduceOnly != request.ReduceOnly || got.VenueClientID != request.VenueClientID || got.ClientID != request.ClientID || got.Role != request.Role || got.ParentID != request.ParentID || got.Symbol != request.Symbol || got.Side != request.Side || cmp(got.Quantity, request.Quantity) != 0 || cmp(got.Price, request.Price) != 0 || got.OrderID == "" {
+	if got.Type != request.Type || got.PostOnly != request.PostOnly || got.ReduceOnly != request.ReduceOnly || got.VenueClientID != request.VenueClientID || got.ClientID != request.ClientID || got.Role != request.Role || got.ParentID != request.ParentID || got.Symbol != request.Symbol || got.Side != request.Side || cmp(got.Quantity, request.Quantity) != 0 || cmp(got.Price, request.Price) != 0 || got.OrderID == "" {
 		return false
 	}
 	if _, e := decimal(got.Filled); e != nil || cmp(got.Filled, got.Quantity) > 0 {
@@ -695,6 +695,12 @@ func validReceipt(request, got Order) bool {
 		return true
 	}
 	return false
+}
+func entryOrderType(p core.Plan) string {
+	if p.Idea.Execution != nil && p.Idea.Execution.Kind == "market" {
+		return "market"
+	}
+	return ""
 }
 func validateIntent(v View) error {
 	if v.StartedAt == nil {
@@ -714,7 +720,7 @@ func validateIntent(v View) error {
 	seen := map[string]bool{}
 	for i, s := range specs {
 		o := v.Orders[i]
-		if o.PostOnly || o.ReduceOnly || o.ClientID != cid(v.ID, s.Index, "entry", "") || o.Role != "entry" || o.Symbol != v.Plan.Snapshot.Symbol || o.Side != v.Plan.Idea.Side || cmp(o.Price, s.Price) != 0 || cmp(o.Quantity, s.Quantity) != 0 || cmp(o.Filled, o.Quantity) > 0 {
+		if o.Type != entryOrderType(v.Plan) || o.PostOnly || o.ReduceOnly || o.ClientID != cid(v.ID, s.Index, "entry", "") || o.Role != "entry" || o.Symbol != v.Plan.Snapshot.Symbol || o.Side != v.Plan.Idea.Side || cmp(o.Price, s.Price) != 0 || cmp(o.Quantity, s.Quantity) != 0 || cmp(o.Filled, o.Quantity) > 0 {
 			return errors.New("entry intent no longer matches approval")
 		}
 		if _, e := decimal(o.Filled); e != nil {
@@ -730,7 +736,7 @@ func validateIntent(v View) error {
 		if o.Role == "tp" {
 			price = v.Plan.Idea.Target
 		}
-		if o.PostOnly || o.ReduceOnly || !ok || (o.Role != "sl" && o.Role != "tp") || !core.Positive(o.Quantity) || cmp(o.Quantity, entry.Quantity) > 0 || cmp(o.Price, price) != 0 || o.Side != entry.Side || o.Symbol != entry.Symbol || seen[o.ClientID] {
+		if o.Type != "" || o.PostOnly || o.ReduceOnly || !ok || (o.Role != "sl" && o.Role != "tp") || !core.Positive(o.Quantity) || cmp(o.Quantity, entry.Quantity) > 0 || cmp(o.Price, price) != 0 || o.Side != entry.Side || o.Symbol != entry.Symbol || seen[o.ClientID] {
 			return errors.New("protective intent exceeds the locked basket")
 		}
 		seen[o.ClientID] = true

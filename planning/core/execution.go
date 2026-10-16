@@ -10,7 +10,7 @@ import (
 // Execution describes a finite, user-approved order basket, never a strategy.
 // Weights apply to base quantity. TWAP uses a fixed limit cap, never market orders.
 type Execution struct {
-	Kind            string  `json:"kind"` // limit, ladder, twap
+	Kind            string  `json:"kind"` // market, limit, ladder, twap
 	Levels          []Level `json:"levels,omitempty"`
 	Slices          int     `json:"slices,omitempty"`
 	IntervalSeconds int     `json:"interval_seconds,omitempty"`
@@ -38,6 +38,33 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 	i.Execution = &x
 	var levels []Level
 	switch x.Kind {
+	case "market":
+		if len(x.Levels) != 0 || x.Slices != 0 || x.IntervalSeconds != 0 {
+			return Plan{}, errors.New("market entry does not accept levels or schedule")
+		}
+		if err := s.Validate(now); err != nil {
+			return Plan{}, err
+		}
+		if err := c.Validate(); err != nil {
+			return Plan{}, err
+		}
+		if s.Kind != "perpetual" || (s.Venue != "binance" && s.Venue != "hyperliquid") {
+			return Plan{}, errors.New("market entry requires Binance or Hyperliquid perpetuals")
+		}
+		// Model prices are not executable quotes. Lock a fresh reference and a
+		// conservative execution estimate; Hyperliquid uses it as its IOC bound.
+		i.Entry = s.Ask
+		slip := div(must(c.SlippageBPS), big.NewRat(10000, 1))
+		bound := floorStep(mul(must(s.Ask), add(big.NewRat(1, 1), slip)), must(s.Tick))
+		if i.Side == "short" {
+			i.Entry = s.Bid
+			price := mul(must(s.Bid), sub(big.NewRat(1, 1), slip))
+			bound = floorStep(price, must(s.Tick))
+			if bound.Cmp(price) < 0 {
+				bound = add(bound, must(s.Tick))
+			}
+		}
+		levels = []Level{{number(bound), "1"}}
 	case "limit":
 		if len(x.Levels) != 0 || x.Slices != 0 || x.IntervalSeconds != 0 {
 			return Plan{}, errors.New("single limit does not accept levels or schedule")
