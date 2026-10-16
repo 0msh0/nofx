@@ -189,6 +189,12 @@ func (c *Client) spotOrHyperliquid(ctx context.Context, venue, symbol string) (c
 		s.BidSize = core.Decimal(book.Levels[0][0].Sz)
 		s.Ask = core.Decimal(book.Levels[1][0].Px)
 		s.AskSize = core.Decimal(book.Levels[1][0].Sz)
+		for _, level := range book.Levels[0] {
+			s.Bids = append(s.Bids, core.BookLevel{Price: core.Decimal(level.Px), Quantity: core.Decimal(level.Sz)})
+		}
+		for _, level := range book.Levels[1] {
+			s.Asks = append(s.Asks, core.BookLevel{Price: core.Decimal(level.Px), Quantity: core.Decimal(level.Sz)})
+		}
 		s.SourceTime = time.UnixMilli(book.Time)
 		// Perps permit <=5 significant figures and <=6-szDecimals decimal places
 		// (integer prices are always allowed). Conservative tick at current magnitude.

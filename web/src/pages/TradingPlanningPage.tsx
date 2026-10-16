@@ -1090,7 +1090,7 @@ export function TradingPlanningPage() {
                   {(
                     Object.keys(defaultLimits) as Exclude<
                       keyof Constraints,
-                      'leverage' | 'available_margin'
+                      'leverage' | 'available_margin' | 'sizing_policy'
                     >[]
                   )
                     .filter(
@@ -1130,7 +1130,8 @@ export function TradingPlanningPage() {
                 <p>
                   Live sizing refreshes before planning and review. Leverage is
                   applied to current available margin, with execution costs
-                  reserved. Order-book liquidity and rounding can reduce size.
+                  reserved. Quantities are rounded to exchange steps. Market
+                  orders require enough depth within the approved price bound.
                   Hyperliquid costs must include Builder fees. Gaps, failed
                   protection and slippage may cause losses beyond the estimate.
                 </p>

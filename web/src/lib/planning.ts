@@ -44,6 +44,7 @@ export interface Idea {
 export interface Constraints {
   leverage?: number
   available_margin?: string
+  sizing_policy?: 'account_margin'
   equity: string
   max_risk: string
   max_notional: string

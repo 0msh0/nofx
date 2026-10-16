@@ -23,7 +23,10 @@ func TestVenueAdapters(t *testing.T) {
 					if strings.Contains(r.URL.Path, "exchangeInfo") {
 						fmt.Fprint(w, `{"symbols":[{"symbol":"BTCUSDT","status":"TRADING","contractType":"PERPETUAL","marginAsset":"USDT","quoteAsset":"USDT","baseAsset":"BTC","filters":[{"filterType":"PRICE_FILTER","tickSize":"0.01"},{"filterType":"LOT_SIZE","stepSize":"0.00001","minQty":"0.00001"},{"filterType":"NOTIONAL","minNotional":"10"}]}]}`)
 					} else {
-						fmt.Fprintf(w, `{"T":%d,"bids":[["99999","2"]],"asks":[["100000","3"]]}`, time.Now().UnixMilli())
+						if r.URL.Query().Get("limit") != "100" {
+							t.Error("missing multi-level depth request")
+						}
+						fmt.Fprintf(w, `{"T":%d,"bids":[["99999","2"],["99998","4"]],"asks":[["100000","3"],["100001","5"]]}`, time.Now().UnixMilli())
 					}
 				case "okx":
 					if strings.Contains(r.URL.Path, "instruments") {
@@ -35,7 +38,7 @@ func TestVenueAdapters(t *testing.T) {
 					if requests == 1 {
 						fmt.Fprint(w, `{"universe":[{"name":"BTC","szDecimals":5}]}`)
 					} else {
-						fmt.Fprintf(w, `{"coin":"BTC","time":%d,"levels":[[{"px":"99999","sz":"2"}],[{"px":"100000","sz":"3"}]]}`, time.Now().UnixMilli())
+						fmt.Fprintf(w, `{"coin":"BTC","time":%d,"levels":[[{"px":"99999","sz":"2"},{"px":"99998","sz":"4"}],[{"px":"100000","sz":"3"},{"px":"100001","sz":"5"}]]}`, time.Now().UnixMilli())
 					}
 				}
 			}))
@@ -55,6 +58,9 @@ func TestVenueAdapters(t *testing.T) {
 			}
 			if venue == "hyperliquid" && (s.Kind != "perpetual" || s.Tick != "1" || s.Step != "0.00001") {
 				t.Fatalf("bad HL rules %+v", s)
+			}
+			if venue != "okx" && (len(s.Bids) != 2 || len(s.Asks) != 2 || s.Bids[1].Quantity != "4" || s.Asks[1].Price != "100001") {
+				t.Fatalf("discarded executable depth: %+v", s)
 			}
 		})
 	}

@@ -24,8 +24,9 @@ func AccountLimits(a Account, c core.Constraints) (core.Constraints, error) {
 	}
 	c.Equity = a.Equity
 	c.AvailableMargin = core.Decimal(available.FloatString(12))
+	c.SizingPolicy = core.SizingAccountMargin
 	// Auto sizing allocates margin, rather than silently applying a 1% loss budget.
-	// The compiler still validates stop distance, reward/risk and liquidity.
+	// The compiler still validates stop distance, reward/risk and market depth.
 	c.MaxRisk = a.Equity
 	if !core.Positive(a.FeeBPS) && a.FeeBPS != "0" {
 		return c, errors.New("account fee estimate unavailable")

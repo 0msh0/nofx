@@ -25,10 +25,10 @@ it('uses weighted child notional and the plan leverage, not the current selector
   ).toBeInTheDocument()
 })
 
-it('explains liquidity reductions without hiding the leverage', () => {
+it('identifies a saved legacy size cap without implying the position was resized', () => {
   render(<PlanFunding plan={{ ...plan, sizing_limit: 'liquidity' }} />)
   expect(
-    screen.getByText(/Size reduced by order-book liquidity/)
+    screen.getByText(/This saved plan used the previous top-of-book size cap/)
   ).toBeInTheDocument()
 })
 

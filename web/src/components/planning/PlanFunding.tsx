@@ -72,8 +72,8 @@ export function PlanFunding({
       )}
       {plan.sizing_limit === 'liquidity' && (
         <p className="stop-text">
-          Size reduced by order-book liquidity: participation is capped at 10%
-          of the visible top level.
+          This saved plan used the previous top-of-book size cap. New plans use
+          available margin × leverage, with execution costs reserved.
         </p>
       )}
       {plan.sizing_limit === 'risk' && (

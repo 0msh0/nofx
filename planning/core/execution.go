@@ -131,7 +131,7 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 	if i.Side == "short" {
 		liquidity = must(s.BidSize)
 	}
-	size, limit := sizeByLimits(div(must(c.MaxRisk), lossSum), div(must(c.MaxNotional), notional), div(liquidity, big.NewRat(10, 1)))
+	size, limit := sizeByLimits(c, div(must(c.MaxRisk), lossSum), div(must(c.MaxNotional), notional), div(liquidity, big.NewRat(10, 1)))
 	total := floorStep(size, must(s.Step))
 	p := Plan{Snapshot: s, Constraints: c, Idea: i, SizingLimit: limit, Created: now, Expires: now.Add(5 * time.Minute)}
 	risk, reward, qty := new(big.Rat), new(big.Rat), new(big.Rat)
@@ -164,6 +164,11 @@ func compileExecution(s Snapshot, c Constraints, i Idea, now time.Time) (Plan, e
 		p.VenueQuantity = number(div(must(p.Quantity), must(s.ContractValue)))
 		for n := range p.Orders {
 			p.Orders[n].VenueQuantity = number(div(must(p.Orders[n].Quantity), must(s.ContractValue)))
+		}
+	}
+	if c.SizingPolicy == SizingAccountMargin {
+		if err := checkMarketDepth(p, s); err != nil {
+			return Plan{}, err
 		}
 	}
 	p.Hash = p.Digest()

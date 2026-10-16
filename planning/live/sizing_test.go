@@ -35,7 +35,7 @@ func TestAccountSizingUsesFreeMarginAndLeverage(t *testing.T) {
 }
 
 func TestAutoSizingAllocatesMarginAcrossEntryStructures(t *testing.T) {
-	for _, kind := range []string{"limit", "ladder", "twap"} {
+	for _, kind := range []string{"market", "limit", "ladder", "twap"} {
 		t.Run(kind, func(t *testing.T) {
 			_, b, m, base := setup(t, kind)
 			b.account.Equity, b.account.Available = "283.22", "283.22"
@@ -53,13 +53,53 @@ func TestAutoSizingAllocatesMarginAcrossEntryStructures(t *testing.T) {
 			if err := CheckAccountCapacity(p, b.account); err != nil {
 				t.Fatal(err)
 			}
-			m.book.AskSize = "0.01"
+			m.book.AskSize = "0.001"
+			m.book.Asks = []core.BookLevel{{Price: "100000", Quantity: "0.001"}, {Price: "100001", Quantity: "1"}}
 			limited, err := core.Compile(m.book, limits, base.Idea, time.Now().UTC())
-			if err != nil || limited.SizingLimit != "liquidity" || cmp(limited.Quantity, "0.001") > 0 {
-				t.Fatalf("liquidity cap missing or unexplained: %+v %v", limited, err)
+			if err != nil || limited.SizingLimit != "budget" || limited.Quantity != p.Quantity {
+				t.Fatalf("top quote silently changed margin allocation: %+v %v", limited, err)
+			}
+			if err = core.CheckBook(limited, m.book, time.Now().UTC()); err != nil {
+				t.Fatal("multi-level depth was not used", err)
+			}
+			if err = limited.Verify(time.Now().UTC()); err != nil {
+				t.Fatal(err)
 			}
 		})
 	}
+}
+
+func TestAccountMarginSizingReproducesReportedSmallPosition(t *testing.T) {
+	_, _, m, base := setup(t, "market")
+	now := time.Now().UTC()
+	m.book.Bid, m.book.Ask = "81401", "81402"
+	m.book.AskSize = "0.0379"
+	base.Idea.Entry, base.Idea.Stop, base.Idea.Target = "81402", "80700", "84100"
+	a := Account{Equity: "283", Available: "283", FeeBPS: "10"}
+	c, err := AccountLimits(a, core.Constraints{Leverage: 5, MinRewardRisk: "2", FeeBPS: "10", SlippageBPS: "10"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy := c
+	legacy.SizingPolicy = ""
+	old, err := core.Compile(m.book, legacy, base.Idea, now)
+	if err != nil || old.SizingLimit != "liquidity" || cmp(old.Quantity, "0.00379") != 0 {
+		t.Fatalf("failed to reproduce reported cap: %+v %v", old, err)
+	}
+	if err = old.Verify(now); err != nil {
+		t.Fatal("saved plan changed", err)
+	}
+	p, err := core.Compile(m.book, c, base.Idea, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.SizingLimit != "budget" || cmp(p.Quantity, "0.0165") < 0 || cmp(p.Quantity, "0.018") > 0 {
+		t.Fatalf("283 USDC at 5x did not allocate the margin budget: %+v", p)
+	}
+	if err = CheckAccountCapacity(p, a); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("legacy quantity=%s; margin-sized quantity=%s; entry estimate=%s; max notional=%s", old.Quantity, p.Quantity, p.Orders[0].Price, c.MaxNotional)
 }
 
 func TestCapacityChecksActualOrdersInsteadOfUnusedBudget(t *testing.T) {
