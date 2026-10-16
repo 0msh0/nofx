@@ -89,7 +89,7 @@ it('shows four structure outcomes without inventing missing valid drafts', () =>
     screen.getByText('Child order below venue minimum')
   ).toBeInTheDocument()
   expect(screen.getAllByText('Validated draft')).toHaveLength(2)
-  fireEvent.click(screen.getByRole('button', { name: 'View on chart' }))
+  fireEvent.click(screen.getByRole('button', { name: /^View on chart: limit/ }))
   expect(select).toHaveBeenCalledWith(expect.objectContaining({ id: 'limit' }))
 })
 const event = (type: string, data: Record<string, unknown>): PlanningEvent => ({
@@ -200,7 +200,9 @@ it('puts market first regardless of model order and labels the estimate', () => 
   expect(cards[3]).toHaveTextContent('TWAP')
   expect(cards[0]).toHaveTextContent('Est. entry')
   expect(cards[0]).toHaveTextContent('Actual fill may differ')
-  fireEvent.click(screen.getAllByRole('button', { name: 'View on chart' })[0])
+  fireEvent.click(
+    screen.getByRole('button', { name: /^View on chart: market/ })
+  )
   expect(select).toHaveBeenCalledWith(expect.objectContaining({ id: 'market' }))
 })
 it('does not mislabel immediate market entry as a ladder or timed schedule', () => {

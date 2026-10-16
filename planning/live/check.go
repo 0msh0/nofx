@@ -9,6 +9,7 @@ import (
 
 	"gorm.io/gorm"
 	"nofx/planning"
+	"nofx/planning/core"
 )
 
 // CheckStatus only reads the exchange. It never starts a worker, submits an
@@ -55,6 +56,30 @@ func (c *Controller) CheckStatus(ctx context.Context, user, id string) (View, er
 		case "scheduled", "FILLED", "CANCELED", "REJECTED", "EXPIRED":
 		default:
 			resolved = false
+		}
+	}
+	// A just-filled entry can precede the exchange position snapshot. Do not
+	// mistake that lag for an external close when checking before a new order.
+	if resolved && cmp(filledExposure(v.Orders), "0") > 0 {
+		for _, entry := range v.Orders {
+			if entry.Role != "entry" || cmp(entry.Filled, "0") <= 0 {
+				continue
+			}
+			sl, tp := core.Decimal("0"), core.Decimal("0")
+			for _, exit := range v.Orders {
+				if exit.ParentID != entry.ClientID || (exit.Status != "CANCELED" && exit.Status != "FILLED" && exit.Status != "EXPIRED") {
+					continue
+				}
+				if exit.Role == "sl" {
+					sl = add(sl, exit.Quantity)
+				}
+				if exit.Role == "tp" {
+					tp = add(tp, exit.Quantity)
+				}
+			}
+			if cmp(sl, entry.Filled) < 0 || cmp(tp, entry.Filled) < 0 {
+				return v, errors.New("Entry fills are not yet reconciled with a closed position. The account remains reserved; check this trade at the exchange.")
+			}
 		}
 	}
 	if !resolved {

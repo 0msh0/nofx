@@ -16,12 +16,20 @@ export function PlanStructures({
   busy,
   selected,
   onSelect,
+  onReview,
+  reviewDisabled = false,
+  connected = true,
+  now = 0,
 }: {
   checks: PlanCheck[]
   plans: Plan[]
   busy: boolean
   selected: string
   onSelect: (plan: Plan) => void
+  onReview?: (plan: Plan) => void
+  reviewDisabled?: boolean
+  connected?: boolean
+  now?: number
 }) {
   const price = (value: string) =>
     Number(value).toLocaleString('en-US', { maximumFractionDigits: 8 })
@@ -29,7 +37,7 @@ export function PlanStructures({
     Number(value).toLocaleString('en-US', {
       maximumFractionDigits: Math.abs(Number(value)) < 0.01 ? 4 : 2,
     })
-  if (!checks.length && !busy) return null
+  if (!checks.length && !plans.length && !busy) return null
   return (
     <section
       className="planning-structures"
@@ -37,6 +45,7 @@ export function PlanStructures({
     >
       {['market', 'limit', 'ladder', 'twap'].map((kind) => {
         const plan = plans.find((p) => p.idea.execution.kind === kind)
+        const stale = plan ? Date.parse(plan.expires) <= now : false
         const check = checks.filter((row) => row.kind === kind).slice(-1)[0]
         return (
           <article
@@ -55,7 +64,9 @@ export function PlanStructures({
                 }
               >
                 {plan
-                  ? 'Validated draft'
+                  ? stale
+                    ? 'Refresh before trading'
+                    : 'Validated draft'
                   : check?.status === 'rejected'
                     ? 'Not feasible'
                     : busy
@@ -66,6 +77,12 @@ export function PlanStructures({
             {plan ? (
               <>
                 <b>{plan.idea.name}</b>
+                <span
+                  className={`frontier-plan-side ${plan.idea.side === 'long' ? 'target-text' : 'stop-text'}`}
+                >
+                  {plan.idea.side === 'long' ? 'Long' : 'Short'} ·{' '}
+                  {plan.snapshot.symbol}
+                </span>
                 <p>
                   {plan.orders.length}{' '}
                   {kind === 'twap'
@@ -89,11 +106,15 @@ export function PlanStructures({
                     <dd className="target-text">{price(plan.idea.target)}</dd>
                   </div>
                 </dl>
-                {kind === 'market' && (
-                  <p>
-                    Enter immediately after approval. Actual fill may differ.
-                  </p>
-                )}
+                <p>
+                  {kind === 'market'
+                    ? 'Enters at market after approval. Actual fill may differ.'
+                    : kind === 'twap'
+                      ? `${plan.orders.length} slices · ${plan.idea.execution.interval_seconds || 0}s apart`
+                      : kind === 'ladder'
+                        ? 'Orders placed together at different prices.'
+                        : 'Waits for your entry price.'}
+                </p>
                 <PlanFunding plan={plan} compact />
                 <div className="frontier-plan-outcomes">
                   <span>
@@ -106,9 +127,28 @@ export function PlanStructures({
                   </span>
                   <small>{plan.snapshot.quote_asset} · costs included</small>
                 </div>
-                <button onClick={() => onSelect(plan)}>
-                  {plan.id === selected ? 'Showing on chart' : 'View on chart'}
-                </button>
+                <div className="frontier-plan-actions">
+                  <button
+                    onClick={() => onSelect(plan)}
+                    aria-label={`View on chart: ${plan.idea.name}`}
+                  >
+                    {plan.id === selected ? 'On chart ✓' : 'View on chart'}
+                  </button>
+                  {onReview && (
+                    <button
+                      className="planning-primary"
+                      disabled={reviewDisabled}
+                      onClick={() => onReview(plan)}
+                      aria-label={`Review ${structureNames[kind]}`}
+                    >
+                      {!connected
+                        ? 'Connect to trade'
+                        : stale
+                          ? 'Refresh & review'
+                          : 'Review order'}
+                    </button>
+                  )}
+                </div>
               </>
             ) : (
               <p>

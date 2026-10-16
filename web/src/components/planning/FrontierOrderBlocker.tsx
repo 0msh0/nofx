@@ -27,20 +27,20 @@ export function FrontierOrderBlocker({
         <strong>
           {approved
             ? 'An earlier plan is approved but has not been sent.'
-            : `${label}: check the previous trade before placing another.`}
+            : `${label}: previous trade status needs checking.`}
         </strong>
         <p>
           {approved
             ? 'View that plan or cancel its unused approval to place a different order.'
-            : 'New orders are paused until this trade is resolved. You can still generate and compare plans.'}
+            : 'Review a new plan to check this trade automatically. If it is closed, you can continue in the same step.'}
         </p>
         <small>
           {run.plan.idea.name} · {label} · Record {run.id.slice(0, 8)}
         </small>
         {checkable && (
           <p className="frontier-check-hint">
-            Check status reads the exchange. If the position and all orders are
-            closed, it unlocks this account. It does not place or cancel orders.
+            Status checks do not place or cancel orders. Active positions and
+            unconfirmed orders keep this account reserved.
           </p>
         )}
       </div>

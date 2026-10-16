@@ -94,7 +94,7 @@ const plan = (id: string) => ({
     stop: '79000',
     target: '83000',
     rationale: 'Conditional hypothesis',
-    execution: { kind: 'limit' },
+    execution: { kind: id === 'two' ? 'limit' : 'market' },
   },
   orders: [{ index: 1, price: '80000', quantity: '0.01', offset_seconds: 0 }],
 })
@@ -172,7 +172,6 @@ function open() {
 describe('NOFX live planning', () => {
   it('refreshes account sizing and executes only after the explicit review click', async () => {
     open()
-    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
     const card = await screen.findByRole('button', { name: /Test plan one/ })
     fireEvent.click(card)
     await waitFor(() =>
@@ -206,7 +205,6 @@ describe('NOFX live planning', () => {
   })
   it('selecting a plan exits comparison and displays only that plan on the chart', async () => {
     open()
-    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
     await screen.findByRole('button', { name: /Test plan one/ })
     fireEvent.click(
       screen.getByRole('button', { name: 'Compare plans', exact: true })
@@ -225,14 +223,15 @@ describe('NOFX live planning', () => {
   })
   it('custom entry mode does not attach TWAP parameters to a ladder', async () => {
     open()
-    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
     await screen.findByRole('button', { name: /Test plan one/ })
     fireEvent.click(screen.getByText('Chart data & advanced tools'))
     fireEvent.click(
       screen.getByText('Risk budget, entry orders and advanced tools')
     )
     fireEvent.click(
-      screen.getByRole('button', { name: 'Custom limit / ladder / TWAP' })
+      screen.getByRole('button', {
+        name: 'Custom market / limit / ladder / TWAP',
+      })
     )
     fireEvent.change(screen.getByLabelText('Custom entry method'), {
       target: { value: 'ladder' },
@@ -319,7 +318,6 @@ it('keeps a venue chosen while account configuration is still loading', async ()
 
 it('preflight failure clears busy state without accumulating phantom user messages', async () => {
   open()
-  fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
   await screen.findByRole('button', { name: /Test plan one/ })
   const generate = screen.getByRole('button', { name: 'Generate plans' })
   for (let attempt = 0; attempt < 2; attempt++) {
@@ -346,7 +344,6 @@ it('account review does not restart model activity or show a planning stop butto
     path === 'compile' ? pending : base(path, body)
   )
   open()
-  fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
   fireEvent.click(await screen.findByRole('button', { name: /Test plan one/ }))
   fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
   await screen.findByText('Validating account and order details…')
@@ -372,7 +369,7 @@ it('opens setup before a paid request and retains the original idea when AI is m
   expect(mocks.stream).not.toHaveBeenCalled()
 })
 
-it('offers a safe starting point, keeps real account activity separate and supports keyboard views', async () => {
+it('offers a safe starting point, keeps real account activity separate and keeps plans visible outside the assistant', async () => {
   open()
   await waitFor(() =>
     expect(screen.getByLabelText('NOFX AI model')).toHaveValue('model')
@@ -394,22 +391,13 @@ it('offers a safe starting point, keeps real account activity separate and suppo
       ([path]) => path === 'approve' || path === 'execute'
     )
   ).toBe(false)
-  fireEvent.keyDown(screen.getByRole('tab', { name: 'Assistant' }), {
-    key: 'ArrowRight',
-  })
-  expect(screen.getByRole('tab', { name: /^Plans/ })).toHaveAttribute(
-    'aria-selected',
-    'true'
-  )
+  const deck = screen.getByRole('region', { name: 'Entry plans' })
+  expect(deck.closest('.planning-assistant')).toBeNull()
+  expect(
+    screen.getByRole('link', { name: /View entry plans/ })
+  ).toHaveAttribute('href', '#frontier-plans')
   expect(screen.getByLabelText('Trade idea')).toHaveValue(
     'Find a pullback entry with clear risk and exits.'
-  )
-  fireEvent.keyDown(screen.getByRole('tab', { name: /^Plans/ }), {
-    key: 'Home',
-  })
-  expect(screen.getByRole('tab', { name: 'Assistant' })).toHaveAttribute(
-    'aria-selected',
-    'true'
   )
 })
 
@@ -429,10 +417,9 @@ it('shows generated plans automatically and uses the user idea instead of a gene
   })
   fireEvent.click(screen.getByRole('button', { name: 'Generate plans' }))
   await waitFor(() =>
-    expect(screen.getByRole('tab', { name: /^Plans/ })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    )
+    expect(
+      screen.getByRole('region', { name: 'Entry plans' })
+    ).toHaveTextContent('Test plan one')
   )
   expect(mocks.stream).toHaveBeenCalledWith(
     expect.objectContaining({
@@ -466,8 +453,7 @@ it('starts a separate draft from a locked trade without revising or executing th
   await waitFor(() =>
     expect(screen.getByLabelText('NOFX AI model')).toHaveValue('model')
   )
-  fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
-  fireEvent.click(await screen.findByText('Past plans · 1'))
+  fireEvent.click(await screen.findByText('Other saved plans · 1'))
   fireEvent.click(await screen.findByRole('button', { name: /Test plan one/ }))
   fireEvent.change(screen.getByLabelText('Trade idea'), {
     target: { value: 'Generate a new independent entry plan.' },
@@ -514,25 +500,21 @@ describe('previous trade recovery', () => {
       return base(path, body)
     })
     open()
-    const check = await screen.findByRole('button', {
-      name: 'Check previous trade',
-    })
+    await screen.findByRole('button', { name: 'Check previous trade' })
     expect(
       screen.getByRole('region', { name: 'Previous trade blocking new orders' })
     ).toHaveTextContent('BTCUSDT Long')
-    fireEvent.click(screen.getByRole('tab', { name: /^Plans/ }))
     fireEvent.click(
       await screen.findByRole('button', { name: /Test plan one/ })
     )
-    expect(
-      screen.getByRole('button', { name: 'Resolve previous trade above' })
-    ).toBeDisabled()
-    fireEvent.click(check)
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Review order' })).toBeEnabled()
-    )
+    fireEvent.click(screen.getByRole('button', { name: 'Review order' }))
+    await screen.findByRole('dialog')
     expect(screen.getByRole('status')).toHaveTextContent(
-      'Previous trade is closed'
+      'Previous trade closed'
+    )
+    expect(mocks.api).toHaveBeenCalledWith(
+      'compile',
+      expect.objectContaining({ auto_size: true })
     )
     expect(mocks.api).toHaveBeenCalledWith('check-status', {
       id: 'previous-run',
@@ -566,7 +548,7 @@ describe('previous trade recovery', () => {
     })
     open()
     fireEvent.click(
-      await screen.findByRole('button', { name: 'Check previous trade' })
+      await screen.findByRole('button', { name: /Review Market/ })
     )
     expect(
       await screen.findByText(
@@ -578,8 +560,34 @@ describe('previous trade recovery', () => {
     ).toBeVisible()
     expect(
       mocks.api.mock.calls.some(([path]) =>
-        ['execute', 'approve', 'stop'].includes(path)
+        ['execute', 'approve', 'stop', 'compile'].includes(path)
       )
     ).toBe(false)
   })
+})
+
+it('keeps expired drafts visible and refreshes them before review, without executing', async () => {
+  const base = mocks.api.getMockImplementation()!
+  const stale = {
+    ...plan('one'),
+    expires: new Date(Date.now() - 60000).toISOString(),
+  }
+  mocks.api.mockImplementation(async (path: string, body?: unknown) =>
+    path === 'state'
+      ? {
+          ...(await base(path, body)),
+          records: { one: { plan: stale, state: 'draft' } },
+        }
+      : base(path, body)
+  )
+  open()
+  fireEvent.click(await screen.findByRole('button', { name: /Review Market/ }))
+  await screen.findByRole('dialog')
+  expect(mocks.api).toHaveBeenCalledWith(
+    'compile',
+    expect.objectContaining({ auto_size: true })
+  )
+  expect(
+    mocks.api.mock.calls.some(([p]) => p === 'approve' || p === 'execute')
+  ).toBe(false)
 })

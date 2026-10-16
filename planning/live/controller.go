@@ -111,6 +111,18 @@ func (c *Controller) Approve(ctx context.Context, user, planID, hash, phrase str
 	if account == "" {
 		return View{}, errors.New("account identity unavailable")
 	}
+	// Resolve a previously closed trade using exchange reads before acquiring a
+	// new lease. The transaction below still arbitrates concurrent approvals.
+	var previousLease Lease
+	if err := c.DB.Where("account_key = ?", account).First(&previousLease).Error; err == nil {
+		if previousLease.UserID == user {
+			if _, err = c.CheckStatus(ctx, user, previousLease.RunID); err != nil {
+				return View{}, err
+			}
+		}
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return View{}, err
+	}
 	now := time.Now().UTC()
 	r := Run{ID: uuid.NewString(), UserID: user, ExchangeID: d.ExchangeID, AccountKey: account, PlanID: p.ID, PlanHash: p.Hash, ApprovalHash: digest(p, user, d.ExchangeID, account), State: "approved", PlanJSON: d.Body, OrdersJSON: "[]", ApprovedAt: now, UpdatedAt: now}
 	c.mu.Lock()

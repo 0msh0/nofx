@@ -72,7 +72,6 @@ interface ChatMessage {
   content: string
 }
 export function TradingPlanningPage() {
-  const [assistantView, setAssistantView] = useState<'chat' | 'plans'>('chat')
   const [setupOpen, setSetupOpen] = useState<'ai' | 'exchange' | null>(null)
   const [walletState, setWalletState] = useState<FeeWalletState>('checking')
   const [configsLoaded, setConfigsLoaded] = useState(false)
@@ -163,7 +162,6 @@ export function TradingPlanningPage() {
   const [checks, setChecks] = useState<PlanCheck[]>([])
   const [turnPlanIDs, setTurnPlanIDs] = useState<string[]>([])
   function resetTurn() {
-    setAssistantView('chat')
     setChecks([])
     setTurnPlanIDs([])
     setTrace([])
@@ -465,7 +463,7 @@ export function TradingPlanningPage() {
     }
     setBusy(true)
     setPlanningBusy(true)
-    setAssistantView('chat')
+
     setError('')
     setInstruction('')
     resetTurn()
@@ -556,7 +554,7 @@ export function TradingPlanningPage() {
               if (!preferredPlan || rank(plans[0]) < rank(preferredPlan))
                 preferredPlan = plans[0]
               setSelected(preferredPlan.id)
-              setAssistantView('plans')
+
               setCompare([])
             }
             reload().catch(() => {})
@@ -593,13 +591,26 @@ export function TradingPlanningPage() {
     }
   }
   async function reviewWithAccount(plan: Plan) {
-    if (blockingRun) {
-      setError('')
-      return
-    }
+    if (busy) return
     setBusy(true)
     setError('')
     try {
+      if (blockingRun) {
+        const checked = await planningAPI<LiveRun>('check-status', {
+          id: blockingRun.id,
+        })
+        await reload()
+        if (checked.state !== 'completed') {
+          throw new Error(
+            checked.state === 'approved'
+              ? 'An earlier order is approved but not submitted. Cancel its unused approval or place that order first.'
+              : 'The previous trade is still active. Review Positions & orders below before placing another.'
+          )
+        }
+        setOrderNotice(
+          'Previous trade closed. Reviewing your new order with current account funds.'
+        )
+      }
       const sized = await planningAPI<Plan>('compile', {
         exchange_id: exchangeID,
         venue,
@@ -609,6 +620,18 @@ export function TradingPlanningPage() {
         auto_size: true,
       })
       await reload()
+      setTurnPlanIDs((ids) =>
+        ids.length
+          ? [
+              sized.id,
+              ...ids.filter(
+                (id) =>
+                  data.records[id]?.plan.idea.execution.kind !==
+                  sized.idea.execution.kind
+              ),
+            ]
+          : ids
+      )
       setSelected(sized.id)
       setCompare([])
       setLimits(sized.constraints)
@@ -724,7 +747,21 @@ export function TradingPlanningPage() {
   const readyRecords = records.filter(
     (r) => r.state === 'draft' && !expired(r.plan, clock)
   )
-  const archivedRecords = records.filter((r) => !readyRecords.includes(r))
+  const draftRecords = records.filter((r) => r.state === 'draft')
+  const deckPlans =
+    checks.length || planningBusy
+      ? records
+          .filter((r) => turnPlanIDs.includes(r.plan.id))
+          .map((r) => r.plan)
+      : ['market', 'limit', 'ladder', 'twap'].flatMap((kind) => {
+          const record = draftRecords.find(
+            (r) => r.plan.idea.execution.kind === kind
+          )
+          return record ? [record.plan] : []
+        })
+  const archivedRecords = records.filter(
+    (r) => !deckPlans.some((p) => p.id === r.plan.id)
+  )
   const renderPlanCard = (r: PlanningState['records'][string]) => (
     <button
       key={r.plan.id}
@@ -990,6 +1027,52 @@ export function TradingPlanningPage() {
               </button>
             )}
           </div>
+          <section
+            className="frontier-plan-deck"
+            id="frontier-plans"
+            aria-label="Entry plans"
+          >
+            <div className="frontier-deck-heading">
+              <div>
+                <h2>Choose your entry</h2>
+                <p>
+                  Select a plan to see it on the chart. Review refreshes prices
+                  and account size.
+                </p>
+              </div>
+              <span>
+                {deckPlans.length} plans · {leverage}x
+              </span>
+            </div>
+            <PlanStructures
+              checks={checks}
+              plans={deckPlans}
+              busy={planningBusy}
+              selected={selected}
+              onSelect={choose}
+              onReview={(plan) => {
+                if (!exchangeID) setSetupOpen('exchange')
+                else void reviewWithAccount(plan)
+              }}
+              reviewDisabled={busy}
+              connected={Boolean(exchangeID)}
+              now={clock}
+            />
+            {!deckPlans.length && !planningBusy && !checks.length && (
+              <p className="frontier-deck-empty">
+                Generate plans to compare market, limit, ladder and TWAP entries
+                here.
+              </p>
+            )}
+            {archivedRecords.length > 0 && (
+              <details className="planning-all-plans">
+                <summary>Other saved plans · {archivedRecords.length}</summary>
+                <div className="planning-card-list">
+                  {archivedRecords.map(renderPlanCard)}
+                </div>
+              </details>
+            )}
+          </section>
           {current && (
             <div className="planning-selected">
               <b>
@@ -1235,54 +1318,9 @@ export function TradingPlanningPage() {
               Generate plans
             </button>
           </div>
-          <div
-            className="frontier-view-tabs"
-            role="tablist"
-            aria-label="Trade assistant views"
-            onKeyDown={(event) => {
-              if (
-                !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)
-              )
-                return
-              event.preventDefault()
-              const view =
-                event.key === 'Home' || event.key === 'ArrowLeft'
-                  ? 'chat'
-                  : 'plans'
-              setAssistantView(view)
-              event.currentTarget
-                .querySelector<HTMLButtonElement>(`#frontier-${view}-tab`)
-                ?.focus()
-            }}
-          >
-            <button
-              id="frontier-chat-tab"
-              role="tab"
-              aria-selected={assistantView === 'chat'}
-              tabIndex={assistantView === 'chat' ? 0 : -1}
-              aria-controls="frontier-chat-panel"
-              onClick={() => setAssistantView('chat')}
-            >
-              Assistant
-            </button>
-            <button
-              id="frontier-plans-tab"
-              role="tab"
-              aria-selected={assistantView === 'plans'}
-              tabIndex={assistantView === 'plans' ? 0 : -1}
-              aria-controls="frontier-plans-panel"
-              onClick={() => setAssistantView('plans')}
-            >
-              Plans{' '}
-              <span>
-                {
-                  records.filter(
-                    (r) => r.state === 'draft' && !expired(r.plan, clock)
-                  ).length
-                }
-              </span>
-            </button>
-          </div>
+          <a className="frontier-plans-link" href="#frontier-plans">
+            View entry plans <span>{deckPlans.length} →</span>
+          </a>
           {busy && (
             <div className="planning-progress" role="status" aria-live="polite">
               <span className="planning-spinner" />
@@ -1304,55 +1342,7 @@ export function TradingPlanningPage() {
                   box.scrollHeight - box.scrollTop - box.clientHeight < 80
             }}
           >
-            <div
-              className="planning-candidates"
-              hidden={assistantView !== 'plans'}
-              id="frontier-plans-panel"
-              role="tabpanel"
-              aria-labelledby="frontier-plans-tab"
-            >
-              <div className="planning-section-title">
-                <b>
-                  {busy || checks.length
-                    ? `Entry alternatives · ${turnPlanIDs.length} saved`
-                    : `Ready plans ${records.filter((r) => r.state === 'draft' && !expired(r.plan, clock)).length}`}
-                </b>
-              </div>
-              <PlanStructures
-                checks={checks}
-                plans={records
-                  .filter((record) => turnPlanIDs.includes(record.plan.id))
-                  .map((record) => record.plan)}
-                busy={planningBusy}
-                selected={selected}
-                onSelect={choose}
-              />
-              {!checks.length && readyRecords.length > 0 && (
-                <div className="planning-card-list frontier-ready-plans">
-                  {readyRecords.map(renderPlanCard)}
-                </div>
-              )}
-              {archivedRecords.length > 0 && (
-                <details className="planning-all-plans">
-                  <summary>Past plans · {archivedRecords.length}</summary>
-                  <div className="planning-card-list">
-                    {archivedRecords.map(renderPlanCard)}
-                  </div>
-                </details>
-              )}
-              {readyRecords.length === 0 && !busy && !checks.length && (
-                <p>
-                  No active plans yet. Generate fresh plans for this market.
-                </p>
-              )}
-            </div>
-            <div
-              className="planning-messages"
-              hidden={assistantView !== 'chat'}
-              id="frontier-chat-panel"
-              role="tabpanel"
-              aria-labelledby="frontier-chat-tab"
-            >
+            <div className="planning-messages" id="frontier-chat-panel">
               {messages.length === 0 && (
                 <div className="frontier-welcome">
                   <span className="frontier-welcome-icon" aria-hidden="true">
@@ -1420,7 +1410,7 @@ export function TradingPlanningPage() {
                   </div>
                 ))}
             </div>
-            <div hidden={assistantView !== 'chat'}>
+            <div>
               <PlanningActivity items={trace} busy={planningBusy} />
             </div>
           </div>
@@ -1478,23 +1468,18 @@ export function TradingPlanningPage() {
                     className="planning-primary"
                     disabled={
                       busy ||
-                      expired(current.plan, clock) ||
-                      (!!exchangeID &&
-                        data.accounts[selected] !== exchangeID) ||
-                      Boolean(blockingRun)
+                      (!!exchangeID && data.accounts[selected] !== exchangeID)
                     }
                     onClick={() => {
                       if (!exchangeID) setSetupOpen('exchange')
                       else void reviewWithAccount(current.plan)
                     }}
                   >
-                    {expired(current.plan, clock)
-                      ? 'Expired; generate a new plan'
-                      : !exchangeID
-                        ? 'Connect account to trade'
-                        : blockingRun
-                          ? 'Resolve previous trade above'
-                          : 'Review order'}
+                    {!exchangeID
+                      ? 'Connect account to trade'
+                      : expired(current.plan, clock)
+                        ? 'Refresh & review order'
+                        : 'Review order'}
                   </button>
                 ) : run?.state === 'approved' ? (
                   <>

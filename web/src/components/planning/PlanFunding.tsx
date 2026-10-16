@@ -29,12 +29,17 @@ export function PlanFunding({
   const available = Number(plan.constraints.available_margin)
   if (compact)
     return (
-      <p className="frontier-funding-compact">
-        <b>{leverage}x</b> · Position {money(notional)} {quote}
+      <div className="frontier-funding-compact">
+        <span>
+          Position value <b>{leverage}x</b>
+        </span>
+        <strong>
+          {money(notional)} <small>{quote}</small>
+        </strong>
         <small>
           Est. margin {money(margin)} {quote}
         </small>
-      </p>
+      </div>
     )
   return (
     <section className="frontier-funding" aria-label="Plan funding">
