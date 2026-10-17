@@ -39,6 +39,7 @@ data/
 !.env.example
 decision_logs/
 *.log
+secrets/
 
 # Config files (should be mounted)
 config.json

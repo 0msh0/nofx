@@ -1,0 +1,14 @@
+\set ON_ERROR_STOP on
+REVOKE ALL ON ALL TABLES IN SCHEMA nofx FROM PUBLIC;
+REVOKE ALL ON ALL SEQUENCES IN SCHEMA nofx FROM PUBLIC;
+REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA nofx FROM PUBLIC;
+DO $$
+DECLARE app_table record;
+BEGIN
+    FOR app_table IN
+        SELECT tablename FROM pg_tables WHERE schemaname = 'nofx'
+    LOOP
+        EXECUTE format('ALTER TABLE nofx.%I ENABLE ROW LEVEL SECURITY', app_table.tablename);
+    END LOOP;
+END
+$$;

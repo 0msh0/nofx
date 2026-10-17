@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: nofx
+    runtime: docker
+    plan: free
+    region: frankfurt
+    branch: deploy/render-supabase
+    dockerfilePath: ./Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: "off"
+    numInstances: 1
+    maxShutdownDelaySeconds: 90
+    envVars:
+      - key: PORT
+        value: "10000"
+      - key: DB_TYPE
+        value: postgres
+      - key: DB_HOST
+        sync: false
+      - key: DB_PORT
+        value: "5432"
+      - key: DB_USER
+        sync: false
+      - key: DB_PASSWORD
+        sync: false
+      - key: DB_NAME
+        value: postgres
+      - key: DB_SSLMODE
+        value: require
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEY
+        generateValue: true
+      - key: RSA_PRIVATE_KEY
+        sync: false
+      - key: TRANSPORT_ENCRYPTION
+        value: "true"
+      - key: EXPERIENCE_IMPROVEMENT
+        value: "false"
+      - key: TZ
+        value: Africa/Cairo

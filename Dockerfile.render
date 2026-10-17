@@ -1,0 +1,20 @@
+# Official NOFX images built from 099af9c64d55342efaba34f790f77160f1189ae9.
+# Pin the linux/amd64 manifests used by Render; retain the licensed chart assets.
+FROM ghcr.io/nofxaios/nofx/nofx-frontend@sha256:24cc53e9e0e10c5467933ebbe0c7512336117adc2cea3c0414563c76a8eace73 AS frontend
+FROM ghcr.io/nofxaios/nofx/nofx-backend@sha256:93198442c5b233bbfdaafc3b5124b8a6b1d726f74bedf4e013d57d88908b9326
+
+RUN apk add --no-cache bash nginx gettext tini postgresql-client \
+    && mkdir -p /run/nginx /app/data /usr/share/nginx/html
+COPY --from=frontend /usr/share/nginx/html/ /usr/share/nginx/html/
+COPY render/nginx.conf.template /app/render/nginx.conf.template
+COPY render/start.sh render/protect-tables.sql /app/render/
+RUN chmod +x /app/render/start.sh
+
+ENV PORT=10000 API_SERVER_PORT=8081 DB_TYPE=postgres DB_PORT=5432 \
+    DB_NAME=postgres DB_SSLMODE=require TRANSPORT_ENCRYPTION=true \
+    EXPERIENCE_IMPROVEMENT=false TZ=Africa/Cairo
+EXPOSE 10000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=120s --retries=3 \
+    CMD wget -q -O /dev/null "http://127.0.0.1:${PORT}/health" || exit 1
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["/app/render/start.sh"]
