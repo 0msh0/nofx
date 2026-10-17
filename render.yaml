@@ -10,7 +10,6 @@ services:
     healthCheckPath: /health
     autoDeployTrigger: "off"
     numInstances: 1
-    maxShutdownDelaySeconds: 90
     envVars:
       - key: PORT
         value: "10000"
