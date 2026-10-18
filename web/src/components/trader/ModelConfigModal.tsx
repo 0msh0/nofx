@@ -54,7 +54,9 @@ export function ModelConfigModal({
   // model name, has_api_key); the template from supportedModels only describes
   // the provider. When editing, the configured entry must win — both can share
   // the same id (e.g. "claw402").
-  const configuredModel = configuredModels?.find((m) => m.id === selectedModelId)
+  const configuredModel = configuredModels?.find(
+    (m) => m.id === selectedModelId
+  )
   const templateModel = allModels?.find((m) => m.id === selectedModelId)
   const selectedModel = editingModelId
     ? configuredModel || templateModel
@@ -72,7 +74,15 @@ export function ModelConfigModal({
   }, [editingModelId, selectedModel])
 
   const handleSelectModel = (modelId: string) => {
+    const selectedTemplate = allModels?.find((model) => model.id === modelId)
+    const providerConfig = selectedTemplate
+      ? AI_PROVIDER_CONFIG[selectedTemplate.provider]
+      : undefined
+
     setSelectedModelId(modelId)
+    setApiKey('')
+    setBaseUrl(providerConfig?.defaultBaseUrl || '')
+    setModelName(providerConfig?.defaultModel || '')
     setCurrentStep(1)
   }
 
@@ -425,7 +435,8 @@ function Claw402ConfigForm({
   // Editing with a stored key: allow saving (e.g. switching model) without
   // re-entering the private key, as long as the field is left blank.
   const canSubmit =
-    isKeyValid || (Boolean(editingModelId) && Boolean(hasExistingKey) && !apiKey)
+    isKeyValid ||
+    (Boolean(editingModelId) && Boolean(hasExistingKey) && !apiKey)
 
   // Truncate address for display
 
@@ -546,20 +557,18 @@ function Claw402ConfigForm({
           {t('modelConfig.allModelsClaw', language)}
         </div>
         <div className="flex items-center justify-center gap-3 mt-3 flex-wrap">
-          {['GPT', 'Claude', 'DeepSeek', 'GLM'].map(
-            (name) => (
-              <span
-                key={name}
-                className="text-[11px] px-2 py-0.5 rounded-full"
-                style={{
-                  background: 'rgba(26,24,19,0.06)',
-                  color: '#8A8478',
-                }}
-              >
-                {name}
-              </span>
-            )
-          )}
+          {['GPT', 'Claude', 'DeepSeek', 'GLM'].map((name) => (
+            <span
+              key={name}
+              className="text-[11px] px-2 py-0.5 rounded-full"
+              style={{
+                background: 'rgba(26,24,19,0.06)',
+                color: '#8A8478',
+              }}
+            >
+              {name}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -1181,6 +1190,15 @@ function StandardProviderConfigForm({
   onSubmit: (e: React.FormEvent) => void
   language: Language
 }) {
+  const providerConfig = AI_PROVIDER_CONFIG[selectedModel.provider]
+  const requiresBaseUrl = Boolean(providerConfig?.requiresBaseUrl)
+  const requiresModelName = Boolean(providerConfig?.requiresModelName)
+  const canSubmit =
+    (Boolean(apiKey.trim()) ||
+      Boolean(editingModelId && selectedModel.has_api_key)) &&
+    (!requiresBaseUrl || Boolean(baseUrl.trim())) &&
+    (!requiresModelName || Boolean(modelName.trim()))
+
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       {/* Selected Model Header */}
@@ -1211,9 +1229,9 @@ function StandardProviderConfigForm({
               selectedModel.id}
           </div>
         </div>
-        {AI_PROVIDER_CONFIG[selectedModel.provider] && (
+        {providerConfig?.apiUrl && (
           <a
-            href={AI_PROVIDER_CONFIG[selectedModel.provider].apiUrl}
+            href={providerConfig.apiUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-2 px-4 py-2 rounded-lg transition-all hover:scale-105"
@@ -1259,7 +1277,9 @@ function StandardProviderConfigForm({
           }}
         >
           Current model key status:{' '}
-          {selectedModel.has_api_key ? 'API Key configured' : 'API Key not configured'}
+          {selectedModel.has_api_key
+            ? 'API Key configured'
+            : 'API Key not configured'}
         </div>
       )}
 
@@ -1305,38 +1325,43 @@ function StandardProviderConfigForm({
 
       {/* Custom Base URL */}
       <div className="space-y-2">
-          <label
-            className="flex items-center gap-2 text-sm font-semibold"
-            style={{ color: '#1A1813' }}
+        <label
+          className="flex items-center gap-2 text-sm font-semibold"
+          style={{ color: '#1A1813' }}
+        >
+          <svg
+            className="w-4 h-4"
+            style={{ color: '#E0483B' }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className="w-4 h-4"
-              style={{ color: '#E0483B' }}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
-              />
-            </svg>
-            {t('customBaseURL', language)}
-          </label>
-          <input
-            type="url"
-            value={baseUrl}
-            onChange={(e) => onBaseUrlChange(e.target.value)}
-            placeholder={t('customBaseURLPlaceholder', language)}
-            className="w-full px-4 py-3 rounded-xl"
-            style={{
-              background: '#F1ECE2',
-              border: '1px solid rgba(26,24,19,0.14)',
-              color: '#1A1813',
-            }}
-          />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"
+            />
+          </svg>
+          {t('customBaseURL', language)}
+          {requiresBaseUrl ? ' *' : ''}
+        </label>
+        <input
+          type="url"
+          value={baseUrl}
+          onChange={(e) => onBaseUrlChange(e.target.value)}
+          placeholder={
+            providerConfig?.defaultBaseUrl ||
+            t('customBaseURLPlaceholder', language)
+          }
+          required={requiresBaseUrl}
+          className="w-full px-4 py-3 rounded-xl"
+          style={{
+            background: '#F1ECE2',
+            border: '1px solid rgba(26,24,19,0.14)',
+            color: '#1A1813',
+          }}
+        />
         <div className="text-xs" style={{ color: '#8A8478' }}>
           {t('leaveBlankForDefault', language)}
         </div>
@@ -1344,38 +1369,43 @@ function StandardProviderConfigForm({
 
       {/* Custom Model Name */}
       <div className="space-y-2">
-          <label
-            className="flex items-center gap-2 text-sm font-semibold"
-            style={{ color: '#1A1813' }}
+        <label
+          className="flex items-center gap-2 text-sm font-semibold"
+          style={{ color: '#1A1813' }}
+        >
+          <svg
+            className="w-4 h-4"
+            style={{ color: '#E0483B' }}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg
-              className="w-4 h-4"
-              style={{ color: '#E0483B' }}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
-              />
-            </svg>
-            {t('customModelName', language)}
-          </label>
-          <input
-            type="text"
-            value={modelName}
-            onChange={(e) => onModelNameChange(e.target.value)}
-            placeholder={t('customModelNamePlaceholder', language)}
-            className="w-full px-4 py-3 rounded-xl"
-            style={{
-              background: '#F1ECE2',
-              border: '1px solid rgba(26,24,19,0.14)',
-              color: '#1A1813',
-            }}
-          />
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"
+            />
+          </svg>
+          {t('customModelName', language)}
+          {requiresModelName ? ' *' : ''}
+        </label>
+        <input
+          type="text"
+          value={modelName}
+          onChange={(e) => onModelNameChange(e.target.value)}
+          placeholder={
+            providerConfig?.defaultModel ||
+            t('customModelNamePlaceholder', language)
+          }
+          required={requiresModelName}
+          className="w-full px-4 py-3 rounded-xl"
+          style={{
+            background: '#F1ECE2',
+            border: '1px solid rgba(26,24,19,0.14)',
+            color: '#1A1813',
+          }}
+        />
         <div className="text-xs" style={{ color: '#8A8478' }}>
           {t('leaveBlankForDefaultModel', language)}
         </div>
@@ -1417,11 +1447,7 @@ function StandardProviderConfigForm({
         </button>
         <button
           type="submit"
-          disabled={
-            !selectedModel ||
-            (!apiKey.trim() &&
-              !(editingModelId && selectedModel.has_api_key))
-          }
+          disabled={!canSubmit}
           className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
           style={{ background: '#E0483B', color: '#fff' }}
         >

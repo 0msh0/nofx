@@ -4,15 +4,11 @@ The Render service serves the frontend and Go API at one HTTPS URL. Supabase
 stores application data in a private `nofx` schema with a dedicated `nofx_app`
 role. NOFX keeps its existing login system. Supabase Auth is not used.
 
-The image combines official backend and frontend releases pinned to source
-revision `099af9c64d55342efaba34f790f77160f1189ae9` by their amd64 digests.
-Upstream's frontend source requires a private chart-library submodule; the
-published frontend image already includes those assets. Changes to Go or frontend
-source require a source build and access to that library, or updated image pins.
-This deployment branch removes the private submodule registration because Render
-automatically clones registered submodules before building. For a source build,
-restore `.gitmodules` and `web/vendor/charting` from the upstream revision above,
-then initialize the submodule with an account that has access.
+The deployment image now builds the backend and frontend from this branch, so
+application changes deploy with the Render service. The pinned official frontend
+image supplies only the licensed `charting_library` runtime assets required by the
+source frontend build. This avoids depending on access to the upstream private
+chart-library repository during Render builds.
 
 ## Database setup
 
@@ -41,8 +37,11 @@ remain protected by the private schema and default privileges.
 
 Create a Blueprint from this fork, branch `deploy/render-supabase`, using
 `render.yaml`. It creates one **free** web service and no Render database. Free
-services can sleep after inactivity; continuous unattended trading requires an
-always-on paid service selected separately.
+services can sleep after inactivity and are unsuitable for guaranteed continuous
+trading. This repository includes `.github/workflows/render-keepalive.yml`, which
+requests `/health` every ten minutes after you add the deployment origin as the
+GitHub Actions secret `RENDER_KEEPALIVE_URL`. It reduces idle sleep risk but does
+not override Render's free-tier limits or guarantee continuous availability.
 
 Render generates persistent `JWT_SECRET` and `DATA_ENCRYPTION_KEY` values. NOFX
 accepts Render's random encryption secret and derives its AES key from it. Supply

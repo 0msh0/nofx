@@ -13,8 +13,17 @@ func RegisterProvider(name string, factory func(...ClientOption) AIClient) {
 // Returns nil if the provider is not registered.
 func NewAIClientByProvider(name string, opts ...ClientOption) AIClient {
 	factory, ok := providerRegistry[name]
-	if !ok {
+	if ok {
+		return factory(opts...)
+	}
+
+	// OpenRouter and a user-supplied OpenAI-compatible endpoint use the base
+	// client with the URL/model stored in the model configuration. They do not
+	// need a dedicated provider package to use standard Bearer authentication.
+	switch name {
+	case ProviderOpenRouter, ProviderCustom:
+		return NewClient(opts...)
+	default:
 		return nil
 	}
-	return factory(opts...)
 }

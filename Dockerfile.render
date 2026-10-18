@@ -1,11 +1,30 @@
-# Official NOFX images built from 099af9c64d55342efaba34f790f77160f1189ae9.
-# Pin the linux/amd64 manifests used by Render; retain the licensed chart assets.
-FROM ghcr.io/nofxaios/nofx/nofx-frontend@sha256:24cc53e9e0e10c5467933ebbe0c7512336117adc2cea3c0414563c76a8eace73 AS frontend
-FROM ghcr.io/nofxaios/nofx/nofx-backend@sha256:93198442c5b233bbfdaafc3b5124b8a6b1d726f74bedf4e013d57d88908b9326
+# Build the edited backend and frontend from this branch. The official frontend
+# image is used only as the licensed source of the charting runtime assets.
+FROM ghcr.io/nofxaios/nofx/nofx-frontend@sha256:24cc53e9e0e10c5467933ebbe0c7512336117adc2cea3c0414563c76a8eace73 AS chart-assets
 
-RUN apk add --no-cache bash nginx gettext tini postgresql-client \
+FROM golang:1.26-alpine AS backend-build
+WORKDIR /src
+RUN apk add --no-cache git
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags='-s -w' -o /out/nofx .
+
+FROM node:24-alpine AS frontend-build
+WORKDIR /src/web
+COPY web/package.json web/package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY web/ ./
+# The upstream chart library is private. Its built runtime assets are present
+# in the pinned official frontend image and are sufficient for this source build.
+COPY --from=chart-assets /usr/share/nginx/html/charting_library/ ./vendor/charting/charting_library/
+RUN npm run build
+
+FROM alpine:3.22
+RUN apk add --no-cache bash ca-certificates nginx gettext tini postgresql-client \
     && mkdir -p /run/nginx /app/data /usr/share/nginx/html
-COPY --from=frontend /usr/share/nginx/html/ /usr/share/nginx/html/
+COPY --from=backend-build /out/nofx /app/nofx
+COPY --from=frontend-build /src/web/dist/ /usr/share/nginx/html/
 COPY render/nginx.conf.template /app/render/nginx.conf.template
 COPY render/start.sh render/protect-tables.sql /app/render/
 RUN chmod +x /app/render/start.sh

@@ -53,6 +53,104 @@ type UpdateModelConfigRequest struct {
 	Models map[string]ModelConfigUpdate `json:"models"`
 }
 
+const defaultOpenRouterBaseURL = "https://openrouter.ai/api/v1"
+
+// SupportedAIModel is a safe, credential-free template shown when a user adds
+// an AI provider. Configuration values are still stored only after the user
+// explicitly saves a provider setup.
+type SupportedAIModel struct {
+	ID           string `json:"id"`
+	Name         string `json:"name"`
+	Provider     string `json:"provider"`
+	DefaultModel string `json:"defaultModel,omitempty"`
+	DefaultURL   string `json:"defaultUrl,omitempty"`
+}
+
+func supportedAIModelTemplates() []SupportedAIModel {
+	return []SupportedAIModel{
+		{
+			ID:           "openai",
+			Name:         "OpenAI Direct",
+			Provider:     "openai",
+			DefaultModel: "gpt-5.4",
+			DefaultURL:   "https://api.openai.com/v1",
+		},
+		{
+			ID:         "openrouter",
+			Name:       "OpenRouter",
+			Provider:   "openrouter",
+			DefaultURL: "https://openrouter.ai/api/v1",
+		},
+		{
+			ID:       "custom",
+			Name:     "Custom OpenAI-Compatible API",
+			Provider: "custom",
+		},
+		{
+			ID:           "claw402",
+			Name:         "Claw402 (Base USDC)",
+			Provider:     "claw402",
+			DefaultModel: "gpt-5.6",
+		},
+	}
+}
+
+func normalizeProviderModelConfig(provider string, modelData ModelConfigUpdate) (ModelConfigUpdate, error) {
+	provider = strings.ToLower(strings.TrimSpace(provider))
+	modelData.CustomAPIURL = strings.TrimSpace(modelData.CustomAPIURL)
+	modelData.CustomModelName = strings.TrimSpace(modelData.CustomModelName)
+
+	if !modelData.Enabled {
+		return modelData, nil
+	}
+
+	switch provider {
+	case "openrouter":
+		if modelData.CustomModelName == "" {
+			return modelData, fmt.Errorf("OpenRouter requires a model name")
+		}
+		if modelData.CustomAPIURL == "" {
+			modelData.CustomAPIURL = defaultOpenRouterBaseURL
+		}
+	case "custom":
+		if modelData.CustomAPIURL == "" {
+			return modelData, fmt.Errorf("Custom OpenAI-compatible API requires a base URL")
+		}
+		if modelData.CustomModelName == "" {
+			return modelData, fmt.Errorf("Custom OpenAI-compatible API requires a model name")
+		}
+	}
+
+	return modelData, nil
+}
+
+func validateProviderAPIKey(provider string, enabled bool, incomingKey string, hasExistingKey bool) error {
+	if !enabled || strings.TrimSpace(incomingKey) != "" || hasExistingKey {
+		return nil
+	}
+
+	switch strings.ToLower(strings.TrimSpace(provider)) {
+	case "openrouter", "custom":
+		return fmt.Errorf("%s requires an API key before it can be enabled", provider)
+	default:
+		return nil
+	}
+}
+
+func existingModelForUpdate(models []*store.AIModel, modelID string) *store.AIModel {
+	for _, model := range models {
+		if model != nil && model.ID == modelID {
+			return model
+		}
+	}
+	for _, model := range models {
+		if model != nil && model.Provider == modelID {
+			return model
+		}
+	}
+	return nil
+}
+
 // handleGetModelConfigs Get AI model configurations
 func (s *Server) handleGetModelConfigs(c *gin.Context) {
 	userID := c.GetString("user_id")
@@ -178,6 +276,12 @@ func (s *Server) handleUpdateModelConfigs(c *gin.Context) {
 		logger.Infof("🔓 Decrypted model config data (UserID: %s)", userID)
 	}
 
+	userModels, listErr := s.store.AIModel().List(userID)
+	if listErr != nil {
+		SafeInternalError(c, "List AI models", listErr)
+		return
+	}
+
 	// Update each model's configuration and track traders that need reload.
 	// The request key may be either the model row id or the provider name
 	// (legacy clients send the provider, e.g. "claw402", while trader rows
@@ -185,12 +289,10 @@ func (s *Server) handleUpdateModelConfigs(c *gin.Context) {
 	// AIModelStore.Update, otherwise running traders keep the old model.
 	modelIDCandidates := func(modelID string) map[string]bool {
 		candidates := map[string]bool{modelID: true}
-		if models, listErr := s.store.AIModel().List(userID); listErr == nil {
-			for _, m := range models {
-				if m.ID == modelID || m.Provider == modelID {
-					candidates[m.ID] = true
-					candidates[m.Provider] = true
-				}
+		for _, m := range userModels {
+			if m != nil && (m.ID == modelID || m.Provider == modelID) {
+				candidates[m.ID] = true
+				candidates[m.Provider] = true
 			}
 		}
 		return candidates
@@ -198,6 +300,23 @@ func (s *Server) handleUpdateModelConfigs(c *gin.Context) {
 
 	tradersToReload := make(map[string]bool)
 	for modelID, modelData := range req.Models {
+		provider := modelID
+		hasExistingKey := false
+		if existingModel := existingModelForUpdate(userModels, modelID); existingModel != nil {
+			provider = existingModel.Provider
+			hasExistingKey = strings.TrimSpace(existingModel.APIKey.String()) != ""
+		}
+		if err := validateProviderAPIKey(provider, modelData.Enabled, modelData.APIKey, hasExistingKey); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid %s configuration: %v", provider, err)})
+			return
+		}
+		modelData, err = normalizeProviderModelConfig(provider, modelData)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Invalid %s configuration: %v", provider, err)})
+			return
+		}
+		req.Models[modelID] = modelData
+
 		// SSRF protection: validate custom_api_url before storing
 		if modelData.CustomAPIURL != "" {
 			cleanURL := strings.TrimSuffix(modelData.CustomAPIURL, "#")
@@ -240,12 +359,8 @@ func (s *Server) handleUpdateModelConfigs(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Model configuration updated"})
 }
 
-// handleGetSupportedModels Get list of AI models supported by the system
+// handleGetSupportedModels returns the credential-free provider templates that
+// the UI may offer for configuration. No key or existing model record is exposed.
 func (s *Server) handleGetSupportedModels(c *gin.Context) {
-	// Return static list of supported AI models with default versions
-	supportedModels := []map[string]interface{}{
-		{"id": "claw402", "name": "Claw402 (Base USDC)", "provider": "claw402", "defaultModel": "gpt-5.6"},
-	}
-
-	c.JSON(http.StatusOK, supportedModels)
+	c.JSON(http.StatusOK, supportedAIModelTemplates())
 }

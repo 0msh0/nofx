@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { CLAW402_MODELS, DEFAULT_CLAW402_MODEL } from './model-constants'
+import {
+  AI_PROVIDER_CONFIG,
+  CLAW402_MODELS,
+  DEFAULT_CLAW402_MODEL,
+} from './model-constants'
 
 describe('Claw402 model catalog', () => {
   it('lists verified new models without changing the saved/default selection', () => {
@@ -24,5 +28,19 @@ describe('Claw402 model catalog', () => {
     expect(prices['gpt-6']).toEqual([14.375, 57.5])
     expect(prices['deepseek-v4-flash']).toEqual([0.345, 1.38])
     expect(prices['glm-5']).toEqual([1.15, 3.68])
+  })
+
+  it('keeps direct providers available without routing them through Claw402', () => {
+    expect(AI_PROVIDER_CONFIG.openai).toMatchObject({
+      defaultModel: 'gpt-5.4',
+      defaultBaseUrl: 'https://api.openai.com/v1',
+    })
+    expect(AI_PROVIDER_CONFIG.openrouter).toMatchObject({
+      defaultBaseUrl: 'https://openrouter.ai/api/v1',
+    })
+    expect(AI_PROVIDER_CONFIG.custom).toMatchObject({
+      requiresBaseUrl: true,
+      requiresModelName: true,
+    })
   })
 })

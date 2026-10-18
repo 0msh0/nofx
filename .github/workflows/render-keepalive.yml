@@ -1,0 +1,25 @@
+name: Keep Render awake
+
+on:
+  schedule:
+    # GitHub schedules can be delayed. Ten minutes leaves margin before Render's
+    # free-service idle window rather than relying on an exact 15-minute edge.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Request the public NOFX health endpoint
+        env:
+          RENDER_KEEPALIVE_URL: ${{ secrets.RENDER_KEEPALIVE_URL }}
+        run: |
+          test -n "$RENDER_KEEPALIVE_URL"
+          curl --fail --silent --show-error --location \
+            --max-time 25 --retry 2 --retry-delay 3 \
+            "${RENDER_KEEPALIVE_URL%/}/health"

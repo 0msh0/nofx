@@ -4,14 +4,15 @@ package mcp
 // reference them for default configuration without importing sub-packages.
 // Provider sub-packages re-use these same values.
 const (
-	ProviderDeepSeek = "deepseek"
-	ProviderOpenAI   = "openai"
-	ProviderClaude   = "claude"
-	ProviderQwen     = "qwen"
-	ProviderGemini   = "gemini"
-	ProviderGrok     = "grok"
-	ProviderKimi     = "kimi"
-	ProviderMiniMax  = "minimax"
+	ProviderDeepSeek   = "deepseek"
+	ProviderOpenAI     = "openai"
+	ProviderOpenRouter = "openrouter"
+	ProviderClaude     = "claude"
+	ProviderQwen       = "qwen"
+	ProviderGemini     = "gemini"
+	ProviderGrok       = "grok"
+	ProviderKimi       = "kimi"
+	ProviderMiniMax    = "minimax"
 
 	ProviderClaw402 = "claw402"
 
